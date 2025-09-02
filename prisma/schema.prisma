@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------
+// USERS
+// ----------------------
+model User {
+  id        String     @id @map("_id") // Clerk user ID
+  phone     String     @unique
+  name      String?
+  otp       String?
+  otpExpiry DateTime?
+  wishlist  Wishlist[]
+  bag       Bag[]
+  account   Account?
+  orders    Order[]
+  addresses Address[]
+  createdAt DateTime   @default(now())
+}
+
+// ----------------------
+// ADDRESSES
+// ----------------------
+model Address {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  name      String
+  phone     String
+  street    String
+  city      String
+  state     String
+  pincode   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+
+// ----------------------
+// PRODUCTS
+// ----------------------
+model Product {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  description  String?
+  category     String
+  subCategory  String?
+  images       String[]
+  sizes        String[]
+  colors       Json[]
+  price        Float
+  mrp          Float?
+  discount     Int?
+  stock        Int              @default(0) // stock for main product
+  createdAt    DateTime         @default(now())
+
+  // Relations
+  variants     ProductVariant[] 
+  wishlists    Wishlist[]
+  bagItems     Bag[]
+  orderItems   OrderItem[]
+}
+
+model ProductVariant {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId String   @db.ObjectId
+  sizes     String[]
+  colors    Json[]
+  design    String?  
+  price     Float?    
+  mrp       Float?   
+  discount  Int?     
+  stock     Int      
+  images    String[] 
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+
+
+
+// ----------------------
+// WISHLIST
+// ----------------------
+model Wishlist {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  productId String   @db.ObjectId
+  name      String   @default("Default")
+  createdAt DateTime @default(now())
+
+  user    User?   @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+}
+
+// ----------------------
+// BAG / CART
+// ----------------------
+model Bag {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  productId String   @db.ObjectId
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  user    User?   @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+}
+
+// ----------------------
+// ACCOUNT
+// ----------------------
+model Account {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @unique
+  name          String
+  email         String
+  phone         String
+  bankName      String?
+  accountNumber String?
+  ifsc          String?
+  branch        String?
+  pincode       String?
+  address       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ----------------------
+// ORDERS
+// ----------------------
+model Order {
+  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String
+  totalAmount        Float
+  status             String      @default("PENDING") // PENDING, SHIPPED, DELIVERED, RETURNED, CANCELLED
+  paymentMode        String      @default("COD")     // COD, UPI, CARD
+  address            String
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime?    @updatedAt
+  expectedDelivery   DateTime?   // Estimated delivery date
+  trackingNumber     String?     // Courier tracking number
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+}
+
+// ----------------------
+// ORDER ITEMS
+// ----------------------
+model OrderItem {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String   @db.ObjectId
+  productId String   @db.ObjectId
+  quantity  Int
+  price     Float
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}

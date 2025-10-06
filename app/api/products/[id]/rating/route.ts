@@ -9,7 +9,8 @@ function isValidObjectId(id: string) {
 
 // GET: fetch product rating
 export async function GET(req: Request, context: { params: any }) {
-  const { id } = context.params;
+  const params = await context.params; // <-- Await params
+  const { id } = params;
 
   if (!isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
@@ -37,7 +38,9 @@ export async function GET(req: Request, context: { params: any }) {
 
 // POST: add/update product rating
 export async function POST(req: Request, context: { params: any }) {
-  const { id } = await context.params;
+  const params = await context.params; // <-- Await params
+  const { id } = params;
+
   const userId = "currentUserId"; // TODO: Replace with real user ID from auth/session
 
   if (!isValidObjectId(id)) {
@@ -61,9 +64,10 @@ export async function POST(req: Request, context: { params: any }) {
     });
 
     if (!order) {
-      return NextResponse.json({
-        error: "You can rate only purchased products",
-      }, { status: 400 });
+      return NextResponse.json(
+        { error: "You can rate only purchased products" },
+        { status: 400 }
+      );
     }
 
     // Upsert user rating

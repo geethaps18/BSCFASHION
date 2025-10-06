@@ -6,7 +6,7 @@
   "scripts": {
     "server": "node --loader ts-node/esm server.ts",
     "client": "next dev",
-    "dev": "concurrently -k\"npm run server\" \"npm run client\"",
+    "dev": "concurrently -k \"npm run server\" \"npm run client\"",
     "build": "next build",
     "start": "cross-env NODE_ENV=production node server.js",
     "lint": "next lint"
@@ -46,7 +46,6 @@
     "react-icons": "^5.5.0",
     "react-medium-image-zoom": "^5.3.0",
     "react-phone-input-2": "^2.15.1",
-    "react-tsparticles": "^2.12.2",
     "string-similarity": "^4.0.4",
     "stripe": "^14.19.0",
     "swiper": "^11.2.10",

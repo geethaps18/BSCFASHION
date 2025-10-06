@@ -3,24 +3,33 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
+      // ✅ Supabase bucket
       {
         protocol: "https",
         hostname: "chcucwnebherhnvmoyqz.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      // ✅ Your custom domain
       {
         protocol: "https",
         hostname: "bscfashion.com",
-        pathname: "/cdn/shop/files/**",
+        pathname: "/**",
       },
+      // ✅ Shopify
       {
         protocol: "https",
         hostname: "cdn.shopify.com",
         pathname: "/s/files/**",
       },
+      // ✅ Global catch-all (any domain)
+      {
+        protocol: "https",
+        hostname: "**",
+        pathname: "/**",
+      },
     ],
-    formats: ["image/avif", "image/webp"], // optional: modern formats
-    minimumCacheTTL: 60, // optional: cache TTL in seconds
+    formats: ["image/avif", "image/webp"], // modern formats
+    minimumCacheTTL: 3600, // 1h cache
   },
 };
 

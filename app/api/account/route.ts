@@ -1,48 +1,47 @@
-import { NextResponse } from "next/server";
-import { db } from "@/utils/db";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { getUserIdFromToken } from "@/utils/getUserIdFormToken";
 
-// GET /api/account?userId=xxx
-export async function GET(req: Request) {
+// ✅ GET profile
+export async function GET(req: NextRequest) {
+  const userId = getUserIdFromToken(req);
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
-
-    // Find account by Clerk userId
-    const account = await db.account.findFirst({
+    const account = await prisma.account.findUnique({
       where: { userId },
     });
-
     return NextResponse.json(account || {});
-  } catch (error) {
-    console.error("GET /api/account error:", error);
-    return NextResponse.json({ error: "Failed to fetch account" }, { status: 500 });
+  } catch (err) {
+    console.error("GET /api/account error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
-// POST /api/account
-export async function POST(req: Request) {
+// ✅ PUT update profile
+export async function PUT(req: NextRequest) {
+  const userId = getUserIdFromToken(req);
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
-    const { userId, ...data } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+    // 🔑 Remove `id` if frontend sends it accidentally
+    const { id, ...data } = body;
 
-    // Upsert account (create if not exists, update otherwise)
-    const account = await db.account.upsert({
+    const account = await prisma.account.upsert({
       where: { userId },
       update: data,
       create: { userId, ...data },
     });
 
     return NextResponse.json(account);
-  } catch (error) {
-    console.error("POST /api/account error:", error);
-    return NextResponse.json({ error: "Failed to save account" }, { status: 500 });
+  } catch (err) {
+    console.error("PUT /api/account error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -32,41 +32,6 @@ B.S.C. started expanding its business, and by 2022, it has four branches out of 
 Wide variety of products under one roof, high quality at best prices.
 
 
-Branches
-B.S.Channabasappa & sons on the Kalika Devi road is the oldest and headquarters.
-
-B.S.Channabasappa & sons on A.V.K. College road is the second and has ladies and kids, exclusive men’s and home furnishing, individual buildings dedicated to categories.
-
-B.S.C. Exclusive on dental college road has a wide range of clothing that covers world-class brands in readymade, along with an exclusive collection of sarees, a vast floor dedicated to toys, and home furnishings.
-
-BSC textile mall, is the biggest venture so far. It is the complete family store, catering traditional clothes to fashionable ones. It has the reputation of serving all classes and tastes.
-
-Being in business for over 80 years, B.S.C. has become the best choice for wedding shopping, festive shopping, or any occasional shopping. Customers believe that the products are of high quality and are fairly priced.
-
-B.S.C. aims at continuing to gain customer trust and satisfaction.
-
-BSCFASHION is an online store that aims at serving people throughout the world.
-
-BSC textile mall, is the latest venture from BSC located in Belagavi. It is also one of the biggest clothing retail stores in Karnataka, Goa and Maharashtra.
-
-Help
-About Us
-Contact Us
-Refund Policy
-Privacy Policy
-Terms of Service
-Address
-📞 9770808020
-
-📧 hello@bscfashion.com
-
-📍 B.S Channabasappa & Sons, Textile Super Market, Kalikadevi Road, Davangere, Karnataka – 577001
-
-Follow Us
-Instagram @bscfashion
-© 2025, Powered by TBITS INDIA IT Solutions
-
-
 </p>
 </div>
 )

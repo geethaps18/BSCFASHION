@@ -7,125 +7,188 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ----------------------
-// USERS
-// ----------------------
-model User {
-  id        String     @id @map("_id") // Clerk user ID
-  phone     String     @unique
-  name      String?
-  otp       String?
-  otpExpiry DateTime?
-  wishlist  Wishlist[]
-  bag       Bag[]
-  account   Account?
-  orders    Order[]
-  addresses Address[]
-  createdAt DateTime   @default(now())
+/* =========================
+   OTP
+========================= */
+model OTP {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  contact   String   @unique   // email OR phone
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
-// ----------------------
-// ADDRESSES
-// ----------------------
+/* =========================
+   USERS
+========================= */
+model User {
+  id        String     @id @map("_id") @default(auto()) @db.ObjectId
+  phone     String?
+  email     String?   
+  name      String?
+  createdAt DateTime   @default(now())
+
+  addresses Address[]
+  wishlists Wishlist[]
+  bags      Bag[]
+  accounts  Account[]
+  orders    Order[]
+}
+
+/* =========================
+   ADDRESSES
+========================= */
 model Address {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String
-  name      String
-  phone     String
-  street    String
-  city      String
-  state     String
-  pincode   String
-  createdAt DateTime @default(now())
+  id         String   @id @map("_id") @default(auto()) @db.ObjectId
+  userId     String   @db.ObjectId
+  name       String
+  phone      String
+  doorNumber String?
+  landmark   String?
+  type       String?
+  street     String
+  city       String
+  state      String
+  pincode    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime? @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 }
 
+/* =========================
+   CATEGORY (hierarchical)
+========================= */
+model Category {
+  id        String     @id @map("_id") @default(auto()) @db.ObjectId
+  name      String
+  slug      String     @unique
+  parentId  String?    @db.ObjectId
+  createdAt DateTime   @default(now())
 
-// ----------------------
-// PRODUCTS
-// ----------------------
-model Product {
-  id           String           @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
-  description  String?
-  category     String
-  subCategory  String?
-  images       String[]
-  sizes        String[]
-  colors       Json[]
-  price        Float
-  mrp          Float?
-  discount     Int?
-  stock        Int              @default(0) // stock for main product
-  createdAt    DateTime         @default(now())
+  // Self-relation (tree)
+  parent    Category?  @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  Category[] @relation("CategoryChildren")
 
-  // Relations
-  variants     ProductVariant[] 
-  wishlists    Wishlist[]
-  bagItems     Bag[]
-  orderItems   OrderItem[]
+  products  Product[]  @relation("ProductToCategory")
+
+  @@index([parentId])
 }
 
+/* =========================
+   PRODUCTS
+========================= */
+model Product {
+  id             String           @id @map("_id") @default(auto()) @db.ObjectId
+  name           String?
+  description    String?
+  category       String?
+  subCategory    String?
+  subSubCategory String?
+
+  images         String[]
+  sizes          String[]
+  rating       Float?   @default(0)
+  reviewCount  Int?     @default(0)
+  colors         Json[]
+  colorNames     String[]
+  price          Float
+  mrp            Float?
+  discount       Int?
+  stock          Int      @default(0)
+  purchases      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  categoryId     String?   @db.ObjectId
+  categoryNode   Category? @relation("ProductToCategory", fields: [categoryId], references: [id])
+
+  variants       ProductVariant[]
+  wishlists      Wishlist[]
+  bagItems       Bag[]
+  orderItems     OrderItem[]
+
+  @@index([categoryId])
+  @@index([category, subCategory, subSubCategory])
+}
+
+/* =========================
+   PRODUCT VARIANTS
+========================= */
 model ProductVariant {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
   productId String   @db.ObjectId
   sizes     String[]
   colors    Json[]
-  design    String?  
-  price     Float?    
-  mrp       Float?   
-  discount  Int?     
-  stock     Int      
-  images    String[] 
+  design    String?
+  price     Float?
+  mrp       Float?
+  discount  Int?
+  stock     Int
+  images    String[]
   createdAt DateTime @default(now())
 
-  product   Product  @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+}
+model Rating {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  userId    String
+  productId String
+  rating    Float
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])  // <-- only one rating per user per product
 }
 
 
 
-
-// ----------------------
-// WISHLIST
-// ----------------------
+/* =========================
+   WISHLIST
+========================= */
 model Wishlist {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  userId    String   @db.ObjectId
   productId String   @db.ObjectId
   name      String   @default("Default")
   createdAt DateTime @default(now())
 
-  user    User?   @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  user    User?     @relation(fields: [userId], references: [id])
+  product Product?  @relation(fields: [productId], references: [id])
 
   @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
 }
 
-// ----------------------
-// BAG / CART
-// ----------------------
+/* =========================
+   BAG
+========================= */
 model Bag {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  userId    String   @db.ObjectId
   productId String   @db.ObjectId
+  size      String?
   quantity  Int      @default(1)
   createdAt DateTime @default(now())
 
-  user    User?   @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
 
-  @@unique([userId, productId])
+  @@unique([userId, productId, size])
+  @@index([userId])
+  @@index([productId])
 }
 
-// ----------------------
-// ACCOUNT
-// ----------------------
+/* =========================
+   ACCOUNT
+========================= */
 model Account {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId        String   @unique
+  id            String   @id @map("_id") @default(auto()) @db.ObjectId
+  userId        String   @unique @db.ObjectId
   name          String
-  email         String
+  email         String   
   phone         String
   bankName      String?
   accountNumber String?
@@ -139,35 +202,44 @@ model Account {
   user User @relation(fields: [userId], references: [id])
 }
 
-// ----------------------
-// ORDERS
-// ----------------------
+/* =========================
+   ORDERS
+========================= */
 model Order {
-  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
-  userId             String
-  totalAmount        Float
-  status             String      @default("PENDING") // PENDING, SHIPPED, DELIVERED, RETURNED, CANCELLED
-  paymentMode        String      @default("COD")     // COD, UPI, CARD
-  address            String
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime?    @updatedAt
-  expectedDelivery   DateTime?   // Estimated delivery date
-  trackingNumber     String?     // Courier tracking number
+  id               String      @id @map("_id") @default(auto()) @db.ObjectId
+  userId           String      @db.ObjectId
+  totalAmount      Float
+  status           String      @default("PENDING")
+  paymentMode      String      @default("COD")
+  address          String?
+  expectedDelivery DateTime?
+  upiId            String?
+  cardDetails      String?
+  trackingNumber   String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime?   @updatedAt
 
-  user  User        @relation(fields: [userId], references: [id])
+  user  User       @relation(fields: [userId], references: [id])
   items OrderItem[]
+
+  @@index([userId])
 }
 
-// ----------------------
-// ORDER ITEMS
-// ----------------------
+/* =========================
+   ORDER ITEMS
+========================= */
 model OrderItem {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
   orderId   String   @db.ObjectId
   productId String   @db.ObjectId
   quantity  Int
   price     Float
+  size      String?
+  name      String?
 
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
 }

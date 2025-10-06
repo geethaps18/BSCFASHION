@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/utils/db";
+import { prisma } from "@/lib/db";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Update order status to CANCELLED
-    const order = await db.order.update({
+    const order = await prisma.order.update({
       where: { id: orderId },
       data: { status: "CANCELLED" },
     });

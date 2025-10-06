@@ -1,122 +1,251 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/utils/db";
+import { prisma } from "@/lib/db";
+import jwt from "jsonwebtoken";
 
-// ✅ Add to bag (or increase quantity)
-export async function POST(req: NextRequest) {
+const JWT_SECRET = process.env.JWT_SECRET!;
+
+interface BagItemPayload {
+  bagId?: string;
+  productId?: string;
+  quantity?: number;
+  size?: string;
+}
+
+interface JwtPayload {
+  userId: string;
+}
+
+function getUserId(req: NextRequest) {
+  const token =
+    req.cookies.get("token")?.value ||
+    req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return null;
+
   try {
-    const { userId, productId } = await req.json();
-
-    if (!userId || !productId) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-
-    // Check if already in bag
-    const existing = await prisma.bag.findFirst({
-      where: { userId, productId },
-    });
-
-    if (existing) {
-      const updated = await prisma.bag.update({
-        where: { id: existing.id },
-        data: { quantity: existing.quantity + 1 },
-        include: { product: true },
-      });
-
-      // Skip if product is missing
-      if (!updated.product) {
-        await prisma.bag.delete({ where: { id: existing.id } });
-        return NextResponse.json({ error: "Product no longer exists", removed: true }, { status: 404 });
-      }
-
-      return NextResponse.json({ success: true, item: updated });
-    }
-
-    // Create new bag item
-    const created = await prisma.bag.create({
-      data: { userId, productId, quantity: 1 },
-      include: { product: true },
-    });
-
-    if (!created.product) {
-      await prisma.bag.delete({ where: { id: created.id } });
-      return NextResponse.json({ error: "Product no longer exists", removed: true }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, item: created });
-  } catch (err) {
-    console.error("POST /bag error:", err);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    return decoded.userId;
+  } catch {
+    return null;
   }
 }
 
-// ✅ Get all bag items
+function mapBagItem(item: any) {
+  const size = item.size || "default";
+  return {
+    id: item.id,
+    quantity: item.quantity,
+    size,
+    product: item.product
+      ? {
+          id: item.product.id,
+          name: item.product.name,
+          price: item.product.price,
+          images: item.product.images || [],
+          availableSizes: item.product.sizes || [],
+        }
+      : { id: "", name: "Unknown", price: 0, images: [], availableSizes: [] },
+    uniqueKey: `${item.product?.id || item.id}-${size}`,
+  };
+}
+
+// =====================
+// GET BAG ITEMS
+// =====================
 export async function GET(req: NextRequest) {
+  const userId = getUserId(req);
+  if (!userId) return NextResponse.json({ items: [] }, { status: 401 });
+
+  const items = await prisma.bag.findMany({
+    where: { userId },
+    include: { product: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ items: items.map(mapBagItem) });
+}
+
+// =====================
+// ADD TO BAG
+// =====================
+export async function POST(req: NextRequest) {
+  const userId = getUserId(req);
+  if (!userId) return NextResponse.json({ items: [] }, { status: 401 });
+
+  const { productId, size }: BagItemPayload = await req.json();
+  if (!productId) {
+    return NextResponse.json({ error: "Missing productId" }, { status: 400 });
+  }
+
+  const finalSize = size || "default";
+
+  const existing = await prisma.bag.findFirst({
+    where: { userId, productId, size: finalSize },
+  });
+
+  if (existing) {
+    await prisma.bag.update({
+      where: { id: existing.id },
+      data: { quantity: existing.quantity + 1 },
+    });
+  } else {
+    await prisma.bag.create({
+      data: { userId, productId, size: finalSize, quantity: 1 },
+    });
+  }
+
+  const items = await prisma.bag.findMany({
+    where: { userId },
+    include: { product: true },
+  });
+  return NextResponse.json({ items: items.map(mapBagItem) });
+}
+
+// =====================
+// UPDATE BAG ITEM
+// =====================
+export async function PUT(req: NextRequest) {
+  const userId = getUserId(req);
+  if (!userId) return NextResponse.json({ items: [] }, { status: 401 });
+
+  const { bagId, quantity, size }: BagItemPayload = await req.json();
+  if (!bagId) {
+    return NextResponse.json({ error: "Missing bagId" }, { status: 400 });
+  }
+
+  const item = await prisma.bag.findUnique({ where: { id: bagId } });
+  if (!item) {
+    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  }
+
+  // quantity update
+  if (quantity !== undefined) {
+    if (quantity <= 0) {
+      await prisma.bag.delete({ where: { id: bagId } });
+    } else {
+      await prisma.bag.update({
+        where: { id: bagId },
+        data: { quantity },
+      });
+    }
+  }
+
+  // size update
+  if (size) {
+    const existing = await prisma.bag.findFirst({
+      where: { userId, productId: item.productId, size },
+    });
+
+    if (existing) {
+      await prisma.bag.update({
+        where: { id: existing.id },
+        data: { quantity: existing.quantity + item.quantity },
+      });
+      await prisma.bag.delete({ where: { id: bagId } });
+    } else {
+      await prisma.bag.update({
+        where: { id: bagId },
+        data: { size },
+      });
+    }
+  }
+
+  const items = await prisma.bag.findMany({
+    where: { userId },
+    include: { product: true },
+  });
+  return NextResponse.json({ items: items.map(mapBagItem) });
+}
+
+// =====================
+// DELETE BAG ITEM
+// =====================
+export async function DELETE(req: NextRequest) {
+  const userId = getUserId(req);
+  if (!userId) return NextResponse.json({ items: [] }, { status: 401 });
+
+  const { bagId }: BagItemPayload = await req.json();
+  if (!bagId) {
+    return NextResponse.json({ error: "Missing bagId" }, { status: 400 });
+  }
+
+  const existing = await prisma.bag.findUnique({ where: { id: bagId } });
+  if (existing) {
+    await prisma.bag.delete({ where: { id: bagId } });
+  }
+
+  const items = await prisma.bag.findMany({
+    where: { userId },
+    include: { product: true },
+  });
+  return NextResponse.json({ items: items.map(mapBagItem) });
+}
+
+// =====================
+// CHECKOUT / PLACE ORDER
+// =====================
+export async function PATCH(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
+    const userId = getUserId(req);
     if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const items = await prisma.bag.findMany({
+    const { paymentMode, address, upiId, cardDetails } = await req.json();
+
+    // Fetch bag items
+    const bagItems = await prisma.bag.findMany({
       where: { userId },
       include: { product: true },
     });
 
-    // Filter out items with missing products
-    const validItems = items.filter((item) => item.product !== null);
-
-    return NextResponse.json({ items: validItems });
-  } catch (err) {
-    console.error("GET /bag error:", err);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
-  }
-}
-
-// ✅ Update quantity
-export async function PUT(req: NextRequest) {
-  try {
-    const { bagId, quantity } = await req.json();
-
-    if (!bagId || quantity === undefined) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    if (!bagItems.length) {
+      return NextResponse.json({ error: "Bag is empty" }, { status: 400 });
     }
 
-    if (quantity <= 0) {
-      await prisma.bag.delete({ where: { id: bagId } });
-      return NextResponse.json({ success: true, removed: true });
-    }
+    // Calculate total
+    const subtotal = bagItems.reduce((acc, item) => {
+      if (!item.product) return acc;
+      return acc + item.product.price * item.quantity;
+    }, 0);
 
-    const updated = await prisma.bag.update({
-      where: { id: bagId },
-      data: { quantity },
-      include: { product: true },
+    const shipping = 50;
+    const totalAmount = subtotal + shipping;
+
+    // Map order items
+    const orderItems = bagItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      price: item.product?.price || 0,
+      name: item.product?.name || "Unknown", 
+      size: item.size || null,
+    }));
+
+    // Create order
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        totalAmount,
+        paymentMode: paymentMode || "COD",
+        address: JSON.stringify(address),
+        upiId: paymentMode === "UPI" ? upiId ?? null : null,
+        cardDetails:
+          paymentMode === "Card" && cardDetails
+            ? JSON.stringify(cardDetails)
+            : null,
+        items: { create: orderItems },
+      },
+      include: { items: true },
     });
 
-    if (!updated.product) {
-      await prisma.bag.delete({ where: { id: bagId } });
-      return NextResponse.json({ error: "Product no longer exists", removed: true }, { status: 404 });
-    }
+    // Clear bag
+    await prisma.bag.deleteMany({ where: { userId } });
 
-    return NextResponse.json({ success: true, item: updated });
-  } catch (err) {
-    console.error("PUT /bag error:", err);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
-  }
-}
-
-// ✅ Remove single bag item
-export async function DELETE(req: NextRequest) {
-  try {
-    const { bagId } = await req.json();
-
-    if (!bagId) {
-      return NextResponse.json({ error: "Missing bagId" }, { status: 400 });
-    }
-
-    await prisma.bag.delete({ where: { id: bagId } });
-    return NextResponse.json({ success: true, removed: true });
-  } catch (err) {
-    console.error("DELETE /bag error:", err);
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+    return NextResponse.json({ success: true, order }, { status: 201 });
+  } catch (err: any) {
+    console.error("🔥 Checkout error:", err.message || err);
+    return NextResponse.json(
+      { error: "Failed to place order" },
+      { status: 500 }
+    );
   }
 }

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from '@clerk/nextjs';
 import { WishlistProvider } from "./context/WishlistContext";
-import { CartProvider } from "./context/BagContext";// ✅ import BagProvider
+import { BagProvider } from "./context/BagContext";
+import { AuthProvider } from "./context/AuthContext"; // fixed typo
 
-import Header from "@/components/Header";
-import Navbar from "@/app/components/Navbar";
+import { Toaster } from "react-hot-toast";
+import { SearchProvider } from "./context/SearchContext";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,27 +21,27 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "BSCFASHION",
-  description: "B.S.CHANNABASAPPA & sons",
+  description: "B.S.CHANNABASAPPA & Sons",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          <WishlistProvider>
-            <CartProvider> {/* ✅ Added BagProvider here */}
-              <Header />
-              <Navbar />
-              <main>{children}</main>
-            </CartProvider>
-          </WishlistProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <AuthProvider>
+          <BagProvider>
+            <WishlistProvider>
+              {/* SplashLoader handles page loading */}
+              
+              <SearchProvider>
+                <Toaster position="top-center" reverseOrder={false} />
+                <main>{children}</main>
+                </SearchProvider>
+              
+            </WishlistProvider>
+          </BagProvider>
+        </AuthProvider>
+      </body>
+    </html>
   );
 }

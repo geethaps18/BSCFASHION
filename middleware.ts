@@ -1,29 +1,27 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const isProtectedRoute = createRouteMatcher([
-  '/wishlist(.*)',
-  '/checkout(.*)',
-  '/cart(.*)',   // fixed space -> hyphen
-  '/profile(.*)',
-  '/buynow(.*)',
-  '/reviews(.*)',
-  '/about(.*)',
-  '/shop now(.*)',
-  '/account(.*)',
-  '/categories(.*)',
-  '/orders(.*)',
-  '/store(.*)',
+export function middleware(req: NextRequest) {
+  const url = req.nextUrl.clone();
+  const token = req.cookies.get("token")?.value;
 
-]);
+  // Define protected routes
+  const protectedPaths = ["/wishlist", "/bag", "/account"];
+  const isProtected = protectedPaths.some((path) =>
+    url.pathname.startsWith(path)
+  );
 
-export default clerkMiddleware(async (auth, req) => {
-  const { userId, redirectToSignIn } = await auth();  // ✅ await the auth() call
-
-  if (isProtectedRoute(req) && !userId) {
-    return redirectToSignIn({ returnBackUrl: req.url });  // ✅ safe now
+  if (!token && isProtected) {
+    // Save current path in "redirect" query param
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("redirect", url.pathname);
+    return NextResponse.redirect(loginUrl);
   }
-});
+
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: ["/wishlist", "/bag", "/account"],
 };
+

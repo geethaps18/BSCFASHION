@@ -1,9 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { MapPin, Phone, Mail, Globe, Search, Tag } from "lucide-react";
 import Link from "next/link";
 import Footer from "@/components/Footer";
+import { FiMapPin, FiPhone, FiMail, FiGlobe, } from "react-icons/fi";
+import { AiOutlineTag } from "react-icons/ai";
+import { MdStoreMallDirectory } from "react-icons/md";
+import { Search } from "lucide-react";
+import Header from "@/components/Header";
 
 interface Store {
   name: string;
@@ -13,7 +17,7 @@ interface Store {
   email: string;
   website?: string;
   mapUrl: string;
-  categories: string[]; // ✅ Added categories
+  categories: string[];
 }
 
 const stores: Store[] = [
@@ -89,7 +93,6 @@ const stores: Store[] = [
   },
 ];
 
-
 export default function StoresPage() {
   const [query, setQuery] = useState("");
 
@@ -101,111 +104,107 @@ export default function StoresPage() {
   );
 
   return (
-    <div className="py-8 ">
-    <div className="min-h-screen bg-gray-50 py-10 px-4 flex flex-col">
-      <div className="max-w-6xl mx-auto flex-1">
+    <div className="min-h-screen flex flex-col bg-white">
+      <div className="max-w-6xl mx-auto flex-1 py-16 px-4">
         {/* Page Title */}
-        <h1 className="text-3xl font-bold text-center mb-6">
-         🏬 Our Stores
+        <h1 className="text-3xl sm:text-4xl font-serif text-center mb-10 text-gray-900 flex items-center justify-center gap-2">
+          <MdStoreMallDirectory className="w-8 h-8 text-gray-900" />
+          Our Stores
         </h1>
 
         {/* Search Bar */}
-        <div className="flex items-center max-w-md mx-auto bg-white border rounded-full px-4 py-2 shadow-sm mb-10">
-          <Search className="w-5 h-5 text-gray-500" />
+        <div className="flex items-center max-w-md mx-auto bg-white border border-gray-200 rounded-full px-4 py-2 mb-14 shadow-sm">
+          <Search className="w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Search by name, city or area..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 px-3 py-2 outline-none bg-transparent text-gray-700"
+            className="flex-1 px-3 py-2 outline-none bg-transparent text-gray-800 placeholder-gray-400"
           />
         </div>
 
         {/* Store Cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-10">
           {filteredStores.length > 0 ? (
             filteredStores.map((store, index) => (
               <div
                 key={index}
-                className="bg-white rounded-2xl shadow-md hover:shadow-lg transition overflow-hidden flex flex-col"
+                className="bg-transparent border border-gray-200 flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200"
               >
                 <div className="p-6 flex-1 flex flex-col">
-                  <h2 className="text-lg font-semibold mb-2">{store.name}</h2>
-                  <p className="flex items-start text-gray-600 text-sm mb-2">
-                    <MapPin className="w-4 h-4 mr-2 text-green-600 mt-0.5" />
+                  <h2 className="text-xl sm:text-2xl font-semibold mb-3 text-gray-900">
+                    {store.name}
+                  </h2>
+                  <p className="flex items-start text-gray-700 text-sm mb-2">
+                    <FiMapPin className="w-4 h-4 mr-2 text-gray-400 mt-0.5" />
                     {store.address}
                   </p>
-                  <p className="flex items-center text-gray-600 text-sm mb-1">
-                    <Phone className="w-4 h-4 mr-2 text-green-600" />
+                  <p className="flex items-center text-gray-700 text-sm mb-1">
+                    <FiPhone className="w-4 h-4 mr-2 text-gray-400" />
                     {store.phone !== "NA" ? (
-                      <a
-                        href={`tel:${store.phone}`}
-                        className="hover:underline text-gray-700"
-                      >
+                      <a href={`tel:${store.phone}`} className="hover:underline">
                         {store.phone}
                       </a>
                     ) : (
-                      <span className="text-gray-500">Contact soon</span>
+                      <span className="text-gray-400">Contact soon</span>
                     )}
                   </p>
-                  <p className="flex items-center text-gray-600 text-sm mb-1">
-                    <Mail className="w-4 h-4 mr-2 text-green-600" />
-                    <a
-                      href={`mailto:${store.email}`}
-                      className="hover:underline text-gray-700"
-                    >
+                  <p className="flex items-center text-gray-700 text-sm mb-1">
+                    <FiMail className="w-4 h-4 mr-2 text-gray-400" />
+                    <a href={`mailto:${store.email}`} className="hover:underline">
                       {store.email}
                     </a>
                   </p>
                   {store.website && (
-                    <p className="flex items-center text-gray-600 text-sm mb-2">
-                      <Globe className="w-4 h-4 mr-2 text-green-600" />
-                      <Link
-                        href={store.website}
-                        target="_blank"
-                        className="hover:underline"
-                      >
+                    <p className="flex items-center text-gray-700 text-sm mb-2">
+                      <FiGlobe className="w-4 h-4 mr-2 text-gray-400" />
+                      <Link href={store.website} target="_blank" className="hover:underline">
                         Visit Website
                       </Link>
                     </p>
                   )}
 
-                  {/* Categories Section */}
-                  <div className="mt-3">
-                    <p className="flex items-center text-gray-700 font-medium mb-1">
-                      <Tag className="w-4 h-4 mr-2 text-green-600" />
+                  {/* Categories */}
+                  <div className="mt-4">
+                    <p className="flex items-center text-gray-900 font-medium mb-2">
+                      <AiOutlineTag className="w-4 h-4 mr-2 text-gray-400" />
                       Available Sections
                     </p>
-                    <ul className="text-sm text-gray-600 list-disc list-inside">
+                    <div className="flex flex-wrap gap-2 mb-4">
                       {store.categories.map((cat, i) => (
-                        <li key={i}>{cat}</li>
+                        <span
+                          key={i}
+                          className="bg-gray-100 text-gray-800 text-xs sm:text-sm px-2 py-1"
+                        >
+                          {cat}
+                        </span>
                       ))}
-                    </ul>
+                    </div>
                   </div>
 
+                  {/* Luxury Map Button */}
                   <Link
                     href={store.mapUrl}
                     target="_blank"
-                    className="inline-flex items-center gap-2 mt-auto px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-full hover:bg-green-700 transition"
+                    className="inline-flex items-center justify-center gap-2 mt-2 px-5 py-3 text-sm font-semibold bg-gradient-to-r from-yellow-200 via-yellow-300 to-yellow-400 text-gray-900 rounded-md shadow-lg hover:shadow-xl transition"
                   >
-                    <MapPin className="w-4 h-4" />
+                    <FiMapPin className="w-5 h-5" />
                     View on Map
                   </Link>
                 </div>
               </div>
             ))
           ) : (
-            <p className="text-center text-gray-500 col-span-full">
+            <p className="text-center text-gray-700 col-span-full">
               No stores found for "{query}". Try searching by city like
               "Davangere", "Belagavi" or "Ichalkaranji".
             </p>
           )}
         </div>
       </div>
-
-      {/* Footer */}
+      <Header/>
       <Footer />
-    </div>
     </div>
   );
 }

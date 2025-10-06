@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/utils/db";
+import { prisma } from "@/lib/db";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function PATCH(req: NextRequest) {
     else if (action === "RETURN") newStatus = "RETURNED";
     else return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
 
-    const updatedOrder = await db.order.update({
+    const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: { status: newStatus },
     });

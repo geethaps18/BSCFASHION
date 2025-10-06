@@ -1,192 +1,199 @@
 "use client";
 
-import React, { useState } from "react";
-import { Heart, Share2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Heart } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useUser } from "@clerk/nextjs";
 import { useWishlist } from "@/app/context/WishlistContext";
+import { useCart } from "@/app/context/BagContext";
 import Link from "next/link";
+import { Product, ProductVariant } from "@/types/product";
 
-// ✅ Type Definitions
-export interface ProductVariant {
-  id?: string;
-  sizes: string[];
-  color: { name: string; hex: string };
-  price: number;
-  mrp?: number;
-  discount?: number;
-  images: string[];
-  stock?: number;
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  category?: string;
-  price: number;
-  variants: ProductVariant[];
-  createdAt: string;
-  images?: string[];
-}
-
-// ✅ Component Props
 interface ProductCardProps {
   product: Product;
   wishlist?: boolean;
   onWishlistToggle?: () => void;
-  onShare?: () => void;
-  onRemove?: () => void;
 }
 
 export default function ProductCard({
   product,
   wishlist: wishlistProp,
   onWishlistToggle,
-  onShare,
-  onRemove,
 }: ProductCardProps) {
-  const { isSignedIn } = useUser();
   const { wishlist: wishlistContext, toggleWishlist } = useWishlist();
+  const { setBagItems } = useCart();
   const [hovered, setHovered] = useState(false);
 
-  // Default variant fallback
-  const defaultVariant: ProductVariant = product.variants[0] ?? {
-    sizes: [],
-    color: { name: "Default", hex: "#000000" },
-    price: product.price,
-    images: [],
-  };
+  // Rating state
+  const [rating, setRating] = useState(product.rating ?? 0);
+  const [reviewCount, setReviewCount] = useState(product.reviewCount ?? 0);
 
-  const mainImage = defaultVariant.images[0] ?? "/placeholder.png";
-  const hoverImage = defaultVariant.images[1] ?? mainImage;
+  // Fetch latest ratings from backend
+  useEffect(() => {
+    const fetchRating = async () => {
+      try {
+        const res = await fetch(`/api/products/${product.id}/rating`);
+        if (!res.ok) throw new Error("Failed to fetch rating");
+        const data = await res.json();
+        setRating(data.rating ?? 0);
+        setReviewCount(data.reviewCount ?? 0);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchRating();
+  }, [product.id]);
+
+  // Variants
+  const variants: ProductVariant[] =
+    product.variants?.length
+      ? product.variants
+      : [
+          {
+            sizes: ["FREE"],
+            price: product.price,
+            mrp: product.mrp ?? product.price,
+            discount: product.discount ?? 0,
+            images: product.images?.length ? product.images : ["/placeholder.png"],
+            stock: 10,
+            design: "",
+            colors: [],
+          },
+        ];
+
+  const [selectedVariant] = useState<ProductVariant>(variants[0]);
+  const mainImage = hovered
+    ? selectedVariant.images[1] ?? selectedVariant.images[0]
+    : selectedVariant.images[0];
 
   const discount =
-    defaultVariant.discount ??
-    (defaultVariant.mrp && defaultVariant.mrp > defaultVariant.price
-      ? Math.round(((defaultVariant.mrp - defaultVariant.price) / defaultVariant.mrp) * 100)
+    selectedVariant.discount ??
+    (selectedVariant.mrp && selectedVariant.mrp > selectedVariant.price
+      ? Math.round(
+          ((selectedVariant.mrp - selectedVariant.price) / selectedVariant.mrp) * 100
+        )
       : 0);
 
-  const liked =
-    wishlistProp !== undefined
-      ? wishlistProp
-      : wishlistContext.some((p) => p.id === product.id);
+  const liked = wishlistProp ?? wishlistContext.some((p) => p.id === product.id);
 
-  const handleWishlistClick = async (e: React.MouseEvent) => {
+  // Wishlist toggle
+  const handleWishlistClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     e.preventDefault();
+    if (onWishlistToggle) onWishlistToggle();
+    else toggleWishlist(product);
+  };
 
-    if (!isSignedIn) {
-      toast.error("Please login first!");
-      return;
-    }
-
-    if (onWishlistToggle) {
-      onWishlistToggle();
-    } else {
-      await toggleWishlist({
-        id: product.id,
-        name: product.name,
-        price: defaultVariant.price,
-        createdAt: product.createdAt,
+  // Add product to bag
+  const handleSizeClick = async (size: string, e: React.MouseEvent<HTMLSpanElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await fetch("/api/bag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id, size }),
       });
-
-      if (onRemove && liked) onRemove();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add to bag");
+      setBagItems(data.items);
+      toast.success(`${product.name} (${size}) added to bag`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Something went wrong");
     }
   };
 
   return (
     <Link
       href={`/product/${product.id}`}
-      className="cursor-pointer w-full sm:w-[160px] md:w-[200px] lg:w-[240px] m-1"
+      className="cursor-pointer w-full sm:w-[160px] md:w-[200px] lg:w-[240px] m-2"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Product Image */}
-      <div className="relative w-full aspect-[4/5] bg-gray-50 overflow-hidden duration-300">
+      <div className="relative w-full aspect-[4/5] bg-white overflow-hidden">
         <img
-          src={hovered ? hoverImage : mainImage}
+          src={mainImage}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-500 ease-in-out hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
         />
-
-        {/* Wishlist & Share Buttons */}
-        <div className="absolute top-2 right-2 flex flex-col items-center gap-2 z-20">
+        {/* Heart Button */}
+        <div className="absolute top-3 right-3 z-20">
           <button
             onClick={handleWishlistClick}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/90 backdrop-blur-md ring-1 ring-black/10 shadow-md hover:scale-110 transition-transform"
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/80 backdrop-blur-md ring-1 ring-gray-300 shadow hover:scale-110 transition-transform"
           >
             <Heart
               className={`h-4 w-4 transition-colors ${
-                liked ? "text-rose-500 fill-rose-500" : "text-gray-500"
+                liked ? "text-rose-500 fill-rose-500" : "text-gray-400"
               }`}
             />
           </button>
-
-          {onShare && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                onShare();
-              }}
-              className="flex items-center justify-center w-8 h-8 rounded-full hover:scale-110 transition-transform bg-white/90 shadow-md"
-            >
-              <Share2 className="w-4 h-4 text-gray-500" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Product Info */}
-      <div className="p-2 md:p-3">
-        <h3 className="text-sm md:text-base font-medium text-gray-900 line-clamp-1">
-          {product.name}
-        </h3>
-
-        {product.description && (
-          <p className="text-gray-600 text-xs md:text-sm mt-1 line-clamp-2">
-            {product.description}
-          </p>
-        )}
-
-        <div className="flex items-center gap-2 mt-1">
-          {defaultVariant.mrp && defaultVariant.mrp > defaultVariant.price && (
-            <span className="text-gray-400 line-through text-xs md:text-sm">
-              ₹{defaultVariant.mrp.toLocaleString("en-IN")}
-            </span>
-          )}
-          <span className="font-semibold text-emerald-700 text-sm md:text-base">
-            ₹{defaultVariant.price.toLocaleString("en-IN")}
-          </span>
-          {discount > 0 && (
-            <span className="text-red-500 text-xs md:text-sm">({discount}% OFF)</span>
-          )}
-        </div>
-
-        {/* Colors */}
-        <div className="flex gap-1 mt-1">
-          {product.variants.map((v, i) => (
-            <span
-              key={i}
-              className="w-4 h-4 rounded-full border"
-              style={{ backgroundColor: v.color.hex }}
-              title={v.color.name}
-            />
-          ))}
         </div>
 
         {/* Sizes */}
-        <div className="flex gap-1 mt-1 text-xs text-gray-600">
-          {defaultVariant.sizes.map((s) => (
-            <span key={s} className="border px-1 rounded">
-              {s}
+        {selectedVariant.sizes?.length && (
+          <div
+            className={`absolute bottom-0 left-0 right-0 flex flex-wrap justify-center gap-1 p-2 bg-white/80 backdrop-blur-md transition-all duration-300 ${
+              hovered ? "opacity-95 translate-y-0" : "opacity-0 translate-y-full"
+            }`}
+          >
+            {selectedVariant.sizes.map((size) => (
+              <span
+                key={size}
+                onClick={(e) => handleSizeClick(size, e)}
+                className="text-gray-800 text-xs md:text-sm font-medium px-2 py-1 rounded border border-gray-300 hover:bg-gray-900 hover:text-white transition cursor-pointer"
+              >
+                {size}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Product Info */}
+      <div className="p-3">
+        <h3 className="line-clamp-1 text-[#111111] text-sm md:text-base font-light tracking-tight">
+          {product.name}
+        </h3>
+
+        {/* Rating */}
+        <div className="flex items-center gap-1 mt-1">
+          {rating > 0 ? (
+            <>
+              <span
+                className="text-yellow-500 text-base font-medium"
+                style={{
+                  background: "linear-gradient(90deg, #FFD700, #FFC107)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                ★
+              </span>
+              <span className="text-gray-700 text-sm font-light">{rating.toFixed(1)}</span>
+              {reviewCount > 0 && <span className="text-gray-400 text-xs">({reviewCount})</span>}
+            </>
+          ) : (
+            <span className="text-gray-400 text-xs font-light">New</span>
+          )}
+        </div>
+
+        {/* Price */}
+        <div className="flex items-center gap-2 mt-2">
+          {selectedVariant.mrp && selectedVariant.mrp > selectedVariant.price && (
+            <span className="text-gray-400 line-through text-xs md:text-sm font-light">
+              Rs.{selectedVariant.mrp.toLocaleString("en-IN")}
             </span>
-          ))}
+          )}
+          <span className="text-gray-900 text-sm md:text-base">
+            Rs. {selectedVariant.price.toLocaleString("en-IN")}
+          </span>
+          {discount > 0 && (
+            <span className="text-[#CDAF5A] text-xs md:text-sm font-semibold">{discount}% OFF</span>
+          )}
         </div>
       </div>
     </Link>
   );
 }
-
-

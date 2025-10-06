@@ -1,11 +1,36 @@
-// types/product.ts
+export interface ColorOption {
+  name: string;
+  hex: string;
+}
+
+export interface ProductVariant {
+  sizes: string[];
+  colors: ColorOption[];
+  price: number;
+  mrp?: number;
+  discount?: number;
+  images: string[];
+  stock: number;
+  design?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
-  mrp:number;
-  discount:number;
   description?: string;
+  category?: string;
+  subCategory?: string;
+  subSubCategory?: string;
   price: number;
-  category?: string; // optional
-  images?: string[]; // <-- array of image URLs
+  mrp?: number;
+  discount?: number;
+  images: string[];
+  colors: ColorOption[];
+  sizes?: string[];
+  variants?: ProductVariant[];
+  createdAt: string;   // API
+  rating?: number;
+  reviewCount: number; 
+  updatedAt: string;
 }
+

@@ -1,20 +1,32 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/db";
+import jwt from "jsonwebtoken";
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   try {
-    const { userId } = await req.json();
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    const token = req.headers.get("Authorization")?.split(" ")[1];
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const wishlist = await db.wishlist.findMany({
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not defined");
+    }
+
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
+
+    const userId = decoded.id;
+
+    const wishlistEntries = await prisma.wishlist.findMany({
       where: { userId },
       include: { product: true },
     });
 
-    return NextResponse.json(wishlist);
+    const validEntries = wishlistEntries.filter(entry => entry.product !== null);
+
+    return NextResponse.json({ items: validEntries });
   } catch (error) {
+    console.error("GET /wishlist error:", error);
     return NextResponse.json({ error: "Failed to fetch wishlist" }, { status: 500 });
   }
 }

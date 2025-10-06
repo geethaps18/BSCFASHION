@@ -1,136 +1,112 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { toast } from "react-hot-toast";
+import { getCookie } from "cookies-next";
 
-interface Product {
+export interface WishlistProduct {
   id: string;
   name: string;
-  description?: string | null;
   price: number;
   images?: string[];
-  category?: string;
-  createdAt: string;
+  availableSizes?: string[];
+  size?: string;
 }
 
 interface WishlistContextType {
-  wishlist: Product[];
-  setWishlist: React.Dispatch<React.SetStateAction<Product[]>>;
-  toggleWishlist: (product: Product) => Promise<void>;
-  removeFromWishlist: (product: Product) => Promise<void>;
+  wishlistItems: WishlistProduct[]; // required for Header
+  wishlist: WishlistProduct[];
+  toggleWishlist: (product: WishlistProduct, options?: { soft?: boolean }) => Promise<void>;
   isInWishlist: (id: string) => boolean;
+  fetchWishlist: () => Promise<void>;
+  userLoggedIn: boolean;
 }
 
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
-export const WishlistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isSignedIn } = useUser();
-  const [wishlist, setWishlist] = useState<Product[]>([]);
+export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [wishlist, setWishlist] = useState<WishlistProduct[]>([]);
+  const [userLoggedIn, setUserLoggedIn] = useState(false);
 
-  // Fetch wishlist on login
-  useEffect(() => {
-    if (!isSignedIn || !user?.id) {
-      setWishlist([]);
-      return;
-    }
-
-    const fetchWishlist = async () => {
-      try {
-        const res = await fetch(`/api/wishlist?userId=${user.id}`);
-        const data = await res.json();
-
-        const sortedProducts = (data.products || []).sort(
-          (a: Product, b: Product) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-
-        setWishlist(sortedProducts);
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to fetch wishlist");
-      }
-    };
-
-    fetchWishlist();
-  }, [isSignedIn, user?.id]);
-
-  // ✅ helper to check if product is in wishlist
-  const isInWishlist = (id: string) => wishlist.some((p) => p.id === id);
-
-  // Toggle product (add/remove)
-  const toggleWishlist = async (product: Product) => {
-    if (!isSignedIn || !user?.id) {
-      toast.error("Please login first!");
-      return;
-    }
-
-    const alreadyLiked = isInWishlist(product.id);
-
-    setWishlist((prev) =>
-      alreadyLiked ? prev.filter((p) => p.id !== product.id) : [product, ...prev]
-    );
-
+  // Fetch wishlist from API
+  const fetchWishlist = async () => {
     try {
+      const token = getCookie("token");
+      if (!token) {
+        setWishlist([]);
+        setUserLoggedIn(false);
+        return;
+      }
+
       const res = await fetch("/api/wishlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, productId: product.id }),
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        // revert
-        setWishlist((prev) =>
-          alreadyLiked ? [...prev, product] : prev.filter((p) => p.id !== product.id)
-        );
-        toast.error(data.error || "Failed to update wishlist");
-      } else {
-        toast.success(alreadyLiked ? "Removed from wishlist" : "Added to wishlist");
-      }
+      setWishlist(data.products || []);
+      setUserLoggedIn(true);
     } catch (err) {
       console.error(err);
-      setWishlist((prev) =>
-        alreadyLiked ? [...prev, product] : prev.filter((p) => p.id !== product.id)
-      );
-      toast.error("Error updating wishlist");
+      toast.error("Failed to fetch wishlist");
+      setWishlist([]);
+      setUserLoggedIn(false);
     }
   };
 
-  // Remove product permanently
-  const removeFromWishlist = async (product: Product) => {
-    if (!isSignedIn || !user?.id) {
-      toast.error("Please login first!");
-      return;
+  useEffect(() => {
+    fetchWishlist();
+  }, []);
+
+  const isInWishlist = (id: string) => wishlist.some((p) => p.id === id);
+
+  const toggleWishlist = async (product: WishlistProduct, options?: { soft?: boolean }) => {
+    const liked = isInWishlist(product.id);
+
+    if (!options?.soft) {
+      // Optimistic UI update
+      setWishlist((prev) => (liked ? prev.filter((p) => p.id !== product.id) : [product, ...prev]));
     }
 
-    setWishlist((prev) => prev.filter((p) => p.id !== product.id));
-
     try {
-      const res = await fetch("/api/wishlist/remove", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, productId: product.id }),
-      });
-      const data = await res.json();
+      const token = getCookie("token");
+      if (!token) throw new Error("User not logged in");
 
-      if (!res.ok || !data.success) {
-        setWishlist((prev) => [...prev, product]);
-        toast.error(data.error || "Failed to remove from wishlist");
-      } else {
-        toast.success("Removed from wishlist");
-      }
+      await fetch("/api/wishlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ productId: product.id }),
+      });
+
+      toast.success(liked ? "Removed from wishlist" : "Added to wishlist");
     } catch (err) {
       console.error(err);
-      setWishlist((prev) => [...prev, product]);
-      toast.error("Error removing product");
+      toast.error("Something went wrong");
+
+      if (!options?.soft) {
+        // revert optimistic UI
+        setWishlist((prev) => (liked ? [product, ...prev] : prev.filter((p) => p.id !== product.id)));
+      }
     }
   };
 
   return (
     <WishlistContext.Provider
-      value={{ wishlist, setWishlist, toggleWishlist, removeFromWishlist, isInWishlist }}
+      value={{
+        wishlist,
+        wishlistItems: wishlist, // ✅ added this to fix TS error
+        toggleWishlist,
+        isInWishlist,
+        fetchWishlist,
+        userLoggedIn,
+      }}
     >
       {children}
     </WishlistContext.Provider>

@@ -8,8 +8,10 @@ function isValidObjectId(id: string) {
 }
 
 // GET: fetch product rating
-export async function GET(req: Request, context: { params: any }) {
-  const params = await context.params; // <-- Await params
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
   const { id } = params;
 
   if (!isValidObjectId(id)) {
@@ -37,8 +39,10 @@ export async function GET(req: Request, context: { params: any }) {
 }
 
 // POST: add/update product rating
-export async function POST(req: Request, context: { params: any }) {
-  const params = await context.params; // <-- Await params
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   const { id } = params;
 
   const userId = "currentUserId"; // TODO: Replace with real user ID from auth/session

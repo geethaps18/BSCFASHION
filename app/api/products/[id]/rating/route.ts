@@ -8,9 +8,8 @@ function isValidObjectId(id: string) {
 }
 
 // GET: fetch product rating
-export async function GET(req: Request, context: { params: any }) {
-  const params = await context.params; // <-- Await params
-  const { id } = params;
+export async function GET(req: Request, context: { params: { id: string } }) {
+  const { id } = context.params; // <-- no await needed
 
   if (!isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
@@ -37,10 +36,8 @@ export async function GET(req: Request, context: { params: any }) {
 }
 
 // POST: add/update product rating
-export async function POST(req: Request, context: { params: any }) {
-  const params = await context.params; // <-- Await params
-  const { id } = params;
-
+export async function POST(req: Request, context: { params: { id: string } }) {
+  const { id } = context.params; // <-- no await needed
   const userId = "currentUserId"; // TODO: Replace with real user ID from auth/session
 
   if (!isValidObjectId(id)) {
@@ -72,7 +69,7 @@ export async function POST(req: Request, context: { params: any }) {
 
     // Upsert user rating
     await prisma.rating.upsert({
-      where: { userId_productId: { userId, productId: id } }, // composite unique key
+      where: { userId_productId: { userId, productId: id } },
       update: { rating: newRating },
       create: { userId, productId: id, rating: newRating },
     });

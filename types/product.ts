@@ -31,6 +31,14 @@ export interface Product {
   createdAt: string;   // API
   rating?: number;
   reviewCount: number; 
+  reviews?: Review[];
   updatedAt: string;
+}
+export interface Review {
+  id?: string;           // Review ID
+  name?: string;         // User name
+  rating: number;        // 1-5
+  comment?: string;      // Optional comment
+  images?: string[];     // Optional images array
 }
 

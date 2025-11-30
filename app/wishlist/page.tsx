@@ -197,12 +197,12 @@ export default function WishlistPage() {
     );
 
   return (
-    <main className="flex-grow bg-gray-50 min-h-screen">
+    <main className="flex-grow  min-h-screen">
       {/* ✅ Header always visible */}
       <Header />
 
       {/* ✅ Added pt-20 so grid doesn’t overlap with header */}
-      <div className="pt-20 p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0.5">
+      <div className="pt-18 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0.5">
         {wishlist.map((product) => {
           const isPendingRemove = pendingRemovals.includes(product.id);
           return (

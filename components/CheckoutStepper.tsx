@@ -3,6 +3,7 @@
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { FiCheck, FiChevronLeft } from "react-icons/fi";
+import { ArrowBigLeft, ArrowLeft } from "lucide-react";
 
 export default function CheckoutStepper() {
   const pathname = usePathname();
@@ -24,7 +25,7 @@ export default function CheckoutStepper() {
           onClick={() => router.back()}
           className="mr-2 p-1 rounded hover:bg-gray-100 transition"
         >
-          <FiChevronLeft className="text-gray-700 text-lg sm:text-xl" />
+          <ArrowLeft className="text-gray-600 text-lg sm:text-xl" />
         </button>
         {activeIndex >= 0 ? steps[activeIndex].section : ""}
       </div>

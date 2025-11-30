@@ -384,6 +384,7 @@ export default function AccountPage() {
     colors: [{ name: "Default", hex: "#111827" }], // <-- required
     reviewCount: 0, // <-- required
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }}
 />
 

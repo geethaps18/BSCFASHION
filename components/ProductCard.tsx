@@ -27,7 +27,7 @@ export default function ProductCard({
   const [rating, setRating] = useState(product.rating ?? 0);
   const [reviewCount, setReviewCount] = useState(product.reviewCount ?? 0);
 
-  // Fetch latest ratings from backend
+  // Fetch latest ratings
   useEffect(() => {
     const fetchRating = async () => {
       try {
@@ -44,21 +44,20 @@ export default function ProductCard({
   }, [product.id]);
 
   // Variants
-  const variants: ProductVariant[] =
-    product.variants?.length
-      ? product.variants
-      : [
-          {
-            sizes: ["FREE"],
-            price: product.price,
-            mrp: product.mrp ?? product.price,
-            discount: product.discount ?? 0,
-            images: product.images?.length ? product.images : ["/placeholder.png"],
-            stock: 10,
-            design: "",
-            colors: [],
-          },
-        ];
+  const variants: ProductVariant[] = product.variants?.length
+    ? product.variants
+    : [
+        {
+          sizes: ["FREE"],
+          price: product.price,
+          mrp: product.mrp ?? product.price,
+          discount: product.discount ?? 0,
+          images: product.images?.length ? product.images : ["/placeholder.png"],
+          stock: 10,
+          design: "",
+          colors: [],
+        },
+      ];
 
   const [selectedVariant] = useState<ProductVariant>(variants[0]);
   const mainImage = hovered
@@ -69,22 +68,32 @@ export default function ProductCard({
     selectedVariant.discount ??
     (selectedVariant.mrp && selectedVariant.mrp > selectedVariant.price
       ? Math.round(
-          ((selectedVariant.mrp - selectedVariant.price) / selectedVariant.mrp) * 100
+          ((selectedVariant.mrp - selectedVariant.price) /
+            selectedVariant.mrp) *
+            100
         )
       : 0);
 
   const liked = wishlistProp ?? wishlistContext.some((p) => p.id === product.id);
 
-  // Wishlist toggle
+  // ✅ Wishlist toggle — works without login
   const handleWishlistClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     e.preventDefault();
+
     if (onWishlistToggle) onWishlistToggle();
     else toggleWishlist(product);
+
+    // Feedback toast
+    if (!liked) toast.success("Added to wishlist");
+    else toast("Removed from wishlist");
   };
 
   // Add product to bag
-  const handleSizeClick = async (size: string, e: React.MouseEvent<HTMLSpanElement>) => {
+  const handleSizeClick = async (
+    size: string,
+    e: React.MouseEvent<HTMLSpanElement>
+  ) => {
     e.preventDefault();
     e.stopPropagation();
     try {
@@ -117,6 +126,7 @@ export default function ProductCard({
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
         />
+
         {/* Heart Button */}
         <div className="absolute top-3 right-3 z-20">
           <button
@@ -130,6 +140,18 @@ export default function ProductCard({
             />
           </button>
         </div>
+
+        {/* Rating */}
+        {rating > 0 && (
+          <div
+            className={`absolute bottom-2 left-2 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1 ${
+              rating < 3 ? "bg-yellow-500" : "bg-green-600"
+            }`}
+          >
+            <span>★</span>
+            <span>{rating.toFixed(1)}</span>
+          </div>
+        )}
 
         {/* Sizes */}
         {selectedVariant.sizes?.length && (
@@ -157,40 +179,20 @@ export default function ProductCard({
           {product.name}
         </h3>
 
-        {/* Rating */}
-        <div className="flex items-center gap-1 mt-1">
-          {rating > 0 ? (
-            <>
-              <span
-                className="text-yellow-500 text-base font-medium"
-                style={{
-                  background: "linear-gradient(90deg, #FFD700, #FFC107)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                ★
-              </span>
-              <span className="text-gray-700 text-sm font-light">{rating.toFixed(1)}</span>
-              {reviewCount > 0 && <span className="text-gray-400 text-xs">({reviewCount})</span>}
-            </>
-          ) : (
-            <span className="text-gray-400 text-xs font-light">New</span>
-          )}
-        </div>
-
-        {/* Price */}
+        {/* Price Section */}
         <div className="flex items-center gap-2 mt-2">
-          {selectedVariant.mrp && selectedVariant.mrp > selectedVariant.price && (
-            <span className="text-gray-400 line-through text-xs md:text-sm font-light">
-              Rs.{selectedVariant.mrp.toLocaleString("en-IN")}
+          {product.mrp && product.mrp > product.price && (
+            <span className="text-gray-500 line-through text-xs md:text-sm font-light">
+              ₹{product.mrp.toLocaleString("en-IN")}
             </span>
           )}
-          <span className="text-gray-900 text-sm md:text-base">
-            Rs. {selectedVariant.price.toLocaleString("en-IN")}
+          <span className="text-gray-900 text-sm md:text-base font-medium">
+            ₹{product.price.toLocaleString("en-IN")}
           </span>
-          {discount > 0 && (
-            <span className="text-[#CDAF5A] text-xs md:text-sm font-semibold">{discount}% OFF</span>
+          {product.discount && product.discount > 0 && (
+            <span className="text-[#CDAF5A] text-xs md:text-sm font-semibold">
+              {product.discount}% OFF
+            </span>
           )}
         </div>
       </div>

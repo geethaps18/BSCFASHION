@@ -34,20 +34,24 @@ export default function PaymentOptions({
 }: PaymentOptionsProps) {
   const [loading, setLoading] = useState(false);
 
-  // Place COD Order
+  // ------------------------------------------
+  // 🟢 CASH ON DELIVERY
+  // ------------------------------------------
   const handleCOD = async () => {
     if (!bagItems || bagItems.length === 0) {
       toast.error("Your bag is empty");
       return;
     }
+
     setLoading(true);
+
     try {
       const res = await fetch("/api/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          items: bagItems.map(item => ({
+          items: bagItems.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
             price: item.price,
@@ -59,6 +63,7 @@ export default function PaymentOptions({
       });
 
       const data = await res.json();
+
       if (data.success) {
         toast.success("Order placed successfully!");
         window.location.href = "/success";
@@ -73,63 +78,47 @@ export default function PaymentOptions({
     }
   };
 
-  // Razorpay / Online Payment
-  const handleOnlinePayment = async () => {
+  // ------------------------------------------
+  // 🔵 UPI ONLINE PAYMENT (PhonePe / GPay / Paytm / BHIM)
+  // ------------------------------------------
+  const handleOnlinePayment = async (upiApp: string) => {
     if (!bagItems || bagItems.length === 0) {
       toast.error("Your bag is empty");
       return;
     }
 
     setLoading(true);
+
     try {
-      // Create order on server (you can integrate Razorpay server API here)
-      const res = await fetch("/api/create-order", {
+      // Create Razorpay order (backend API)
+      const res = await fetch("/api/razorpay-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          items: bagItems.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          totalAmount,
-          paymentMode: "ONLINE",
-          address: `${address.name}, ${address.street}, ${address.city}, ${address.state} - ${address.pincode}`,
-        }),
+        body: JSON.stringify({ amount: totalAmount }),
       });
-      const orderData = await res.json();
-      if (!orderData.success) {
-        toast.error(orderData.error || "Failed to create order");
-        setLoading(false);
+
+      const data = await res.json();
+      if (!data.success) {
+        toast.error("Failed to create payment");
         return;
       }
 
-      // Razorpay options
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        amount: totalAmount * 100, // in paise
-        currency: "INR",
-        name: "BSCFASHION",
-        description: "Order Payment",
-        order_id: orderData.orderId, // pass order id from server
-        handler: function (response: any) {
-          toast.success("Payment successful!");
-          window.location.href = "/success";
-        },
-        prefill: {
-          name: address.name,
-          email: "",
-          contact: address.phone,
-        },
-        theme: { color: "#2B2B2B" },
+      const orderId = data.order.id;
+
+      // ------------------------------
+      // 🔗 UPI Deep Links (opens app)
+      // ------------------------------
+      const upiLinks: Record<string, string> = {
+        phonepe: `phonepe://pay?pa=yourupi@bank&pn=BSCFASHION&am=${totalAmount}&cu=INR&tn=Order%20${orderId}`,
+        gpay: `gpay://upi/pay?pa=yourupi@bank&pn=BSCFASHION&am=${totalAmount}&cu=INR&tn=Order%20${orderId}`,
+        paytm: `paytm://upi/pay?pa=yourupi@bank&pn=BSCFASHION&am=${totalAmount}&cu=INR&tn=Order%20${orderId}`,
+        bhim: `upi://pay?pa=yourupi@bank&pn=BSCFASHION&am=${totalAmount}&cu=INR&tn=Order%20${orderId}`,
       };
 
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
+      window.location.href = upiLinks[upiApp];
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Payment failed");
+      toast.error("Payment failed");
     } finally {
       setLoading(false);
     }
@@ -137,22 +126,50 @@ export default function PaymentOptions({
 
   return (
     <div className="space-y-3">
-      {/* Online Payment */}
+
+      {/* ---------------- UPI BUTTONS ---------------- */}
+
       <button
-        onClick={handleOnlinePayment}
+        onClick={() => handleOnlinePayment("phonepe")}
         disabled={loading}
-        className="w-full bg-[#2B2B2B] text-white py-3 font-semibold rounded-lg hover:bg-[#1A1A1A]"
+        className="w-full bg-purple-600 text-white py-3 font-semibold rounded-lg hover:bg-purple-700"
       >
-        {loading ? "Processing..." : `Pay ₹${totalAmount} Online`}
+        Pay with PhonePe
       </button>
 
-      {/* Cash on Delivery */}
+      <button
+        onClick={() => handleOnlinePayment("gpay")}
+        disabled={loading}
+        className="w-full bg-blue-600 text-white py-3 font-semibold rounded-lg hover:bg-blue-700"
+      >
+        Pay with Google Pay
+      </button>
+
+      <button
+        onClick={() => handleOnlinePayment("paytm")}
+        disabled={loading}
+        className="w-full bg-cyan-600 text-white py-3 font-semibold rounded-lg hover:bg-cyan-700"
+      >
+        Pay with Paytm
+      </button>
+
+      <button
+        onClick={() => handleOnlinePayment("bhim")}
+        disabled={loading}
+        className="w-full bg-green-600 text-white py-3 font-semibold rounded-lg hover:bg-green-700"
+      >
+        Pay with BHIM UPI
+      </button>
+
+      {/* ---------------- COD BUTTON ---------------- */}
       <button
         onClick={handleCOD}
+        disabled={loading}
         className="w-full border border-gray-400 text-gray-900 py-3 font-semibold rounded-lg hover:bg-gray-100"
       >
         Cash on Delivery (COD)
       </button>
+
     </div>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 
 interface Product {
   id: string;
@@ -26,7 +26,6 @@ interface Order {
   status: string;
   createdAt: string;
   items: OrderItem[];
-  // No address here
 }
 
 const STATUS_TEXT: Record<string, { text: string; color: string }> = {
@@ -41,6 +40,8 @@ const STATUS_TEXT: Record<string, { text: string; color: string }> = {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const router = useRouter();
 
   useEffect(() => {
@@ -63,71 +64,131 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
+  // ----------------------
+  // Filter + Search Logic
+  // ----------------------
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const matchSearch = order.items.some((item) =>
+        item.product.name.toLowerCase().includes(search.toLowerCase())
+      );
+      const matchStatus =
+        statusFilter === "ALL" || order.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [orders, search, statusFilter]);
+
   if (loading)
     return <div className="p-6 text-center">Loading orders...</div>;
+
   if (!loading && orders.length === 0)
     return <div className="p-6 text-center text-gray-500">No orders found</div>;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col ">
       <Header />
       <Toaster />
 
       <main className="flex-1 max-w-3xl w-full mx-auto pt-[80px] pb-[80px] px-4">
-        <div className="flex flex-col space-y-2">
-          {orders.map((order) => {
-            const firstItem = order.items[0]; // Show only first product preview
-            return (
-              <div
-                key={order.id}
-                className="flex items-center w-full py-3 cursor-pointer border-b-2"
-                onClick={() => router.push(`/orders/${order.id}`)}
-              >
-                {/* Product Image */}
-                <div className="flex-shrink-0">
-                  <Image
-                    src={firstItem?.product.images?.[0] || "/placeholder.png"}
-                    alt={firstItem?.product.name || "Product"}
-                    width={56}
-                    height={56}
-                    className="rounded bg-gray-50 border"
-                  />
-                </div>
+        {/* ------------------ Search + Filter Bar ------------------ */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            {/* Search Bar */}
+            <div className="relative flex-1 w-full">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search your orders..."
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
+              />
+            </div>
 
-                {/* Product & Status */}
-                <div className="flex-1 ml-3 flex flex-col justify-center">
-                  <div className="flex justify-between items-center">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        STATUS_TEXT[order.status]?.color ||
-                        "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {STATUS_TEXT[order.status]?.text || order.status}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(order.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div className="text-sm text-gray-700 mt-1">
-                    <div className="font-medium">{firstItem?.product.name}</div>
-                    {firstItem?.product.description && (
-                      <div className="text-gray-500 text-xs">
-                        {firstItem.product.description}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Arrow */}
-                <div className="ml-4 flex-shrink-0 text-gray-400">
-                  <ChevronRight size={20} />
-                </div>
-              </div>
-            );
-          })}
+            {/* Filter Dropdown */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full sm:w-auto border border-gray-300 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            >
+              <option value="ALL">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="SHIPPED">Shipped</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="RETURNED">Returned</option>
+              <option value="REFUNDED">Refunded</option>
+            </select>
+          </div>
         </div>
+
+       {/* ------------------ Orders List ------------------ */}
+<div className="flex flex-col divide-y divide-gray-400">
+  {filteredOrders.length === 0 ? (
+    <div className="text-center text-gray-500 mt-6">
+      No matching orders found
+    </div>
+  ) : (
+    filteredOrders.map((order) => {
+      const firstItem = order.items[0];
+      return (
+        <div
+          key={order.id}
+          className="flex items-center w-full py-3 cursor-pointer px-2 hover:bg-gray-50 transition"
+          onClick={() => router.push(`/orders/${order.id}`)}
+        >
+          {/* Product Image */}
+          <div className="flex-shrink-0">
+            <Image
+              src={firstItem?.product.images?.[0] || "/placeholder.png"}
+              alt={firstItem?.product.name || "Product"}
+              width={56}
+              height={56}
+              className="rounded  border"
+            />
+          </div>
+
+          {/* Product Details */}
+          <div className="flex-1 ml-3 flex flex-col justify-center">
+            <div className="flex justify-between items-center">
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  STATUS_TEXT[order.status]?.color ||
+                  " text-gray-800"
+                }`}
+              >
+                {STATUS_TEXT[order.status]?.text || order.status}
+              </span>
+              <span className="text-xs text-gray-900">
+                {new Date(order.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+
+            <div className="text-sm text-gray-700 mt-1">
+              <div className="font-medium text-gray-800">
+                {firstItem?.product.name}
+              </div>
+              {firstItem?.product.description && (
+                <div className="text-gray-500 text-xs truncate">
+                  {firstItem.product.description}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Arrow */}
+          <div className="ml-4 flex-shrink-0 text-gray-700">
+            <ChevronRight size={20} />
+          </div>
+        </div>
+      );
+    })
+  )}
+</div>
+
       </main>
 
       <Footer />

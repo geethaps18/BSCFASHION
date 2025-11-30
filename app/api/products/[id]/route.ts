@@ -1,6 +1,7 @@
 // app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { ObjectId } from "mongodb";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -29,6 +30,17 @@ function getUserId(req: NextRequest): string | null {
 }
 
 // ----------------------
+// Helper: Convert string to ObjectId if needed
+// ----------------------
+function parseId(id: string) {
+  try {
+    return new ObjectId(id);
+  } catch {
+    return id; // fallback as string
+  }
+}
+
+// ----------------------
 // GET: Fetch Product
 // ----------------------
 export async function GET(
@@ -36,15 +48,16 @@ export async function GET(
   context: { params: Params }
 ) {
   try {
-    const params = await context.params;
-    let id = Array.isArray(params.id) ? params.id[0] : params.id;
+    // Await params first
+    const params = await context.params; 
+    const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
 
-    if (!id) {
+    if (!rawId) {
       return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
     }
 
     const product = await prisma.product.findUnique({
-      where: { id },
+      where: { id: rawId },
       include: { variants: true },
     });
 
@@ -62,6 +75,7 @@ export async function GET(
   }
 }
 
+
 // ----------------------
 // DELETE: Delete Product (Auth required)
 // ----------------------
@@ -73,10 +87,10 @@ export async function DELETE(
     const userId = getUserId(req);
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    let id = Array.isArray(context.params.id) ? context.params.id[0] : context.params.id;
-    if (!id) return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
+    const rawId = Array.isArray(context.params.id) ? context.params.id[0] : context.params.id;
+    if (!rawId) return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
 
-    const deleted = await prisma.product.delete({ where: { id } });
+    const deleted = await prisma.product.delete({ where: { id: rawId } });
     return NextResponse.json({ message: "✅ Product deleted!", product: deleted }, { status: 200 });
   } catch (err: any) {
     console.error("DELETE /product error:", err);
@@ -98,14 +112,14 @@ export async function PUT(
     const userId = getUserId(req);
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    let id = Array.isArray(context.params.id) ? context.params.id[0] : context.params.id;
-    if (!id) return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
+    const rawId = Array.isArray(context.params.id) ? context.params.id[0] : context.params.id;
+    if (!rawId) return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
 
     const body = await req.json();
     const { name, description, price, stock, category } = body;
 
     const updated = await prisma.product.update({
-      where: { id },
+      where: { id: rawId },
       data: {
         ...(name && { name }),
         ...(description && { description }),

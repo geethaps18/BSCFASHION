@@ -311,7 +311,7 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       </div>
     );
 return (
-    <div className="flex flex-col bg-gray-50 pt-0">
+    <div className="flex flex-col  pt-0">
       <CheckoutStepper />
       <div className="max-w-5xl mx-auto p-4 sm:p-6 relative grid md:grid-cols-3 gap-6">
         <Toaster position="top-right" />
@@ -406,7 +406,7 @@ return (
 
   {/* RIGHT: Price Details + Button */}
   <div className="lg:w-100 flex-shrink-0 space-y-4">
-    <div className="border rounded p-4 bg-gray-50">
+    <div className="border rounded p-4 ">
       <h3 className="font-bold mb-3">Price Details</h3>
       <div className="space-y-2 text-sm">
         <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span></div>

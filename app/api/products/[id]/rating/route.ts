@@ -1,4 +1,4 @@
-// app/api/orders/[id]/rate/route.ts
+// app/api/products/[id]/ratig/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -8,8 +8,9 @@ function isValidObjectId(id: string) {
 }
 
 // GET: fetch product rating
-export async function GET(req: Request, context: { params: { id: string } }) {
-  const { id } = context.params; // <-- no await needed
+export async function GET(req: Request, context: { params: any }) {
+  const params = await context.params; // <-- Await params
+  const { id } = params;
 
   if (!isValidObjectId(id)) {
     return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
@@ -36,8 +37,10 @@ export async function GET(req: Request, context: { params: { id: string } }) {
 }
 
 // POST: add/update product rating
-export async function POST(req: Request, context: { params: { id: string } }) {
-  const { id } = context.params; // <-- no await needed
+export async function POST(req: Request, context: { params: any }) {
+  const params = await context.params; // <-- Await params
+  const { id } = params;
+
   const userId = "currentUserId"; // TODO: Replace with real user ID from auth/session
 
   if (!isValidObjectId(id)) {
@@ -69,7 +72,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
 
     // Upsert user rating
     await prisma.rating.upsert({
-      where: { userId_productId: { userId, productId: id } },
+      where: { userId_productId: { userId, productId: id } }, // composite unique key
       update: { rating: newRating },
       create: { userId, productId: id, rating: newRating },
     });
@@ -99,4 +102,4 @@ export async function POST(req: Request, context: { params: { id: string } }) {
     console.error("Error updating product rating:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-}
+}  

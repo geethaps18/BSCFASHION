@@ -34,7 +34,6 @@ export default function Home() {
         if (!res.ok) throw new Error("Failed to fetch products");
 
         const data = await res.json();
-
         if (!Array.isArray(data?.products)) {
           setProducts([]);
           return;
@@ -106,59 +105,85 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="bg-white min-h-screen flex flex-col">
-      <div className="pt-16 sm:pt-20 md:pt-24">
-        {/* Categories Scroll */}
-        <div className="overflow-x-auto scrollbar-hide py-3 bg-white shadow-sm">
-          <div className="flex gap-3 px-3 sm:gap-4 sm:px-4">
-            {categories.map((cat) => (
-              <Link
-                key={cat.name}
-                href={`/categories/${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
-                className="flex-shrink-0 flex flex-col items-center cursor-pointer transform transition hover:scale-105"
-              >
-                <div className="relative w-10 h-10 sm:w-14 sm:h-14 md:w-20 md:h-20 overflow-hidden rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                  <Image
-                    src={cat.image || "/placeholder.png"}
-                    alt={cat.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <span
-                  className="mt-1 text-[9px] sm:text-[11px] md:text-sm text-gray-600 font-medium text-center truncate max-w-[50px] sm:max-w-[60px] block"
-                  title={cat.name}
-                >
-                  {cat.name}
-                </span>
-              </Link>
-            ))}
+    <div className=" min-h-screen flex flex-col font-sans">
+      <div className="mt-8">
+      {/* 🪔 3D Floating Golden Ribbon Ticker */}
+      <div className="mt-6 md:mt-8 lg:mt-10 xl:mt-12 relative z-50 py- overflow-hidden">
+        <div className="bg-gradient-to-r   shadow-2xl  py-1 px-4 flex items-center">
+          <div className="flex animate-marquee whitespace-nowrap text-yellow-900 font-semibold text-l md:text-xl tracking-wider drop-shadow-lg ribbon-text">
+            <span className="mx-8">🪔🎇 ದೀಪಾವಳಿ ಡಬಲ್ ಡಿಸ್ಕೌಂಟ್! ತಪ್ಪಿಸಿಕೊಳ್ಳಬೇಡಿ!</span>
+            <span className="mx-8">🪔🎇 Double Discount this Deepavali! Don’t miss out!</span>
           </div>
         </div>
-
-        {/* Hero Section */}
-        <div className="w-full h-56 sm:h-72 md:h-96 my-4 relative overflow-hidden shadow-lg">
-          <Hero />
-        </div>
-        <Header/>
-
-        {/* Products Grid */}
-        <main className="flex-grow p-1 sm:p-6 pb-24">
-          {loading ? (
-            <p className="text-gray-500 text-center">Loading products...</p>
-          ) : products.length === 0 ? (
-            <p className="text-gray-500 text-center">No products found.</p>
-          ) : (
-           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-0.5">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
-        </main>
       </div>
 
+      <style jsx>{`
+        @keyframes marquee {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          display: flex;
+          width: max-content;
+          animation: marquee 12s linear infinite;
+        }
+
+       
+      `}</style>
+
+      {/* Header */}
+      <Header />
+
+      {/* Categories Scroll */}
+      <div className="overflow-x-auto scrollbar-hide py-1 bg-white shadow-md ">
+        <div className="flex gap-3 px-3 sm:gap-4 sm:px-4">
+          {categories.map((cat) => (
+            <Link
+              key={cat.name}
+              href={`/categories/${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
+              className="flex-shrink-0 flex flex-col items-center cursor-pointer transform transition hover:scale-105"
+            >
+              <div className="relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 overflow-hidden rounded-xl  hover:shadow-2xl transition-shadow">
+                <Image
+                  src={cat.image || "/placeholder.png"}
+                  alt={cat.name}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <span
+                className="mt-1 text-[10px] sm:text-[12px] md:text-sm text-gray-700 font-medium text-center truncate max-w-[60px] sm:max-w-[70px] block"
+                title={cat.name}
+              >
+                {cat.name}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Hero Section */}
+      <div className="w-full h-60 sm:h-72 md:h-96 my- relative overflow-hidden  ">
+        <Hero />
+      </div>
+
+      {/* Products Grid */}
+      <main className="flex-grow  sm:p-6 pb-24">
+        {loading ? (
+          <p className="text-gray-500 text-center text-lg">Loading products...</p>
+        ) : products.length === 0 ? (
+          <p className="text-gray-500 text-center text-lg">No products found.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
+      </main>
+
       <Footer />
+    </div>
     </div>
   );
 }

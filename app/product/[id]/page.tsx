@@ -17,14 +17,20 @@ import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 
 // ------------------- Zoom Image Component -------------------
-function ZoomImage({ src, alt }: { src: string; alt: string }) {
+function ZoomImage({
+  src,
+  alt,
+}: {
+  src: string;
+  alt: string;
+}) {
   const MIN = 1;
   const MAX = 2;
   const [zoom, setZoom] = useState<number>(MIN);
   const [bgPos, setBgPos] = useState<string>("center");
 
   const toggleZoom = () => {
-    setZoom(prev => (prev === MIN ? MAX : MIN));
+    setZoom((prev) => (prev === MIN ? MAX : MIN));
     if (zoom !== MIN) setBgPos("center");
   };
 
@@ -40,8 +46,10 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
     <div className="relative w-full overflow-hidden shadow-lg">
       <div
         onClick={toggleZoom}
-        onMouseMove={e => updatePositionFromPoint(e.clientX, e.clientY, e.currentTarget)}
-        onTouchMove={e => updatePositionFromPoint(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)}
+        onMouseMove={(e) => updatePositionFromPoint(e.clientX, e.clientY, e.currentTarget)}
+        onTouchMove={(e) =>
+          updatePositionFromPoint(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
+        }
         onMouseLeave={() => zoom === MIN && setBgPos("center")}
         className={`w-full h-[400px] md:h-[360px] bg-gray-50 select-none ${
           zoom === MIN ? "cursor-zoom-in" : "cursor-move touch-none"
@@ -85,22 +93,20 @@ export default function ProductDetailPage() {
       try {
         setLoading(true);
 
-        // Fetch product details
         const res = await fetch(`/api/products/${id}`);
         if (!res.ok) throw new Error("Product not found");
         const data: Product = await res.json();
         setProduct({ ...data, reviewCount: data?.reviewCount ?? 0 });
 
-        // Set default color & size
+        // Set default color
         setSelectedColor(data?.colors?.[0]?.hex ?? null);
         setSelectedSize(null);
 
-        // Fetch similar products dynamically (category hierarchy)
+        // Fetch similar products dynamically
         const params = new URLSearchParams();
         if (data.subSubCategory) params.append("subSubCategory", data.subSubCategory);
         else if (data.subCategory) params.append("subCategory", data.subCategory);
         else if (data.category) params.append("category", data.category);
-
         if (data.id) params.append("exclude", data.id);
 
         const simRes = await fetch(`/api/products/similar?${params.toString()}`);
@@ -171,19 +177,11 @@ export default function ProductDetailPage() {
     await toggleWishlist(product);
   };
 
-  // ------------------- Render -------------------
-  if (loading)
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Image src="/images/logo.png" alt="Loading..." width={80} height={80} />
-      </div>
-    );
-
   if (!product)
     return <p className="p-6 text-center text-gray-500">Please check your internet connection</p>;
 
   const images = product.images?.length ? product.images : ["/placeholder.png"];
-  const isWishlisted = wishlistContext.some(p => p.id === product.id);
+  const isWishlisted = wishlistContext.some((p) => p.id === product.id);
   const priceNum = product.price;
   const mrpNum = product.mrp ?? null;
   const discount =
@@ -195,7 +193,20 @@ export default function ProductDetailPage() {
 
       <div className="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto w-full mt-4">
         {/* LEFT: Images */}
-        <div className="w-full md:w-1/2">
+        <div className="w-full md:w-1/2 relative">
+          {/* Rating badge shows only once — top-right */}
+          {product.rating && product.rating > 0 && (
+            <div
+              className={`absolute bottom-6 right-2 z-10 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1 ${
+                product.rating < 3 ? "bg-yellow-500" : "bg-green-600"
+              }`}
+            >
+              <span>★</span>
+              <span>{product.rating.toFixed(1)}</span>
+            </div>
+          )}
+
+          {/* Swiper for mobile */}
           <div className="md:hidden mb-4">
             <Swiper
               slidesPerView={1.5}
@@ -204,15 +215,17 @@ export default function ProductDetailPage() {
               modules={[Pagination, Scrollbar]}
               scrollbar={{ draggable: true }}
             >
-              {images.map(img => (
+              {images.map((img) => (
                 <SwiperSlide key={img}>
                   <ZoomImage src={img} alt={product.name} />
                 </SwiperSlide>
               ))}
             </Swiper>
           </div>
+
+          {/* Grid for desktop */}
           <div className="hidden md:grid grid-cols-2 gap-1 max-h-[700px] overflow-y-auto pr-2">
-            {images.map(img => (
+            {images.map((img) => (
               <ZoomImage key={img} src={img} alt={product.name} />
             ))}
           </div>
@@ -250,7 +263,7 @@ export default function ProductDetailPage() {
             <div>
               <p className="text-gray-700 mb-2">Color:</p>
               <div className="flex flex-wrap gap-3">
-                {product.colors.map(color => (
+                {product.colors.map((color) => (
                   <button
                     key={color.hex}
                     onClick={() => setSelectedColor(color.hex)}
@@ -271,7 +284,7 @@ export default function ProductDetailPage() {
             <div ref={sizesRef} className={`${sizeError ? "ring-2 ring-rose-400 rounded-md p-2" : ""}`}>
               <p className="text-gray-700 mb-2">Size</p>
               <div className="grid grid-cols-10 gap-2 max-w-full">
-                {product.sizes.map(size => (
+                {product.sizes.map((size) => (
                   <button
                     key={size}
                     onClick={() => {
@@ -301,9 +314,7 @@ export default function ProductDetailPage() {
               onClick={handleWishlistToggle}
               className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-white ring-1 ring-black/10 transition text-sm font-medium hover:ring-gray-400"
             >
-              <Heart
-                className={`h-5 w-5 ${isWishlisted ? "text-rose-500 fill-rose-500" : "text-gray-700"}`}
-              />
+              <Heart className={`h-5 w-5 ${isWishlisted ? "text-rose-500 fill-rose-500" : "text-gray-700"}`} />
               <span>{isWishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
             </button>
 

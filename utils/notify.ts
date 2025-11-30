@@ -16,7 +16,10 @@ export type NotificationOptions = {
   items: OrderItem[];
   total: number;
   paymentMode: string;
+  deliverAddress?: string;
   status: "ordered" | "packed" | "shipped" | "delivered";
+deliveryOtp?: string | null;
+  
 };
 
 export async function sendOrderNotification({

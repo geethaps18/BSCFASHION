@@ -5,13 +5,11 @@ import { getUserIdFromToken } from "@/utils/getUserIdFormToken";
 
 export async function GET(req: NextRequest) {
   try {
-    // Extract user ID from JWT token
     const userId = getUserIdFromToken(req);
     if (!userId) {
       return NextResponse.json({ orders: [] }, { status: 401 });
     }
 
-    // Fetch all orders for the user with items and product info
     const orders = await prisma.order.findMany({
       where: { userId },
       include: {
@@ -21,9 +19,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Format orders safely
     const formattedOrders = orders.map((order) => {
-      // Parse address JSON
       let parsedAddress: any = {};
       try {
         parsedAddress = order.address ? JSON.parse(order.address) : {};
@@ -39,13 +35,16 @@ export async function GET(req: NextRequest) {
         address: parsedAddress,
         expectedDelivery: order.expectedDelivery ?? null,
         trackingNumber: order.trackingNumber ?? null,
-        createdAt: order.createdAt,
+
+        // ❗ FIX: avoid Prisma crash
+        createdAt: order.createdAt ?? new Date(0),
         updatedAt: order.updatedAt ?? null,
+
         items: order.items.map((item) => {
           const product = item.product;
           return {
             itemId: item.id,
-            name: item.name ?? "Unknown Item",
+            name: product?.name ?? "Unknown Item",
             quantity: item.quantity,
             price: item.price,
             size: item.size ?? null,

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, Heart, ShoppingBag, Menu, X, ArrowLeft } from "lucide-react";
+import { Search, Heart, ShoppingBag, Menu, X, ArrowLeft, Layout } from "lucide-react";
 import { useCart } from "@/app/context/BagContext";
 import { useWishlist } from "@/app/context/WishlistContext";
 import { Product } from "@/types/product";
@@ -244,7 +244,7 @@ export default function Header({ productName }: HeaderProps) {
                   </li>
                   <li
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer transition"
-                    onClick={() => router.push("/orders")}
+                    onClick={() => router.push("/admin/orders")}
                   >
                     Orders
                   </li>

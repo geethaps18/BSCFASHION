@@ -44,7 +44,6 @@ export default function PaymentPage() {
   const [paymentMode, setPaymentMode] = useState<"COD" | "Card" | "UPI" | string>("COD");
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
-
   const [upiId, setUpiId] = useState<string>("");
   const [cardDetails, setCardDetails] = useState<CardDetails>({
     number: "",
@@ -57,7 +56,10 @@ export default function PaymentPage() {
   const shipping = Number(params.get("shipping") ?? 0);
   const discount = Number(params.get("discount") ?? 0);
 
-  // Decode userId from token cookie
+  const subtotal = bagItems.reduce((acc, i) => acc + (i.price || 0) * i.quantity, 0);
+  const total = subtotal + shipping - discount;
+
+  // --- Decode user token ---
   useEffect(() => {
     const token = getCookie("token");
     if (!token || typeof token !== "string") {
@@ -76,7 +78,7 @@ export default function PaymentPage() {
     }
   }, []);
 
-  // Fetch bag items
+  // --- Fetch Bag Items ---
   useEffect(() => {
     if (!userId) return;
     const fetchBag = async () => {
@@ -92,6 +94,7 @@ export default function PaymentPage() {
               quantity: item.quantity,
               price: item.product.price ?? 0,
               productName: item.product.name ?? "Product",
+              size: item.size ?? null,
             }));
           setBagItems(mappedItems);
         }
@@ -103,7 +106,7 @@ export default function PaymentPage() {
     fetchBag();
   }, [userId]);
 
-  // Fetch selected address
+  // --- Fetch Selected Address ---
   useEffect(() => {
     if (!addressId) return;
     const fetchAddress = async () => {
@@ -118,84 +121,97 @@ export default function PaymentPage() {
     fetchAddress();
   }, [addressId]);
 
-  const handlePayment = async () => {
-    if (!userId) return toast.error("User not found");
-    if (!selectedAddress) return toast.error("Please select an address");
-    if (bagItems.length === 0) return toast.error("Bag is empty");
+  const handleRazorpayPayment = async () => {
+  if (!userId) return toast.error("User not found");
+  if (!selectedAddress) return toast.error("Please select an address");
+  if (bagItems.length === 0) return toast.error("Bag is empty");
+
+  try {
+    setLoading(true);
+
+    // Create Razorpay order on backend
+    const res = await fetch("/api/razorpay-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: total }),
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      toast.error("Failed to create Razorpay order");
+      return;
+    }
+
+    // Redirect user to hosted checkout
+    window.location.href = data.hostedUrl;
+  } catch (err) {
+    console.error(err);
+    toast.error("Payment failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // --- Main Payment Handler ---
+  const handlePayment = () => {
+    if (paymentMode === "COD") {
+      // COD: directly create order
+      createCODOrder();
+    } else if (["GPay", "PhonePe", "Paytm", "Card"].includes(paymentMode)) {
+      handleRazorpayPayment();
+    } else {
+      toast.error("Select a valid payment method");
+    }
+  };
+
+  const createCODOrder = async () => {
+    if (!userId || !selectedAddress || bagItems.length === 0) return;
 
     try {
       setLoading(true);
-      const validProductIds = bagItems.map(i => i.productId).filter((id): id is string => !!id);
-      if (validProductIds.length === 0) {
-        setLoading(false);
-        return toast.error("No valid items in your bag");
-      }
 
-      const resProducts = await fetch("/api/products/latest-prices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productIds: validProductIds }),
-      });
-      const latestProducts = await resProducts.json();
+      const orderItems = bagItems.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+      }));
 
-      const safeOrderItems = bagItems
-        .map(item => {
-          const product = latestProducts.find((p: any) => String(p.id) === String(item.productId));
-          if (!product || product.price <= 0 || item.quantity <= 0) return null;
-          return {
-            productId: item.productId,
-            quantity: item.quantity,
-            price: product.price,
-          };
-        })
-        .filter((i): i is NonNullable<typeof i> => i !== null);
-
-      if (safeOrderItems.length === 0) {
-        setLoading(false);
-        return toast.error("Some items in your bag are invalid. Please review your cart.");
-      }
-
-      const totalAmount =
-        safeOrderItems.reduce((acc, i) => acc + i.price * i.quantity, 0) + shipping - discount;
-
-      const resOrder = await fetch("/api/create-order", {
+      const res = await fetch("/api/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId,
-          items: safeOrderItems,
-          total: totalAmount,
-          paymentMode,
+          items: orderItems,
+          totalAmount: total,
+          paymentMode: "COD",
           address: selectedAddress,
-          upiId: paymentMode !== "COD" && paymentMode !== "Card" ? upiId : null,
-          cardDetails: paymentMode === "Card" ? cardDetails : null,
         }),
       });
 
-      const data = await resOrder.json();
+      const data = await res.json();
       setLoading(false);
 
       if (data.success) {
         toast.success("Order placed successfully!");
         router.push(`/order-success/${data.order.id}`);
       } else {
-        toast.error(data.error || "Order creation failed");
+        toast.error(data.error || "COD order failed");
       }
     } catch (err) {
-      setLoading(false);
       console.error(err);
-      toast.error("Something went wrong");
+      toast.error("COD order failed");
+      setLoading(false);
     }
   };
 
   if (loading) return <div className="p-6 text-center">Loading...</div>;
   if (!userId) return <p className="mt-20 text-center">Please login to proceed with payment.</p>;
 
-  const subtotal = bagItems.reduce((acc, i) => acc + (i.price || 0) * i.quantity, 0);
-  const total = subtotal + shipping - discount;
-
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 pt-0">
+    <div className="flex flex-col min-h-screen pt-0">
       <CheckoutStepper />
       <div className="max-w-2xl mx-auto p-4 flex-grow w-full">
         <Toaster position="top-right" />
@@ -240,7 +256,7 @@ export default function PaymentPage() {
         <div className="mb-24">
           <h3 className="font-medium mb-3 text-lg">Choose Payment Method:</h3>
 
-          {/* COD Card */}
+          {/* COD */}
           <label
             className={`flex flex-col gap-2 p-5 border rounded-lg cursor-pointer transition-all ${
               paymentMode === "COD" ? "border-black shadow-md bg-gray-100" : "bg-white hover:shadow-md"
@@ -259,7 +275,7 @@ export default function PaymentPage() {
             </div>
           </label>
 
-          {/* Online UPI Card */}
+          {/* UPI */}
           <label
             className={`flex flex-col gap-2 p-5 border rounded-lg cursor-pointer transition-all ${
               ["GPay", "PhonePe", "Paytm"].includes(paymentMode)
@@ -291,7 +307,7 @@ export default function PaymentPage() {
                 </div>
               ))}
             </div>
-            {["UPI"].includes(paymentMode) && (
+            {["GPay", "PhonePe", "Paytm"].includes(paymentMode) && (
               <input
                 type="text"
                 placeholder="Enter your UPI ID"
@@ -302,7 +318,7 @@ export default function PaymentPage() {
             )}
           </label>
 
-          {/* Card Payment */}
+          {/* Card */}
           <label
             className={`flex flex-col gap-2 p-5 border rounded-lg cursor-pointer transition-all ${
               paymentMode === "Card" ? "border-black shadow-md bg-gray-100" : "bg-white hover:shadow-md"
@@ -356,22 +372,19 @@ export default function PaymentPage() {
           </label>
         </div>
 
-       {/* Bottom Section */}
-<div className="bg-white border-t shadow-md p-0 fixed bottom-0 left-0 w-full">
-  <button
-    onClick={handlePayment}
-    disabled={loading}
-    className="w-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-gray-900 font-semibold py-3 shadow-lg hover:shadow-xl transition flex flex-col items-center"
-  >
-    {/* Total above */}
-    <span className="text-white text-sm">₹{total.toFixed(2)}</span>
-    {/* Action text */}
-    <span className="text-gray-900 font-bold">
-      {loading ? "Processing..." : paymentMode === "COD" ? "Place Order" : "Pay Now"}
-    </span>
-  </button>
-</div>
-
+        {/* Bottom Fixed Button */}
+        <div className="bg-white border-t shadow-md p-0 fixed bottom-0 left-0 w-full">
+          <button
+            onClick={handlePayment}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-gray-900 font-semibold py-3 shadow-lg hover:shadow-xl transition flex flex-col items-center"
+          >
+            <span className="text-white text-sm">₹{total.toFixed(2)}</span>
+            <span className="text-gray-900 font-bold">
+              {loading ? "Processing..." : paymentMode === "COD" ? "Place Order" : "Pay Now"}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );

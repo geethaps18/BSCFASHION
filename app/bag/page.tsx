@@ -91,16 +91,17 @@ export default function BagPage() {
               >
                 {/* Product Info */}
                 <div className="flex items-start sm:items-center gap-5">
-                  <Link
-                    href={`/Product/${item.product.id}`}
-                    className="block w-30 h-30 flex-shrink-0 rounded-xl overflow-hidden border"
-                  >
-                    <img
-                      src={item.product.images?.[0] || "/placeholder.png"}
-                      alt={item.product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </Link>
+                 <Link
+  href={`/product/${item.product.id}`}
+  className="block w-30 h-30 flex-shrink-0  overflow-hidden border"
+>
+  <img
+    src={item.product.images?.[0] || "/placeholder.png"}
+    alt={item.product.name}
+    className="w-full h-full object-cover"
+  />
+</Link>
+
 
                   <div className="flex-1 flex flex-col justify-between mt-2 sm:mt-0">
                     <h3 className="text-sm sm:text-base font-medium text-gray-900 line-clamp-2">

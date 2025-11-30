@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     const sub1Slug = searchParams.get("sub1");
     const sub2Slug = searchParams.get("sub2");
     const excludeId = searchParams.get("exclude"); // exclude current product
-    const limit = Number(searchParams.get("limit") || 10);
+    const limit = Number(searchParams.get("limit") || 100000);
 
     const slugToName = (slug: string | null) =>
       slug ? slug.replace(/-/g, " ").toLowerCase() : undefined;
@@ -84,15 +84,16 @@ export async function GET(req: Request) {
       include: { variants: true },
     });
 
-    const safeProducts = products.map((p) => ({
-      ...p,
-      images: Array.isArray(p.images) ? p.images : [],
-      variants:
-        p.variants?.map((v) => ({
-          ...v,
-          images: Array.isArray(v.images) ? v.images : [],
-        })) ?? [],
-    }));
+   const safeProducts = products.map((p: typeof products[number]) => ({
+  ...p,
+  images: Array.isArray(p.images) ? p.images : [],
+  variants:
+    p.variants?.map((v: typeof p.variants[number]) => ({
+      ...v,
+      images: Array.isArray(v.images) ? v.images : [],
+    })) ?? [],
+}));
+
 
     return NextResponse.json({ products: safeProducts });
   } catch (err: any) {

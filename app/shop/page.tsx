@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ProductCard from "@/components/ProductCard";
 import Footer from "@/components/Footer";
 import { Product, ProductVariant } from "@/types/product";
+import Header from "@/components/Header";
 
 
 export default function Shop() {
@@ -109,7 +110,7 @@ export default function Shop() {
           )}
         </main>
       </div>
-
+      <Header/>
       <Footer />
     </div>
   );

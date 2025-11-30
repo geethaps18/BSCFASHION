@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import nodemailer from "nodemailer";
+import Razorpay from "razorpay";
 
 const WHATSAPP_API_URL = "https://graph.facebook.com/v19.0";
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -117,20 +118,36 @@ export async function POST(req: Request) {
       const product = dbProducts.find((p) => p.id === item.productId)!;
       return {
         productId: product.id,
-        name: product.name,
+        name: product.name ?? "Product",
         quantity: Number(item.quantity),
         price: Number(item.price), // use price from payment page
         size: item.size ?? null,
       };
     });
 
-    // ✅ Calculate total amount from payment page (not just product.price)
+    // ✅ Calculate total amount
     const totalAmount = orderItems.reduce(
       (acc, i) => acc + i.price * i.quantity,
       0
     );
 
-    // ✅ Create order
+    // ✅ Razorpay order (for online payments only)
+    let razorpayOrder: any = null;
+    if (paymentMode === "Online") {
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID!,
+        key_secret: process.env.RAZORPAY_KEY_SECRET!,
+      });
+
+      razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(totalAmount * 100), // in paise
+        currency: "INR",
+        receipt: `order_rcptid_${Date.now()}`,
+        payment_capture: true,
+      });
+    }
+
+    // ✅ Create order in DB
     const order = await prisma.order.create({
       data: {
         userId,
@@ -138,18 +155,32 @@ export async function POST(req: Request) {
         paymentMode: paymentMode || "COD",
         address: JSON.stringify(address),
         upiId: paymentMode === "UPI" ? upiId ?? null : null,
-        cardDetails: paymentMode === "Card" ? JSON.stringify(cardDetails) : null,
-        items: { create: orderItems },
+        cardDetails:
+          paymentMode === "Card" ? JSON.stringify(cardDetails) : null,
+        razorpayOrderId: razorpayOrder?.id ?? null,
       },
-      include: { items: true, user: true },
+      include: { user: true }, // we will attach items separately
+    });
+
+    // ✅ Create OrderItems using createMany (allows 'name')
+    await prisma.orderItem.createMany({
+      data: orderItems.map((item) => ({
+        orderId: order.id,
+        productId: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+      })),
     });
 
     // ✅ Send email & WhatsApp notifications
     if (user.email) await sendOrderEmail(user.email, order, orderItems);
-    if (address.phone) await sendWhatsAppMessage(address.phone, order, orderItems);
+    if (address.phone)
+      await sendWhatsAppMessage(address.phone, order, orderItems);
 
     return NextResponse.json(
-      { success: true, orderId: order.id, order },
+      { success: true, order, rzpOrder: razorpayOrder ?? null },
       { status: 201 }
     );
   } catch (err: any) {

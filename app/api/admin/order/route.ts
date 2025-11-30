@@ -2,22 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendOrderNotification } from "@/utils/notify";
 
-// GET all orders (admin)
+// Helper: Generate 6-digit OTP
+function generateDeliveryOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// GET all orders
 export async function GET(req: NextRequest) {
   try {
     const orders = await prisma.order.findMany({
       include: {
         user: { select: { name: true, email: true, phone: true } },
-        items: {
-          include: {
-            product: true, // fetch product details
-          },
-        },
+        items: { include: { product: true } },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(orders);
+    const formatted = orders.map((o) => ({
+      ...o,
+      address: o.address ? JSON.parse(o.address) : {},
+    }));
+
+    return NextResponse.json(formatted);
   } catch (err) {
     console.error(err);
     return NextResponse.json(
@@ -27,12 +33,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PUT: update order status + send notifications
+// UPDATE ORDER STATUS
 export async function PUT(req: NextRequest) {
   try {
     const { orderId, status } = await req.json();
 
-    // 1️⃣ Fetch order with user and items
+    // Fetch order
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -41,10 +47,29 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    if (!order) return NextResponse.json({ message: "Order not found" }, { status: 404 });
+    if (!order)
+      return NextResponse.json({ message: "Order not found" }, { status: 404 });
 
-    // 2️⃣ Update status
-    const updatedOrder = await prisma.order.update({
+    let deliveryOtp: string | null = null;
+
+    // ⭐⭐⭐ Generate OTP when status moves to OUT_FOR_DELIVERY
+    if (status === "OUT_FOR_DELIVERY") {
+      deliveryOtp = generateDeliveryOtp();
+
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          deliveryOtp,
+          otpGeneratedAt: new Date(),
+          otpVerified: false,
+        },
+      });
+
+      console.log("DELIVERY OTP:", deliveryOtp);
+    }
+
+    // Update STATUS normally
+    const updated = await prisma.order.update({
       where: { id: orderId },
       data: { status },
       include: {
@@ -53,8 +78,11 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    // 3️⃣ Map items for notification
-    const itemsForNotification = updatedOrder.items.map((item) => ({
+    const parsedAddress =
+      updated.address ? JSON.parse(updated.address) : {};
+
+    // Map items
+    const itemsForNotification = updated.items.map((item: any) => ({
       name: item.product?.name ?? "Unnamed Product",
       qty: item.quantity,
       price: item.price,
@@ -62,19 +90,24 @@ export async function PUT(req: NextRequest) {
       image: item.product?.images?.[0] ?? undefined,
     }));
 
-    // 4️⃣ Send notification to that user
+    // Send notifications (includes OTP message)
     await sendOrderNotification({
-      email: updatedOrder.user?.email ?? "unknown@example.com",
-      phone: updatedOrder.user?.phone ?? "0000000000",
-      customerName: updatedOrder.user?.name ?? "Customer",
-      orderId: updatedOrder.id,
+      email: updated.user?.email ?? "",
+      phone: updated.user?.phone ?? "",
+      customerName: updated.user?.name ?? "Customer",
+      orderId: updated.id,
       items: itemsForNotification,
-      total: updatedOrder.totalAmount,
-      paymentMode: updatedOrder.paymentMode,
-      status: status as any,
+      total: updated.totalAmount,
+      paymentMode: updated.paymentMode,
+      status,
+      deliveryOtp, // ⭐ send OTP only when created
     });
 
-    return NextResponse.json({ message: "Order status updated", order: updatedOrder });
+    return NextResponse.json({
+      message: "Order status updated",
+      order: updated,
+    });
+
   } catch (err) {
     console.error(err);
     return NextResponse.json(

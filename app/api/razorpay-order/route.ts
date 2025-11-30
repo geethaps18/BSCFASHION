@@ -1,11 +1,10 @@
 // app/api/razorpay-order/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import Razorpay from "razorpay"; // ✅ ES module import
 
 export async function POST(req: NextRequest) {
   try {
     const { amount, currency = "INR" } = await req.json();
-
-    const Razorpay = require("razorpay");
 
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       return NextResponse.json({ success: false, error: "Razorpay keys missing" });
@@ -20,9 +19,8 @@ export async function POST(req: NextRequest) {
     const order = await razorpay.orders.create({
       amount: Math.round(amount * 100),
       currency,
-      payment_capture: 1,
+      payment_capture: true,
       notes: {
-        // Optional: add extra info
         purpose: "BSCFASHION Order Payment",
       },
     });

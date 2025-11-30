@@ -3,13 +3,13 @@ import { prisma } from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
-  context: { params: { id: string } } // Correct type
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = context.params;
+    const id = params.id;
 
     if (!id) {
-      return NextResponse.json({ error: "Order ID required" }, { status: 400 });
+      return NextResponse.json({ error: "order id required" }, { status: 400 });
     }
 
     const order = await prisma.order.findUnique({
@@ -21,12 +21,12 @@ export async function GET(
     });
 
     if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return NextResponse.json({ error: "order not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, order });
   } catch (err) {
     console.error("order-get:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "internal" }, { status: 500 });
   }
 }

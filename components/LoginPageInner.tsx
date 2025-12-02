@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { setCookie } from "cookies-next";
+import { useEffect } from "react";
+
 
 export default function LoginPageInner() {
   const router = useRouter();
@@ -77,8 +79,8 @@ export default function LoginPageInner() {
         });
 
         toast.success("Login successful!");
-        setVerified(true);
-        router.push(redirectTo);
+       setVerified(true);
+
       } else {
         toast.error(data.message || "Invalid OTP");
       }
@@ -88,6 +90,12 @@ export default function LoginPageInner() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+  if (verified) {
+    router.replace(redirectTo); // replace = no back button issue
+  }
+}, [verified]);
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">

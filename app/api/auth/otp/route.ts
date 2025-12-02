@@ -18,10 +18,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({
-      where: { phone: contact },
-    });
+  let user = await prisma.user.findFirst({
+  where: { phone: contact },
+});
+
 
     // If user does not exist, create (signup)
     if (!user) {

@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { categories, SubCategory } from "@/data/categories";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import type { JSX } from "react";
+
 
 // Recursive function to find category path by slug segments
 function findCategoryPath(

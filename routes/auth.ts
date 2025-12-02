@@ -1,7 +1,11 @@
 import express from "express";
 import jwt from "jsonwebtoken";
-import Otp from "../models/Otp"; // MongoDB OTP model
 import nodemailer from "nodemailer";
+import mongoose from "mongoose";
+import "../models/Otp";
+
+const Otp = mongoose.model("Otp");
+
 
 const router = express.Router();
 

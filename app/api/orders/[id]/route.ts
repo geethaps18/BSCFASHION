@@ -1,4 +1,3 @@
-// app/api/orders/[id]/route.ts
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import jwt from "jsonwebtoken";
@@ -23,28 +22,16 @@ function getUserId(req: NextRequest): string | null {
  * GET — Fetch Order Details
  * =========================
  */
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const parts = req.nextUrl.pathname.split("/"); // ["", "api", "orders", "{id}"]
-    const id = parts[parts.length - 1];
+    const { id } = await params;
 
-    if (!id) {
-      return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
-    }
-
-    // Fetch order with products and their reviews
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                reviews: true,
-              },
-            },
-          },
-        },
+        items: true,
+        user: true,
+        
       },
     });
 
@@ -52,51 +39,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    type OrderItemWithProduct = typeof order.items[number];
+    let parsedAddress = null;
+    if (order.address) {
+      try {
+        parsedAddress = JSON.parse(order.address);
+      } catch {
+        parsedAddress = { raw: order.address }; // fallback
+      }
+    }
 
-    // Format order for frontend
-    const formattedOrder = {
-      id: order.id,
-      status: order.status,
-      createdAt: order.createdAt,
-      totalAmount: order.totalAmount,
-      address: order.address ? JSON.parse(order.address) : null,
-      items: order.items.map((item: OrderItemWithProduct) => ({
-        id: item.id,
-        quantity: item.quantity,
-        size: item.size,
-        price: item.price,
-        name: item.name ?? item.product?.name ?? "",
-        description: item.product?.description ?? "",
-        images: Array.isArray(item.product?.images) ? item.product.images : [],
-        rating: item.product?.rating ?? 0,
-        reviewCount: item.product?.reviewCount ?? 0,
-        reviews: item.product?.reviews?.map((r) => ({
-          id: r.id,
-          userId: r.userId,
-          rating: r.rating,
-          review: r.review,
-          comment: r.comment,
-          images: r.images,
-          createdAt: r.createdAt,
-        })) || [],
-      })),
-    };
-
-    return NextResponse.json({ order: formattedOrder }, { status: 200 });
-  } catch (error) {
-    console.error("❌ Error fetching order:", error);
-    return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      order: { ...order, address: parsedAddress },
+    });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "internal" }, { status: 500 });
   }
 }
+
 
 /**
  * =========================
  * POST — Create Review
  * =========================
  */
-export async function POST(req: NextRequest) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }   // ✔ ADD THIS
+) {
   try {
+    // still unused, but required by Next.js to prevent warning:
+    await params;
+
     const userId = getUserId(req);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -111,19 +86,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1️⃣ Create review
+    // Create review
     const review = await prisma.review.create({
       data: {
         userId,
         productId,
-        orderId,       // optional
+        orderId,
         rating,
         comment,
         images: images || [],
       },
     });
 
-    // 2️⃣ Update product's average rating & review count
+    // Update product rating + count
     const agg = await prisma.review.aggregate({
       where: { productId },
       _avg: { rating: true },
@@ -141,6 +116,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {
     console.error("❌ Error creating review:", error);
-    return NextResponse.json({ error: "Failed to create review" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create review" },
+      { status: 500 }
+    );
   }
 }

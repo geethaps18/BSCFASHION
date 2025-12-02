@@ -1,5 +1,8 @@
 import express from "express";
-import Otp from "../models/Otp";
+import mongoose from "mongoose";
+import "../models/Otp"; // register schema
+const Otp = mongoose.model("Otp"); // use registered model
+
 import nodemailer from "nodemailer";
 
 const router = express.Router();

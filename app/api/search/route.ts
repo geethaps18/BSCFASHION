@@ -116,14 +116,15 @@ function calculateRelevance(product: ProductWithRelevance, query: string, filter
   if (filters.color && product.colorNames?.map((c) => c.toLowerCase()).includes(filters.color.toLowerCase())) score += 3;
   if (filters.size && product.sizes?.map((s) => s.toUpperCase()).includes(filters.size.toUpperCase())) score += 2;
 
-  if (
-    filters.category &&
-    [product.category, product.subCategory, product.subSubCategory]
-      .filter(Boolean)
-      .some((c) => c?.toLowerCase() === filters.category.toLowerCase())
-  ) {
-    score += 5;
-  }
+ if (
+  filters.category &&
+  [product.category, product.subCategory, product.subSubCategory]
+    .filter(Boolean)
+    .some((c) => c?.toLowerCase() === filters.category.toLowerCase())
+) {
+  score += 5;
+}
+
 
   return score;
 }

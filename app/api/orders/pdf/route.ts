@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
 
       // ---------- LOGO ----------
       const logoPath = path.join(process.cwd(), "public/images/logo1.png");
-      if (fs.existsSync(logoPath)) {
+     if (fs.existsSync(logoPath)) {
+
         doc.image(logoPath, doc.page.width / 2 - 50, 20, { width: 100 });
       }
       doc.moveDown(3);

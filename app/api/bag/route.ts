@@ -15,7 +15,7 @@ interface JwtPayload {
   userId: string;
 }
 
-function getUserId(req: NextRequest) {
+function getUserId(req: NextRequest): string | null {
   const token =
     req.cookies.get("token")?.value ||
     req.headers.get("authorization")?.replace("Bearer ", "");

@@ -6,6 +6,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import Otp from "./models/Otp";
+
 
 // ----------------------------
 // Load environment variables

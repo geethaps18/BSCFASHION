@@ -41,21 +41,25 @@ export default function MainCategoryPage() {
 
     fetchProducts(mainSlug)
       .then((data) => {
-        const mappedProducts: ProductType[] = data.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          mrp: p.mrp ?? p.price,
-          discount: p.discount ?? 0,
-          images: p.images?.length ? p.images : ["/placeholder.png"],
-          colors: p.colors ?? [],
-          sizes: p.sizes ?? ["Free"],
-          createdAt: p.createdAt ?? new Date().toISOString(),
-          reviewCount: p.reviewCount ?? 0,
-          rating: p.rating ?? 0,
-          variants: p.variants ?? [],
-        }));
-        setProducts(mappedProducts);
+       // inside useEffect -> fetchProducts(...).then((data) => { ... })
+const mappedProducts: ProductType[] = data.map((p: any) => ({
+  id: p.id,
+  name: p.name,
+  price: p.price,
+  mrp: p.mrp ?? p.price,
+  discount: p.discount ?? 0,
+  images: p.images?.length ? p.images : ["/placeholder.png"],
+  colors: p.colors ?? p.colorNames ?? [],
+  sizes: p.sizes ?? ["Free"],
+  createdAt: p.createdAt ?? new Date().toISOString(),
+  // <<< ADDED updatedAt (required by Product type) >>>
+  updatedAt: p.updatedAt ?? p.createdAt ?? new Date().toISOString(),
+  reviewCount: p.reviewCount ?? 0,
+  rating: p.rating ?? 0,
+  variants: p.variants ?? [],
+}));
+setProducts(mappedProducts);
+
       })
       .finally(() => setLoading(false));
   }, [mainSlug]);

@@ -27,7 +27,7 @@ model OTP {
  */
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  phone     String?
+  phone     String? @unique
   email     String?
   name      String?
   createdAt DateTime @default(now())
@@ -260,7 +260,7 @@ model Account {
  */
 model Order {
   id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId           String    @db.ObjectId
+  userId           String?    @db.ObjectId
   totalAmount      Float
   status           String    @default("PENDING")
   paymentMode      String    @default("COD")
@@ -281,7 +281,7 @@ model Order {
   deliveryBoyId  String?      @db.ObjectId
   deliveryBoy    DeliveryBoy? @relation("DeliveryBoyOrders", fields: [deliveryBoyId], references: [id])
 
-  user    User        @relation(fields: [userId], references: [id])
+  user    User?        @relation(fields: [userId], references: [id])
   items   OrderItem[]
   ratings Rating[]
   reviews Review[]
@@ -320,6 +320,7 @@ model OrderItem {
   quantity      Int
   price         Float
   size          String?
+  image         String?
   deliveryOtp   String?
   delivered     Boolean      @default(false)
   deliveryBoyId String?      @db.ObjectId

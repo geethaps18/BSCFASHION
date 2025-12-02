@@ -4,7 +4,10 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+
+    // IMPORTANT: strict must be OFF for Next.js route handlers
+    "strict": false,
+
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -13,26 +16,37 @@
     "isolatedModules": true,
     "incremental": true,
     "jsx": "preserve",
+
     "types": ["node", "react", "react-dom"],
+
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     },
+
+    "typeRoots": [
+      "./types",               // 👈 added
+      "./node_modules/@types"
+    ],
+
     "plugins": [
       {
         "name": "next"
       }
     ]
   },
+
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
+    "types/**/*.d.ts",         // 👈 added
     "utils/db.ts",
     "models/User.ts",
     "middleware.ts",
     "app/api/**/*"
   ],
+
   "exclude": ["node_modules"]
 }

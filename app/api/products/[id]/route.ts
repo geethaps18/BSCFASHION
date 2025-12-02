@@ -6,10 +6,6 @@ import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-interface Params {
-  id: string | string[];
-}
-
 // ----------------------
 // Helper: Get userId from JWT
 // ----------------------
@@ -30,14 +26,10 @@ function getUserId(req: NextRequest): string | null {
 }
 
 // ----------------------
-// Helper: Convert string to ObjectId if needed
+// Utility: Validate ObjectId
 // ----------------------
-function parseId(id: string) {
-  try {
-    return new ObjectId(id);
-  } catch {
-    return id; // fallback as string
-  }
+function isValidObjectId(id: string) {
+  return /^[a-fA-F0-9]{24}$/.test(id);
 }
 
 // ----------------------
@@ -45,53 +37,62 @@ function parseId(id: string) {
 // ----------------------
 export async function GET(
   req: NextRequest,
-  context: { params: Params }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Await params first
-    const params = await context.params; 
-    const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const { id } = await params;
 
-    if (!rawId) {
-      return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
+    if (!isValidObjectId(id)) {
+      return NextResponse.json(
+        { error: "Invalid product ID" },
+        { status: 400 }
+      );
     }
 
     const product = await prisma.product.findUnique({
-      where: { id: rawId },
-      include: { variants: true },
+      where: { id },
+      include: {
+        reviews: true,
+      },
     });
 
     if (!product) {
-      return NextResponse.json({ message: "Product not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(product, { status: 200 });
-  } catch (err: any) {
-    console.error("GET /product error:", err);
+    return NextResponse.json({ product });
+  } catch (err) {
+    console.error("Product GET Error:", err);
     return NextResponse.json(
-      { message: "Failed to fetch product", error: err.message },
+      { error: "Failed to fetch product" },
       { status: 500 }
     );
   }
 }
 
-
 // ----------------------
-// DELETE: Delete Product (Auth required)
+// DELETE: Delete Product
 // ----------------------
 export async function DELETE(
   req: NextRequest,
-  context: { params: Params }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const userId = getUserId(req);
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!userId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const rawId = Array.isArray(context.params.id) ? context.params.id[0] : context.params.id;
-    if (!rawId) return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
+    const deleted = await prisma.product.delete({ where: { id } });
 
-    const deleted = await prisma.product.delete({ where: { id: rawId } });
-    return NextResponse.json({ message: "✅ Product deleted!", product: deleted }, { status: 200 });
+    return NextResponse.json(
+      { message: "✅ Product deleted!", product: deleted },
+      { status: 200 }
+    );
   } catch (err: any) {
     console.error("DELETE /product error:", err);
     return NextResponse.json(
@@ -102,24 +103,24 @@ export async function DELETE(
 }
 
 // ----------------------
-// PUT: Update Product (Auth required)
+// PUT: Update Product
 // ----------------------
 export async function PUT(
   req: NextRequest,
-  context: { params: Params }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = getUserId(req);
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { id } = await params;
 
-    const rawId = Array.isArray(context.params.id) ? context.params.id[0] : context.params.id;
-    if (!rawId) return NextResponse.json({ message: "Product ID is required" }, { status: 400 });
+    const userId = getUserId(req);
+    if (!userId)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
     const { name, description, price, stock, category } = body;
 
     const updated = await prisma.product.update({
-      where: { id: rawId },
+      where: { id },
       data: {
         ...(name && { name }),
         ...(description && { description }),
@@ -130,7 +131,10 @@ export async function PUT(
       include: { variants: true },
     });
 
-    return NextResponse.json({ message: "✅ Product updated!", product: updated }, { status: 200 });
+    return NextResponse.json(
+      { message: "✅ Product updated!", product: updated },
+      { status: 200 }
+    );
   } catch (err: any) {
     console.error("PUT /product error:", err);
     return NextResponse.json(

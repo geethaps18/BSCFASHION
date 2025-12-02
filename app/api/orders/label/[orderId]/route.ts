@@ -1,75 +1,80 @@
-import { NextResponse } from "next/server";
-import {prisma} from "@/lib/db"; // ✅ FIXED import
+// app/api/orders/label/[orderId]/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import PDFDocument from "pdfkit";
 import { Readable } from "stream";
 
-export async function GET(req: Request, { params }: any) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ orderId: string }> }
+) {
   try {
-    const orderId = params.orderId;
+    const { orderId } = await params;
+
+    if (!orderId) {
+      return NextResponse.json(
+        { error: "Order ID required" },
+        { status: 400 }
+      );
+    }
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
         user: true,
-        items: { include: { product: true } },
+        items: {
+          include: {
+            product: true,
+          },
+        },
       },
     });
 
     if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
     }
 
-    const doc = new PDFDocument();
-    const stream = doc as unknown as Readable;
+    // Generate PDF Label
+    const doc = new PDFDocument({ size: "A6", margin: 20 });
+    const stream = doc.pipe(Readable.from([]) as any);
 
-    const chunks: Buffer[] = [];
-    stream.on("data", (chunk) => chunks.push(chunk));
-    const pdfBuffer = new Promise<Buffer>((resolve) => {
-      stream.on("end", () => resolve(Buffer.concat(chunks)));
-    });
-
-    // ---------------- PDF CONTENT ----------------
-
-    // Title
-    doc.font("Helvetica-Bold").fontSize(20).text("BSCFASHION Order Label");
+    doc.fontSize(20).text("Shipping Label", { align: "center" });
     doc.moveDown();
 
-    // Customer details
-    doc.font("Helvetica").fontSize(12);
-    doc.text(`Order ID: ${order.id}`);
-    doc.text(`Customer: ${order.user?.name}`);
-    doc.text(`Phone: ${order.user?.phone}`);
-    doc.text(`Address: ${order.address}`);
+    doc.fontSize(12).text(`Order ID: ${order.id}`);
+    doc.text(`Customer: ${order.user?.name || "N/A"}`);
+    doc.text(`Phone: ${order.user?.phone || "N/A"}`);
+    doc.text(`Address: ${order.address || "N/A"}`);
     doc.moveDown();
 
-    // Items list
-    doc.font("Helvetica-Bold").text("Items:");
-    doc.font("Helvetica");
-
+    doc.fontSize(14).text("Items:");
     order.items.forEach((item) => {
-      doc.text(
-        `${item.product.name} — Qty: ${item.quantity} — Size: ${item.size || "N/A"}`
+      doc.fontSize(12).text(
+        `${item.product.name} x ${item.quantity} — ₹${item.price}`
       );
     });
 
     doc.end();
 
-    const buffer = await pdfBuffer;
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(chunk);
 
-   const uint8 = new Uint8Array(buffer);
+    const pdfBuffer = Buffer.concat(chunks);
 
-return new NextResponse(uint8, {
-  status: 200,
-  headers: {
-    "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename="label-${orderId}.pdf"`,
-  },
-});
-
-  } catch (error) {
-    console.error("LABEL ERROR:", error);
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename=label-${orderId}.pdf`,
+      },
+    });
+  } catch (err) {
+    console.error("PDF Label Error:", err);
     return NextResponse.json(
-      { error: "Something went wrong" },
+      { error: "Failed to generate label" },
       { status: 500 }
     );
   }

@@ -246,11 +246,11 @@ export default function ProductDetailPage() {
             <div className="flex items-center gap-2 mt-1">
               {mrpNum && mrpNum > priceNum && (
                 <span className="text-gray-400 line-through text-sm md:text-base">
-                  Rs.{mrpNum.toLocaleString("en-IN")}
+                  Rs.{Number(mrpNum || 0).toLocaleString("en-IN")}
                 </span>
               )}
               <span className="text-gray-900 text-sm md:text-base">
-                Rs. {priceNum.toLocaleString("en-IN")}
+                Rs. {Number(priceNum || 0).toLocaleString("en-IN")}
               </span>
               {discount > 0 && (
                 <span className="text-[#CDAF5A] text-xs md:text-sm font-semibold">{discount}% OFF</span>

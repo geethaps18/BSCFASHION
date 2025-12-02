@@ -1,12 +1,10 @@
 "use client";
 
-import { Suspense } from "react";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import LoginPageInner from "@/components/LoginPageInner";
 
 export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
-      <LoginPageInner />
-    </Suspense>
-  );
+  return <LoginPageInner />;
 }

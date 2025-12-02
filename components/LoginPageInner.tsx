@@ -1,18 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
-import { setCookie } from "cookies-next";
-import { useEffect } from "react";
-
+import { setCookie, getCookie } from "cookies-next";
 
 export default function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
+
+  // 🔥 FIX: if user is already logged in, redirect immediately
+  useEffect(() => {
+    const token = getCookie("token");
+    if (token) {
+      router.replace(redirectTo);
+    }
+  }, []);
+
 
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");

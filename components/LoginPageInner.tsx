@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
-import { setCookie, getCookie } from "cookies-next";
+import { getCookie } from "cookies-next";
 import Image from "next/image";
 
 export default function LoginPageInner() {
@@ -13,55 +13,30 @@ export default function LoginPageInner() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
-  // ---------------------------
-  // HOOKS
-  // ---------------------------
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPhone, setIsPhone] = useState(true);
-  const [verified, setVerified] = useState(false);
-  const [checkingLogin, setCheckingLogin] = useState(true); // stays here
-
- // ---------------------------
-// CHECK IF ALREADY LOGGED IN
-// ---------------------------
-useEffect(() => {
-  const token = getCookie("token");
-  if (token) {
-    router.push(redirectTo || "/");
-  } else {
-    setCheckingLogin(false);
-  }
-}, []);
-
-// ---------------------------
-// REDIRECT AFTER VERIFIED
-// ---------------------------
-useEffect(() => {
-  if (!verified) return;
-
-  const timer = setTimeout(() => {
-    router.push(redirectTo || "/");
-  }, 100);
-
-  return () => clearTimeout(timer);
-}, [verified]);
-
+  const [checkingLogin, setCheckingLogin] = useState(true);
 
   // ---------------------------
-  // HELPERS
+  // CHECK ALREADY LOGGED IN
   // ---------------------------
-  const isEmail = (input: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+  useEffect(() => {
+    const token = getCookie("token");
+    if (token) {
+      router.replace(redirectTo);
+    } else {
+      setCheckingLogin(false);
+    }
+  }, []);
 
   // ---------------------------
   // SEND OTP
   // ---------------------------
   const handleSendOtp = async () => {
     if (!contact) return toast.error("Enter phone or email");
-    if (!isPhone && !isEmail(contact)) return toast.error("Enter valid email");
 
     setLoading(true);
     try {
@@ -72,15 +47,12 @@ useEffect(() => {
       });
 
       const data = await res.json();
-
       if (res.ok) {
         toast.success(data.message || "OTP sent");
         setOtpSent(true);
       } else {
-        toast.error(data.message || "Failed to send OTP");
+        toast.error(data.message);
       }
-    } catch {
-      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -94,7 +66,6 @@ useEffect(() => {
     if (!otp) return toast.error("Enter OTP");
 
     setLoading(true);
-
     try {
       const res = await fetch("/api/otp/verify", {
         method: "POST",
@@ -103,25 +74,18 @@ useEffect(() => {
       });
 
       const data = await res.json();
-      if (res.ok && data.token) {
-        setCookie("token", data.token, {
-          maxAge: 60 * 60 * 24 * 365,
-          path: "/",
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-        });
 
-       toast.success("Login successful!");
-
-  setVerified(true);
-
-  // 🔥 INSTANT REDIRECT WITH NO REFRESH
-  router.replace(redirectTo || "/");
-
-
-      } else {
+      if (!res.ok) {
         toast.error(data.message || "Invalid OTP");
+        return;
       }
+
+      // COOKIE IS SET AUTOMATICALLY IN API — DO NOT SET HERE
+      toast.success("Login successful!");
+
+      // 🔥 INSTANT redirect (NO REFRESH NEEDED)
+      router.replace(redirectTo);
+
     } catch {
       toast.error("Something went wrong");
     } finally {
@@ -130,7 +94,7 @@ useEffect(() => {
   };
 
   // ---------------------------
-  // UI RENDER
+  // RENDER
   // ---------------------------
   if (checkingLogin) {
     return (
@@ -146,18 +110,12 @@ useEffect(() => {
 
         {/* LOGO */}
         <div className="flex justify-center mb-6">
-          <Image
-            src="/images/logo.png"
-            width={120}
-            height={120}
-            alt="BSCFASHION Logo"
-            className="object-contain"
-          />
+          <Image src="/images/logo.png" width={120} height={120} alt="BSCFASHION Logo" />
         </div>
 
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
 
-        {/* PHONE / EMAIL SWITCH */}
+        {/* BUTTON SWITCH */}
         <div className="mb-4 flex justify-center">
           <button
             type="button"
@@ -168,7 +126,6 @@ useEffect(() => {
           >
             Phone
           </button>
-
           <button
             type="button"
             className={`px-4 py-2 rounded-r-md ${
@@ -182,7 +139,6 @@ useEffect(() => {
 
         {/* FORM */}
         <form onSubmit={handleVerifyOtp} className="space-y-4">
-
           {!otpSent && (
             <>
               {isPhone ? (
@@ -208,12 +164,12 @@ useEffect(() => {
                 disabled={loading}
                 className="w-full bg-yellow-500 text-white py-2 rounded-md"
               >
-                {loading ? "Sending OTP..." : "Send OTP"}
+                {loading ? "Sending..." : "Send OTP"}
               </button>
             </>
           )}
 
-          {otpSent && !verified && (
+          {otpSent && (
             <>
               <input
                 type="text"
@@ -228,29 +184,12 @@ useEffect(() => {
                 disabled={loading}
                 className="w-full bg-gray-800 text-white py-2 rounded-md"
               >
-                {loading ? "Verifying..." : "Verify OTP & Login"}
+                {loading ? "Verifying..." : "Verify & Login"}
               </button>
             </>
           )}
-
-          {verified && (
-            <p className="text-green-600 text-center">
-              Login successful! Redirecting...
-            </p>
-          )}
         </form>
 
-        <p className="text-center mt-4">
-          New here?{" "}
-          <button
-            onClick={() =>
-              router.push(`/signup?redirect=${encodeURIComponent(redirectTo)}`)
-            }
-            className="text-yellow-500 hover:underline"
-          >
-            Sign Up
-          </button>
-        </p>
       </div>
     </div>
   );

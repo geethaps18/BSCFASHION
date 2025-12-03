@@ -1,7 +1,7 @@
-// app/api/otp/verify/route.ts
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/db";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
@@ -14,14 +14,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1️⃣ Fetch OTP record
+    // Fetch OTP
     const record = await prisma.oTP.findFirst({
       where: { contact },
       orderBy: { createdAt: "desc" },
     });
-
-    console.log("[OTP VERIFY] Stored OTP:", record?.otp);
-    console.log("[OTP VERIFY] User input OTP:", otp);
 
     if (!record) {
       return NextResponse.json(
@@ -39,14 +36,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "OTP expired ❌" }, { status: 400 });
     }
 
-    // 2️⃣ OTP correct → delete all OTPs for this contact
     await prisma.oTP.deleteMany({ where: { contact } });
 
-    // 3️⃣ Check if contact is email or phone
+    // Create user if needed
     const isEmail = contact.includes("@");
-
-    // 4️⃣ Find or create user
     let user;
+
     if (isEmail) {
       user = await prisma.user.findFirst({ where: { email: contact } });
       if (!user && signup) {
@@ -70,17 +65,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5️⃣ Generate JWT
+    // Create JWT
     const token = jwt.sign(
       { userId: user.id, contact },
       process.env.JWT_SECRET || "supersecretkey123",
       { expiresIn: "7d" }
     );
 
-    // 6️⃣ Success response
+    // ✅ SET COOKIE ON SERVER — REAL FIX
+    const cookieStore = await cookies();
+    cookieStore.set("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+
     return NextResponse.json({
+      success: true,
       message: "OTP verified ✅",
-      token,
       user: {
         id: user.id,
         name: user.name,

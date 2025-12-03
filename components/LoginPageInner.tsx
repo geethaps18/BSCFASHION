@@ -12,14 +12,16 @@ export default function LoginPageInner() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
-  // 🔥 FIX: if user is already logged in, redirect immediately
+  // -------------------------------------
+  // FIX 1: CHECK LOGIN USING EFFECT
+  // -------------------------------------
   useEffect(() => {
     const token = getCookie("token");
     if (token) {
       router.replace(redirectTo);
+      router.refresh();
     }
   }, []);
-
 
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
@@ -31,39 +33,39 @@ export default function LoginPageInner() {
   const isEmail = (input: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
+  // -------------------------------------
+  // SEND OTP
+  // -------------------------------------
   const handleSendOtp = async () => {
-    if (!contact) {
-      toast.error("Enter phone or email");
-      return;
-    }
-    if (!isPhone && !isEmail(contact)) {
-      toast.error("Enter valid email");
-      return;
-    }
+    if (!contact) return toast.error("Enter phone/email");
+    if (!isPhone && !isEmail(contact)) return toast.error("Enter valid email");
 
     setLoading(true);
     try {
       const res = await fetch("/api/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ contact }),
       });
 
       const data = await res.json();
-
       if (res.ok) {
-        toast.success(data.message || "OTP sent");
+        toast.success("OTP sent");
         setOtpSent(true);
       } else {
-        toast.error(data.message || "Failed to send OTP");
+        toast.error(data.message);
       }
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
+  // -------------------------------------
+  // VERIFY OTP
+  // -------------------------------------
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp) return toast.error("Enter OTP");
@@ -73,11 +75,14 @@ export default function LoginPageInner() {
       const res = await fetch("/api/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ contact, otp }),
       });
 
       const data = await res.json();
+
       if (res.ok && data.token) {
+        // SAVE COOKIE
         setCookie("token", data.token, {
           maxAge: 60 * 60 * 24 * 365,
           path: "/",
@@ -86,23 +91,45 @@ export default function LoginPageInner() {
         });
 
         toast.success("Login successful!");
-       setVerified(true);
+        setVerified(true);
 
+        // -------------------------------------
+        // FIX 2: WAIT FOR COOKIE TO SET
+        // -------------------------------------
+        await new Promise((r) => setTimeout(r, 150));
+
+        // -------------------------------------
+        // FIX 3: FORCE RE-RENDER APP STATE
+        // -------------------------------------
+        router.refresh();
+
+        // -------------------------------------
+        // FIX 4: INSTANT REDIRECT
+        // -------------------------------------
+        router.replace(redirectTo);
       } else {
         toast.error(data.message || "Invalid OTP");
       }
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => {
-  if (verified) {
-    router.replace(redirectTo); // replace = no back button issue
-  }
-}, [verified]);
 
+  // -------------------------------------
+  // Redirect UI
+  // -------------------------------------
+  useEffect(() => {
+    if (verified) {
+      const t = setTimeout(() => {
+        router.replace(redirectTo);
+        router.refresh();
+      }, 200);
+
+      return () => clearTimeout(t);
+    }
+  }, [verified]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -111,7 +138,6 @@ export default function LoginPageInner() {
 
         <div className="mb-4 flex justify-center">
           <button
-            type="button"
             className={`px-4 py-2 rounded-l-md ${
               isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
             }`}
@@ -120,7 +146,6 @@ export default function LoginPageInner() {
             Phone
           </button>
           <button
-            type="button"
             className={`px-4 py-2 rounded-r-md ${
               !isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
             }`}
@@ -131,6 +156,7 @@ export default function LoginPageInner() {
         </div>
 
         <form onSubmit={handleVerifyOtp} className="space-y-4">
+
           {!otpSent && (
             <>
               {isPhone ? (
@@ -156,7 +182,7 @@ export default function LoginPageInner() {
                 disabled={loading}
                 className="w-full bg-yellow-500 text-white py-2 rounded-md"
               >
-                {loading ? "Sending OTP..." : "Send OTP"}
+                {loading ? "Sending..." : "Send OTP"}
               </button>
             </>
           )}
@@ -187,18 +213,6 @@ export default function LoginPageInner() {
             </p>
           )}
         </form>
-
-        <p className="text-center mt-4">
-          New here?{" "}
-          <button
-            onClick={() =>
-              router.push(`/signup?redirect=${encodeURIComponent(redirectTo)}`)
-            }
-            className="text-yellow-500 hover:underline"
-          >
-            Sign Up
-          </button>
-        </p>
       </div>
     </div>
   );

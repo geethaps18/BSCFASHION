@@ -23,15 +23,29 @@ export default function LoginPageInner() {
   const [isPhone, setIsPhone] = useState(true);
   const [verified, setVerified] = useState(false);
 
+  // NEW → Fix redirect loop
+  const [checkingLogin, setCheckingLogin] = useState(true);
+
   // ---------------------------
-  // AUTO REDIRECT IF ALREADY LOGGED IN
+  // CHECK IF ALREADY LOGGED IN
   // ---------------------------
   useEffect(() => {
     const token = getCookie("token");
+
     if (token) {
       router.replace(redirectTo);
+    } else {
+      setCheckingLogin(false); // allow UI to load
     }
   }, [router, redirectTo]);
+
+  if (checkingLogin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-gray-600">
+        Checking...
+      </div>
+    );
+  }
 
   const isEmail = (input: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
@@ -59,7 +73,7 @@ export default function LoginPageInner() {
       } else {
         toast.error(data.message || "Failed to send OTP");
       }
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setLoading(false);
@@ -96,7 +110,7 @@ export default function LoginPageInner() {
       } else {
         toast.error(data.message || "Invalid OTP");
       }
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
     } finally {
       setLoading(false);
@@ -132,28 +146,28 @@ export default function LoginPageInner() {
 
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
 
+        {/* PHONE / EMAIL SWITCH */}
         <div className="mb-4 flex justify-center">
           <button
             type="button"
-            className={`px-4 py-2 rounded-l-md ${
-              isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-l-md ${isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"}`}
             onClick={() => setIsPhone(true)}
           >
             Phone
           </button>
+
           <button
             type="button"
-            className={`px-4 py-2 rounded-r-md ${
-              !isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-r-md ${!isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"}`}
             onClick={() => setIsPhone(false)}
           >
             Email
           </button>
         </div>
 
+        {/* FORM */}
         <form onSubmit={handleVerifyOtp} className="space-y-4">
+
           {!otpSent && (
             <>
               {isPhone ? (

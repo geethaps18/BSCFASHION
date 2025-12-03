@@ -109,7 +109,7 @@ export default function Home() {
         <div className="mt-6 md:mt-8 lg:mt-10 xl:mt-12 relative overflow-hidden z-50">
           <div className="bg-gradient-to-r shadow-2xl py-1 px-4 flex items-center">
             <div className="flex animate-marquee whitespace-nowrap text-yellow-900 font-semibold text-l md:text-xl tracking-wider drop-shadow-lg ribbon-text">
-              <span className="mx-8">🪔🎇 ದೀಪಾವಳಿ ಡಬಲ್ ಡಿಸ್ಕೌಂಟ್! ತಪ್ಪಿಸಿಕೊಳ್ಳಬೇಡಿ!</span>
+              <span className="mx-8">🪔 ದೀಪಾವಳಿ ಡಬಲ್ ಡಿಸ್ಕೌಂಟ್! ತಪ್ಪಿಸಿಕೊಳ್ಳಬೇಡಿ!</span>
               <span className="mx-8">🪔🎇 Double Discount this Deepavali! Don’t miss out!</span>
             </div>
           </div>

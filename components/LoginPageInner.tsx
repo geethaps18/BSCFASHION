@@ -22,31 +22,32 @@ export default function LoginPageInner() {
   const [loading, setLoading] = useState(false);
   const [isPhone, setIsPhone] = useState(true);
   const [verified, setVerified] = useState(false);
-
-  // NEW → Fix redirect loop
-  const [checkingLogin, setCheckingLogin] = useState(true);
+  const [checkingLogin, setCheckingLogin] = useState(true); // stays here
 
   // ---------------------------
   // CHECK IF ALREADY LOGGED IN
   // ---------------------------
   useEffect(() => {
     const token = getCookie("token");
-
     if (token) {
       router.replace(redirectTo);
     } else {
-      setCheckingLogin(false); // allow UI to load
+      setCheckingLogin(false);
     }
   }, [router, redirectTo]);
 
-  if (checkingLogin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-gray-600">
-        Checking...
-      </div>
-    );
-  }
+  // ---------------------------
+  // REDIRECT AFTER VERIFIED
+  // ---------------------------
+  useEffect(() => {
+    if (verified) {
+      router.replace(redirectTo);
+    }
+  }, [verified, router, redirectTo]);
 
+  // ---------------------------
+  // HELPERS
+  // ---------------------------
   const isEmail = (input: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
@@ -88,6 +89,7 @@ export default function LoginPageInner() {
     if (!otp) return toast.error("Enter OTP");
 
     setLoading(true);
+
     try {
       const res = await fetch("/api/otp/verify", {
         method: "POST",
@@ -96,7 +98,6 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
-
       if (res.ok && data.token) {
         setCookie("token", data.token, {
           maxAge: 60 * 60 * 24 * 365,
@@ -118,17 +119,16 @@ export default function LoginPageInner() {
   };
 
   // ---------------------------
-  // REDIRECT AFTER VERIFIED
+  // UI RENDER
   // ---------------------------
-  useEffect(() => {
-    if (verified) {
-      router.replace(redirectTo);
-    }
-  }, [verified, router, redirectTo]);
+  if (checkingLogin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-gray-600">
+        Checking...
+      </div>
+    );
+  }
 
-  // ---------------------------------
-  // UI + LOGO
-  // ---------------------------------
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
       <div className="w-full max-w-md bg-white shadow-lg p-8 rounded-lg">
@@ -150,7 +150,9 @@ export default function LoginPageInner() {
         <div className="mb-4 flex justify-center">
           <button
             type="button"
-            className={`px-4 py-2 rounded-l-md ${isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"}`}
+            className={`px-4 py-2 rounded-l-md ${
+              isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
+            }`}
             onClick={() => setIsPhone(true)}
           >
             Phone
@@ -158,7 +160,9 @@ export default function LoginPageInner() {
 
           <button
             type="button"
-            className={`px-4 py-2 rounded-r-md ${!isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"}`}
+            className={`px-4 py-2 rounded-r-md ${
+              !isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
+            }`}
             onClick={() => setIsPhone(false)}
           >
             Email

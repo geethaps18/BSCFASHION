@@ -1,7 +1,12 @@
 "use client";
 
-import LoginPageInner from "@/components/LoginPageInner";
+import { Suspense } from "react";
+import LoginPage from "./LoginPage";
 
-export default function LoginPage() {
-  return <LoginPageInner />;
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPage />
+    </Suspense>
+  );
 }

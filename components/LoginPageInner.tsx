@@ -24,26 +24,31 @@ export default function LoginPageInner() {
   const [verified, setVerified] = useState(false);
   const [checkingLogin, setCheckingLogin] = useState(true); // stays here
 
-  // ---------------------------
-  // CHECK IF ALREADY LOGGED IN
-  // ---------------------------
-  useEffect(() => {
-    const token = getCookie("token");
-    if (token) {
-      router.replace(redirectTo);
-    } else {
-      setCheckingLogin(false);
-    }
-  }, [router, redirectTo]);
+ // ---------------------------
+// CHECK IF ALREADY LOGGED IN
+// ---------------------------
+useEffect(() => {
+  const token = getCookie("token");
+  if (token) {
+    router.push(redirectTo || "/");
+  } else {
+    setCheckingLogin(false);
+  }
+}, []);
 
-  // ---------------------------
-  // REDIRECT AFTER VERIFIED
-  // ---------------------------
-  useEffect(() => {
-    if (verified) {
-      router.replace(redirectTo);
-    }
-  }, [verified, router, redirectTo]);
+// ---------------------------
+// REDIRECT AFTER VERIFIED
+// ---------------------------
+useEffect(() => {
+  if (!verified) return;
+
+  const timer = setTimeout(() => {
+    router.push(redirectTo || "/");
+  }, 100);
+
+  return () => clearTimeout(timer);
+}, [verified]);
+
 
   // ---------------------------
   // HELPERS
@@ -107,7 +112,8 @@ export default function LoginPageInner() {
         });
 
         toast.success("Login successful!");
-        setVerified(true);
+        setTimeout(() => setVerified(true), 50);
+
       } else {
         toast.error(data.message || "Invalid OTP");
       }

@@ -32,11 +32,31 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
   const fetchWishlist = async () => {
     try {
       const token = getCookie("token");
-      if (!token) {
-        setWishlist([]);
-        setUserLoggedIn(false);
-        return;
-      }
+if (!token || typeof token !== "string") {
+  setWishlist([]);
+  setUserLoggedIn(false);
+  return;
+}
+
+try {
+  const part = token.split(".")[1]
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+  JSON.parse(
+    decodeURIComponent(
+      atob(part)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    )
+  );
+} catch (err) {
+  console.error("JWT invalid:", err);
+  setWishlist([]);
+  setUserLoggedIn(false);
+  return;
+}
+
 
       const res = await fetch("/api/wishlist", {
         method: "GET",

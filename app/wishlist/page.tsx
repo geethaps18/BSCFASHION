@@ -29,11 +29,31 @@ export default function WishlistPage() {
       return;
     }
     try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      setUserId(payload.userId || null);
-    } catch (err) {
-      console.error("Invalid JWT:", err);
-      setUserId(null);
+  const base64 = token.split(".")[1]
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const json = decodeURIComponent(
+    atob(base64)
+      .split("")
+      .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+      .join("")
+  );
+
+  const payload = JSON.parse(json);
+
+  setUserId(
+    payload.userId ||
+    payload.id ||
+    payload._id ||
+    payload.user ||
+    payload.uid ||
+    null
+  );
+} catch (err) {
+  console.error("JWT decode failed:", err);
+  setUserId(null);
+
     } finally {
       setLoading(false);
     }

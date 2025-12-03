@@ -8,8 +8,16 @@ export function getUserIdFromToken(req: NextRequest): string | null {
   if (!token) return null;
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    return decoded.userId;
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+    return (
+      decoded.userId ||
+      decoded.id ||
+      decoded._id ||
+      decoded.uid ||
+      decoded.user ||
+      null
+    );
   } catch (err) {
     console.error("JWT verification failed:", err);
     return null;

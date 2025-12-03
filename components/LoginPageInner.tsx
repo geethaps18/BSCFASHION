@@ -12,7 +12,30 @@ export default function LoginPageInner() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
- 
+  useEffect(() => {
+  const token = String(getCookie("token", { path: "/" }) || "");
+
+
+  if (!token || token === "undefined") return;
+
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const now = Math.floor(Date.now() / 1000);
+
+    if (!payload.exp || payload.exp < now) {
+      // 🔥 ONE-MOVE FIX: clear expired token
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      return;
+    }
+
+    // ✔ Token is valid → redirect normally
+    router.replace(redirectTo);
+  } catch {
+    // 🔥 If token is invalid → remove it
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  }
+}, []);
+
 
 
   const [contact, setContact] = useState("");
@@ -72,12 +95,14 @@ export default function LoginPageInner() {
 
       const data = await res.json();
       if (res.ok && data.token) {
-        setCookie("token", data.token, {
-          maxAge: 60 * 60 * 24 * 365,
-          path: "/",
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-        });
+  setCookie("token", data.token, {
+  maxAge: 60 * 60 * 24 * 365, // 1 year
+  path: "/",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  secure: process.env.NODE_ENV === "production", 
+});
+
+
 
         toast.success("Login successful!");
        setVerified(true);

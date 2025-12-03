@@ -113,10 +113,10 @@ useEffect(() => {
 
        toast.success("Login successful!");
 
-setTimeout(() => {
   setVerified(true);
-  router;   // 🔥 force re-render of whole app
-}, 50);
+
+  // 🔥 INSTANT REDIRECT WITH NO REFRESH
+  router.replace(redirectTo || "/");
 
 
       } else {

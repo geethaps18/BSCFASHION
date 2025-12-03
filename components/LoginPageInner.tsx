@@ -5,38 +5,41 @@ import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
-import { getCookie } from "cookies-next";
-import Image from "next/image";
+import { setCookie, getCookie } from "cookies-next";
 
 export default function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
+  // 🔥 FIX: if user is already logged in, redirect immediately
+  useEffect(() => {
+    const token = getCookie("token");
+    if (token) {
+      router.replace(redirectTo);
+    }
+  }, []);
+
+
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPhone, setIsPhone] = useState(true);
-  const [checkingLogin, setCheckingLogin] = useState(true);
+  const [verified, setVerified] = useState(false);
 
-  // ---------------------------
-  // CHECK ALREADY LOGGED IN
-  // ---------------------------
-  useEffect(() => {
-    const token = getCookie("token");
-    if (token) {
-      router.replace(redirectTo);
-    } else {
-      setCheckingLogin(false);
-    }
-  }, []);
+  const isEmail = (input: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
-  // ---------------------------
-  // SEND OTP
-  // ---------------------------
   const handleSendOtp = async () => {
-    if (!contact) return toast.error("Enter phone or email");
+    if (!contact) {
+      toast.error("Enter phone or email");
+      return;
+    }
+    if (!isPhone && !isEmail(contact)) {
+      toast.error("Enter valid email");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -47,20 +50,20 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
+
       if (res.ok) {
         toast.success(data.message || "OTP sent");
         setOtpSent(true);
       } else {
-        toast.error(data.message);
+        toast.error(data.message || "Failed to send OTP");
       }
+    } catch (err) {
+      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------------------
-  // VERIFY OTP
-  // ---------------------------
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp) return toast.error("Enter OTP");
@@ -74,48 +77,38 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
+      if (res.ok && data.token) {
+        setCookie("token", data.token, {
+          maxAge: 60 * 60 * 24 * 365,
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        });
 
-      if (!res.ok) {
+        toast.success("Login successful!");
+       setVerified(true);
+
+      } else {
         toast.error(data.message || "Invalid OTP");
-        return;
       }
-
-      // COOKIE IS SET AUTOMATICALLY IN API — DO NOT SET HERE
-      toast.success("Login successful!");
-
-      // 🔥 INSTANT redirect (NO REFRESH NEEDED)
-      router.replace(redirectTo);
-
-    } catch {
+    } catch (err) {
       toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
   };
-
-  // ---------------------------
-  // RENDER
-  // ---------------------------
-  if (checkingLogin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-gray-600">
-        Checking...
-      </div>
-    );
+  useEffect(() => {
+  if (verified) {
+    router.replace(redirectTo); // replace = no back button issue
   }
+}, [verified]);
+
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <div className="w-full max-w-md bg-white shadow-lg p-8 rounded-lg">
-
-        {/* LOGO */}
-        <div className="flex justify-center mb-6">
-          <Image src="/images/logo.png" width={120} height={120} alt="BSCFASHION Logo" />
-        </div>
-
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
 
-        {/* BUTTON SWITCH */}
         <div className="mb-4 flex justify-center">
           <button
             type="button"
@@ -137,7 +130,6 @@ export default function LoginPageInner() {
           </button>
         </div>
 
-        {/* FORM */}
         <form onSubmit={handleVerifyOtp} className="space-y-4">
           {!otpSent && (
             <>
@@ -164,12 +156,12 @@ export default function LoginPageInner() {
                 disabled={loading}
                 className="w-full bg-yellow-500 text-white py-2 rounded-md"
               >
-                {loading ? "Sending..." : "Send OTP"}
+                {loading ? "Sending OTP..." : "Send OTP"}
               </button>
             </>
           )}
 
-          {otpSent && (
+          {otpSent && !verified && (
             <>
               <input
                 type="text"
@@ -184,12 +176,29 @@ export default function LoginPageInner() {
                 disabled={loading}
                 className="w-full bg-gray-800 text-white py-2 rounded-md"
               >
-                {loading ? "Verifying..." : "Verify & Login"}
+                {loading ? "Verifying..." : "Verify OTP & Login"}
               </button>
             </>
           )}
+
+          {verified && (
+            <p className="text-green-600 text-center">
+              Login successful! Redirecting...
+            </p>
+          )}
         </form>
 
+        <p className="text-center mt-4">
+          New here?{" "}
+          <button
+            onClick={() =>
+              router.push(`/signup?redirect=${encodeURIComponent(redirectTo)}`)
+            }
+            className="text-yellow-500 hover:underline"
+          >
+            Sign Up
+          </button>
+        </p>
       </div>
     </div>
   );

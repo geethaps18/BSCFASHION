@@ -115,7 +115,7 @@ useEffect(() => {
 
 setTimeout(() => {
   setVerified(true);
-  router.refresh();   // 🔥 force re-render of whole app
+  router;   // 🔥 force re-render of whole app
 }, 50);
 
 

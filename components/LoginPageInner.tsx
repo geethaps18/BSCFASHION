@@ -6,21 +6,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { setCookie, getCookie } from "cookies-next";
+import Image from "next/image";
 
 export default function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
-  // 🔥 FIX: if user is already logged in, redirect immediately
-  useEffect(() => {
-    const token = getCookie("token");
-    if (token) {
-      router.replace(redirectTo);
-    }
-  }, []);
-
-
+  // ---------------------------
+  // HOOKS
+  // ---------------------------
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -28,18 +23,25 @@ export default function LoginPageInner() {
   const [isPhone, setIsPhone] = useState(true);
   const [verified, setVerified] = useState(false);
 
+  // ---------------------------
+  // AUTO REDIRECT IF ALREADY LOGGED IN
+  // ---------------------------
+  useEffect(() => {
+    const token = getCookie("token");
+    if (token) {
+      router.replace(redirectTo);
+    }
+  }, [router, redirectTo]);
+
   const isEmail = (input: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
+  // ---------------------------
+  // SEND OTP
+  // ---------------------------
   const handleSendOtp = async () => {
-    if (!contact) {
-      toast.error("Enter phone or email");
-      return;
-    }
-    if (!isPhone && !isEmail(contact)) {
-      toast.error("Enter valid email");
-      return;
-    }
+    if (!contact) return toast.error("Enter phone or email");
+    if (!isPhone && !isEmail(contact)) return toast.error("Enter valid email");
 
     setLoading(true);
     try {
@@ -64,6 +66,9 @@ export default function LoginPageInner() {
     }
   };
 
+  // ---------------------------
+  // VERIFY OTP
+  // ---------------------------
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp) return toast.error("Enter OTP");
@@ -77,6 +82,7 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
+
       if (res.ok && data.token) {
         setCookie("token", data.token, {
           maxAge: 60 * 60 * 24 * 365,
@@ -86,8 +92,7 @@ export default function LoginPageInner() {
         });
 
         toast.success("Login successful!");
-       setVerified(true);
-
+        setVerified(true);
       } else {
         toast.error(data.message || "Invalid OTP");
       }
@@ -97,16 +102,34 @@ export default function LoginPageInner() {
       setLoading(false);
     }
   };
+
+  // ---------------------------
+  // REDIRECT AFTER VERIFIED
+  // ---------------------------
   useEffect(() => {
-  if (verified) {
-    router.replace(redirectTo); // replace = no back button issue
-  }
-}, [verified]);
+    if (verified) {
+      router.replace(redirectTo);
+    }
+  }, [verified, router, redirectTo]);
 
-
+  // ---------------------------------
+  // UI + LOGO
+  // ---------------------------------
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
       <div className="w-full max-w-md bg-white shadow-lg p-8 rounded-lg">
+
+        {/* LOGO */}
+        <div className="flex justify-center mb-6">
+          <Image
+            src="/images/logo.png"
+            width={120}
+            height={120}
+            alt="BSCFASHION Logo"
+            className="object-contain"
+          />
+        </div>
+
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
 
         <div className="mb-4 flex justify-center">

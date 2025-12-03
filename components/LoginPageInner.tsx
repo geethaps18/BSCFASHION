@@ -107,7 +107,7 @@ useEffect(() => {
         setCookie("token", data.token, {
           maxAge: 60 * 60 * 24 * 365,
           path: "/",
-          sameSite: "none",
+          sameSite: "lax",
           secure: true,
 
         });

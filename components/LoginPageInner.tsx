@@ -108,8 +108,7 @@ useEffect(() => {
           maxAge: 60 * 60 * 24 * 365,
           path: "/",
           sameSite: "lax",
-          secure: false,
-
+          secure: process.env.NODE_ENV === "production",
         });
 
        toast.success("Login successful!");
@@ -130,16 +129,6 @@ useEffect(() => {
     }
   };
 
-  // ---------------------------
-  // UI RENDER
-  // ---------------------------
-  if (checkingLogin) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-gray-600">
-        Checking...
-      </div>
-    );
-  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">

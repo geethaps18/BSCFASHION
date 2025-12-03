@@ -1,9 +1,10 @@
-"use client"; // MUST BE FIRST
+"use client";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import { Suspense } from "react";
 import LoginPageInner from "@/components/LoginPageInner";
-
-export const dynamic = "force-dynamic";  // OK HERE for Next.js 15
 
 export default function Page() {
   return (

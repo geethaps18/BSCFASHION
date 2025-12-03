@@ -16,53 +16,42 @@ import { Product } from "@/types/product";
 import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 
-// ------------------- Zoom Image Component -------------------
-function ZoomImage({
-  src,
-  alt,
-}: {
-  src: string;
-  alt: string;
-}) {
+function ZoomImage({ src, alt }: { src: string; alt: string }) {
   const MIN = 1;
   const MAX = 2;
-  const [zoom, setZoom] = useState<number>(MIN);
-  const [bgPos, setBgPos] = useState<string>("center");
+  const [zoom, setZoom] = useState(MIN);
+  const [bgPos, setBgPos] = useState("center");
 
   const toggleZoom = () => {
     setZoom((prev) => (prev === MIN ? MAX : MIN));
     if (zoom !== MIN) setBgPos("center");
   };
 
-  const updatePositionFromPoint = (x: number, y: number, el: HTMLDivElement) => {
+  const setPos = (x: number, y: number, el: HTMLDivElement) => {
     if (zoom === MIN) return;
     const rect = el.getBoundingClientRect();
     const rx = ((x - rect.left) / rect.width) * 100;
     const ry = ((y - rect.top) / rect.height) * 100;
-    setBgPos(`${Math.max(0, Math.min(100, rx))}% ${Math.max(0, Math.min(100, ry))}%`);
+    setBgPos(`${rx}% ${ry}%`);
   };
 
   return (
     <div className="relative w-full overflow-hidden shadow-lg">
       <div
         onClick={toggleZoom}
-        onMouseMove={(e) => updatePositionFromPoint(e.clientX, e.clientY, e.currentTarget)}
-        onTouchMove={(e) =>
-          updatePositionFromPoint(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
-        }
-        onMouseLeave={() => zoom === MIN && setBgPos("center")}
+        onMouseMove={(e) => setPos(e.clientX, e.clientY, e.currentTarget)}
+        onTouchMove={(e) => setPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)}
         className={`w-full h-[400px] md:h-[360px] bg-gray-50 select-none ${
-          zoom === MIN ? "cursor-zoom-in" : "cursor-move touch-none"
+          zoom === MIN ? "cursor-zoom-in" : "cursor-move"
         }`}
         style={{
           backgroundImage: `url(${src})`,
           backgroundRepeat: "no-repeat",
           backgroundPosition: zoom === MIN ? "center" : bgPos,
           backgroundSize: zoom === MIN ? "contain" : `${zoom * 100}%`,
-          transition: "background-size 0.3s ease",
         }}
       >
-        <Image src={src} alt={alt} fill className="object-contain opacity-0" draggable={false} />
+        <Image src={src} alt={alt} fill className="opacity-0" draggable={false} />
       </div>
     </div>
   );
@@ -73,70 +62,88 @@ export default function ProductDetailPage() {
   const params = useParams<{ id?: string }>();
   const id = params?.id;
 
-  const { wishlist: wishlistContext, toggleWishlist } = useWishlist();
+  const { wishlist, toggleWishlist } = useWishlist();
   const { addToCart } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [networkError, setNetworkError] = useState(""); // <<< INTERNET ERROR
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [addingToBag, setAddingToBag] = useState(false);
   const [sizeError, setSizeError] = useState(false);
   const sizesRef = useRef<HTMLDivElement | null>(null);
 
-  // ------------------- Fetch Product & Similar Products -------------------
+  // ------------------- FETCH PRODUCT -------------------
   useEffect(() => {
     if (!id) return;
 
-    const fetchProductAndSimilar = async () => {
+    const load = async () => {
       try {
-        setLoading(true);
-
         const res = await fetch(`/api/products/${id}`);
-        if (!res.ok) throw new Error("Product not found");
+
+        // INTERNET FAILS → fetch throws error → goes to catch block
+        if (!res.ok) {
+          setProduct(null);
+          return;
+        }
+
         const data: Product = await res.json();
         setProduct({ ...data, reviewCount: data?.reviewCount ?? 0 });
 
-        // Set default color
         setSelectedColor(data?.colors?.[0]?.hex ?? null);
-        setSelectedSize(null);
 
-        // Fetch similar products dynamically
+        // Fetch similar products
         const params = new URLSearchParams();
         if (data.subSubCategory) params.append("subSubCategory", data.subSubCategory);
         else if (data.subCategory) params.append("subCategory", data.subCategory);
         else if (data.category) params.append("category", data.category);
-        if (data.id) params.append("exclude", data.id);
+        params.append("exclude", data.id);
 
-        const simRes = await fetch(`/api/products/similar?${params.toString()}`);
-        if (!simRes.ok) throw new Error("Failed to fetch similar products");
-        const simData: Product[] = await simRes.json();
-        setSimilarProducts(simData);
+        const sim = await fetch(`/api/products/similar?${params.toString()}`);
+        if (sim.ok) setSimilarProducts(await sim.json());
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to fetch product or similar products");
-      } finally {
-        setLoading(false);
+        setNetworkError("No internet connection. Please check your network."); // <<< MESSAGE
+        setProduct(null);
       }
     };
 
-    fetchProductAndSimilar();
+    load();
   }, [id]);
 
-  // ------------------- Reset size error -------------------
-  useEffect(() => {
-    if (selectedSize) setSizeError(false);
-  }, [selectedSize]);
+  // INTERNET ERROR UI
+  if (networkError) {
+    return (
+      <div className="p-6 text-center text-red-600 text-lg mt-20">
+        {networkError}
+      </div>
+    );
+  }
 
-  // ------------------- Add to Bag -------------------
+  // PRODUCT NOT FOUND
+  if (!product) {
+    return (
+      <p className="p-6 text-center text-gray-500 mt-20">
+        Product not found.
+      </p>
+    );
+  }
+
+  // ------------------- RENDER PRODUCT -------------------
+  const images = product.images?.length ? product.images : ["/placeholder.png"];
+  const isWishlisted = wishlist.some((p) => p.id === product.id);
+
+  const price = product.price;
+  const mrp = product.mrp ?? null;
+  const discount =
+    product.discount ??
+    (mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
+
+  // ------------------- ADD TO BAG -------------------
   const handleAddToBag = () => {
-    if (!product) return;
-
-    if (product.sizes?.length && !selectedSize) {
-      toast.error("Please select your size before adding to bag!");
+    if (!selectedSize && product.sizes?.length) {
+      toast.error("Please select your size");
       setSizeError(true);
-      sizesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -145,7 +152,7 @@ export default function ProductDetailPage() {
       {
         id: product.id,
         name: product.name,
-        price: product.price,
+        price,
         images: product.images,
         availableSizes: product.sizes,
       },
@@ -153,68 +160,31 @@ export default function ProductDetailPage() {
     );
 
     toast.success("Added to bag");
-    setTimeout(() => setAddingToBag(false), 1200);
+    setTimeout(() => setAddingToBag(false), 1000);
   };
-
-  // ------------------- Share -------------------
-  const handleShare = () => {
-    if (!product) return;
-    if (navigator.share) {
-      navigator.share({
-        title: product.name,
-        text: `Check out this product: ${product.name}`,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast.success("Link copied to clipboard!");
-    }
-  };
-
-  // ------------------- Wishlist -------------------
-  const handleWishlistToggle = async () => {
-    if (!product) return;
-    await toggleWishlist(product);
-  };
-
-  if (!product)
-    return <p className="p-6 text-center text-gray-500">Please check your internet connection</p>;
-
-  const images = product.images?.length ? product.images : ["/placeholder.png"];
-  const isWishlisted = wishlistContext.some((p) => p.id === product.id);
-  const priceNum = product.price;
-  const mrpNum = product.mrp ?? null;
-  const discount =
-    product.discount ?? (mrpNum && mrpNum > priceNum ? Math.round(((mrpNum - priceNum) / mrpNum) * 100) : 0);
 
   return (
     <div className="min-h-screen bg-white px-4 sm:px-6 py-6 pt-20 md:pt-24">
       <Header productName={product.name} />
 
-      <div className="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto w-full mt-4">
-        {/* LEFT: Images */}
-        <div className="w-full md:w-1/2 relative">
-          {/* Rating badge shows only once — top-right */}
-          {product.rating && product.rating > 0 && (
-            <div
-              className={`absolute bottom-6 right-2 z-10 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1 ${
-                product.rating < 3 ? "bg-yellow-500" : "bg-green-600"
-              }`}
-            >
-              <span>★</span>
-              <span>{product.rating.toFixed(1)}</span>
-            </div>
-          )}
+      <div className="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto mt-4">
 
-          {/* Swiper for mobile */}
+        {/* Images */}
+        <div className="w-full md:w-1/2 relative">
+          <div className="absolute bottom-6 right-2 z-10">
+            {product.rating ? (
+              <div className="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1">
+                ★ {product.rating.toFixed(1)}
+              </div>
+            ) : (
+              <div className="bg-black text-white text-xs font-semibold px-2 py-1 rounded shadow-lg">
+                New
+              </div>
+            )}
+          </div>
+
           <div className="md:hidden mb-4">
-            <Swiper
-              slidesPerView={1.5}
-              spaceBetween={10}
-              centeredSlides
-              modules={[Pagination, Scrollbar]}
-              scrollbar={{ draggable: true }}
-            >
+            <Swiper slidesPerView={1.5} spaceBetween={10} centeredSlides modules={[Pagination, Scrollbar]} scrollbar={{ draggable: true }}>
               {images.map((img) => (
                 <SwiperSlide key={img}>
                   <ZoomImage src={img} alt={product.name} />
@@ -223,7 +193,6 @@ export default function ProductDetailPage() {
             </Swiper>
           </div>
 
-          {/* Grid for desktop */}
           <div className="hidden md:grid grid-cols-2 gap-1 max-h-[700px] overflow-y-auto pr-2">
             {images.map((img) => (
               <ZoomImage key={img} src={img} alt={product.name} />
@@ -231,59 +200,30 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* RIGHT: Product Info */}
+        {/* Information */}
         <div className="flex flex-col gap-4 w-full md:w-1/2">
-          {/* Name & Price */}
-          <div className="flex flex-col gap-1">
+          <div>
             <div className="flex justify-between items-center">
-              <h1 className="line-clamp-1 text-[#111111] text-lg md:text-base font-light tracking-tight">
-                {product.name}
-              </h1>
-              <button onClick={handleShare}>
-                <Share2 className="h-5 w-5 text-gray-700 hover:text-gray-900 transition" />
-              </button>
+              <h1 className="text-lg font-light tracking-tight">{product.name}</h1>
+              <Share2 className="h-5 w-5 text-gray-700" />
             </div>
+
             <div className="flex items-center gap-2 mt-1">
-              {mrpNum && mrpNum > priceNum && (
-                <span className="text-gray-400 line-through text-sm md:text-base">
-                  Rs.{Number(mrpNum || 0).toLocaleString("en-IN")}
-                </span>
+              {mrp && mrp > price && (
+                <span className="line-through text-gray-400 text-sm">Rs.{mrp}</span>
               )}
-              <span className="text-gray-900 text-sm md:text-base">
-                Rs. {Number(priceNum || 0).toLocaleString("en-IN")}
-              </span>
+              <span className="text-gray-900">Rs.{price}</span>
               {discount > 0 && (
-                <span className="text-[#CDAF5A] text-xs md:text-sm font-semibold">{discount}% OFF</span>
+                <span className="text-yellow-600 text-xs font-semibold">{discount}% OFF</span>
               )}
             </div>
           </div>
 
-          {/* Colors */}
-          {product.colors?.length && (
-            <div>
-              <p className="text-gray-700 mb-2">Color:</p>
-              <div className="flex flex-wrap gap-3">
-                {product.colors.map((color) => (
-                  <button
-                    key={color.hex}
-                    onClick={() => setSelectedColor(color.hex)}
-                    className={`w-8 h-8 rounded-full border-2 transition ${
-                      selectedColor === color.hex ? "border-gray-900" : "border-gray-300"
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                  >
-                    {selectedColor === color.hex && <span className="text-white text-xs">✓</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Sizes */}
-          {product.sizes?.length && (
-            <div ref={sizesRef} className={`${sizeError ? "ring-2 ring-rose-400 rounded-md p-2" : ""}`}>
+          {product.sizes?.length > 0 && (
+            <div ref={sizesRef} className={`${sizeError ? "ring-2 ring-red-400 rounded-md p-2" : ""}`}>
               <p className="text-gray-700 mb-2">Size</p>
-              <div className="grid grid-cols-10 gap-2 max-w-full">
+              <div className="grid grid-cols-10 gap-2">
                 {product.sizes.map((size) => (
                   <button
                     key={size}
@@ -291,54 +231,53 @@ export default function ProductDetailPage() {
                       setSelectedSize(size);
                       setSizeError(false);
                     }}
-                    className={`border rounded-md py-2 text-sm transition ${
-                      selectedSize === size ? "border-gray-900 bg-gray-100" : "border-gray-300"
+                    className={`border py-2 rounded-md text-sm ${
+                      selectedSize === size ? "border-black bg-gray-200" : "border-gray-300"
                     }`}
                   >
                     {size}
                   </button>
                 ))}
               </div>
-              {sizeError && <p className="text-rose-500 text-xs mt-1">Please select your size</p>}
+              {sizeError && <p className="text-red-500 text-xs mt-1">Please select your size</p>}
             </div>
           )}
 
           {/* Description */}
           {product.description && (
-            <p className="mt-2 text-gray-600 leading-relaxed text-sm md:text-base">{product.description}</p>
+            <p className="text-gray-600 leading-relaxed text-sm">{product.description}</p>
           )}
 
-          {/* CTA Buttons */}
-          <div className="flex flex-row sm:flex-col gap-3 mt-4 w-full">
+          {/* Buttons */}
+          <div className="flex flex-row sm:flex-col gap-3 mt-4">
             <button
-              onClick={handleWishlistToggle}
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-white ring-1 ring-black/10 transition text-sm font-medium hover:ring-gray-400"
+              onClick={() => toggleWishlist(product)}
+              className="flex-1 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2"
             >
-              <Heart className={`h-5 w-5 ${isWishlisted ? "text-rose-500 fill-rose-500" : "text-gray-700"}`} />
-              <span>{isWishlisted ? "Wishlisted" : "Add to Wishlist"}</span>
+              <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
+              {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
             </button>
 
             <button
               onClick={handleAddToBag}
               disabled={addingToBag}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-gray-900 text-sm font-semibold transition bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 ${
-                addingToBag ? "opacity-50 cursor-not-allowed" : ""
+              className={`flex-1 py-3 text-sm font-semibold bg-gradient-to-r from-yellow-300 to-yellow-500 ${
+                addingToBag ? "opacity-50" : ""
               }`}
             >
-              <ShoppingBag className="w-5 h-5" />
-              <span>{addingToBag ? "Added!" : "Add to Bag"}</span>
+              <ShoppingBag className="inline w-5 h-5 mr-2" />
+              {addingToBag ? "Added!" : "Add to Bag"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* ------------------- Similar Products ------------------- */}
       {similarProducts.length > 0 && (
         <div className="mt-10 max-w-6xl mx-auto">
-          <h2 className="text-gray-800 text-lg md:text-xl font-medium mb-4">You May Also Like</h2>
-          <div className="grid grid-cols-2 gap-0.5 sm:grid-cols-2 md:grid-cols-4">
-            {similarProducts.map((p, index) => (
-              <ProductCard key={p.id ?? index} product={p} />
+          <h2 className="text-lg font-medium mb-4">You May Also Like</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+            {similarProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </div>

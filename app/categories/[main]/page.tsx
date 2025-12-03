@@ -106,19 +106,22 @@ setProducts(mappedProducts);
     
 
       {/* Products */}
+      <main className="flex-grow  sm:p-6 pb-24">
       {loading ? (
-        <div className="text-center py-16 text-gray-600">Loading products...</div>
+        <div className="text-center py-10 text-gray-600">Loading products...</div>
       ) : products.length === 0 ? (
         <div className="text-gray-500 mt-4 text-center">
           No products available in this category.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0.5">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
+                    {products.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                 
       )}
+       </main>
 
       <Header />
       <Footer />

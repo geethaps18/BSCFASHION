@@ -25,21 +25,16 @@ const categories = [
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(""); // ONLY INTERNET ERROR
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("/api/products");
-        if (!res.ok) throw new Error("Failed to fetch products");
+        const res = await fetch("/api/products"); // INTERNET FAILS → goes to catch()
 
         const data = await res.json();
-        if (!Array.isArray(data?.products)) {
-          setProducts([]);
-          return;
-        }
 
-        const normalized: Product[] = data.products.map((p: any) => {
+        const normalized: Product[] = data.products?.map((p: any) => {
           const basePrice = Number(p.price) || 0;
           const baseMRP =
             Number(p.mrp) > basePrice
@@ -53,12 +48,12 @@ export default function Home() {
           const variants: ProductVariant[] =
             Array.isArray(p.variants) && p.variants.length > 0
               ? p.variants.map((v: any) => ({
-                  sizes: Array.isArray(v.sizes) && v.sizes.length ? v.sizes : ["S", "M", "L"],
+                  sizes: v.sizes?.length ? v.sizes : ["S", "M", "L"],
                   color: v.color || { name: "Default", hex: "#111827" },
                   price: Number(v.price ?? basePrice),
                   mrp: Number(v.mrp ?? baseMRP),
                   discount: Number(v.discount ?? baseDiscount),
-                  images: Array.isArray(v.images) && v.images.length ? v.images : ["/placeholder.png"],
+                  images: v.images?.length ? v.images : ["/placeholder.png"],
                   stock: Number(v.stock ?? 0),
                   design: v.design || "",
                 }))
@@ -69,7 +64,10 @@ export default function Home() {
                     price: basePrice,
                     mrp: baseMRP,
                     discount: baseDiscount,
-                    images: Array.isArray(p.images) && p.images.length ? p.images : ["/placeholder.png"],
+                    images:
+                      Array.isArray(p.images) && p.images.length
+                        ? p.images
+                        : ["/placeholder.png"],
                     stock: p.stock ?? 10,
                     design: "",
                   },
@@ -90,14 +88,13 @@ export default function Home() {
                 : variants[0].images,
             createdAt: p.createdAt ?? new Date().toISOString(),
           };
-        });
+        }) ?? [];
 
         setProducts(normalized);
+        setError("");
       } catch (err) {
-        console.error("Failed to fetch products:", err);
-        setProducts([]);
-      } finally {
-        setLoading(false);
+        // ONLY INTERNET OFF → SHOW MESSAGE
+        setError("No internet connection. Please check your network.");
       }
     };
 
@@ -105,85 +102,82 @@ export default function Home() {
   }, []);
 
   return (
-    <div className=" min-h-screen flex flex-col font-sans">
+    <div className="min-h-screen flex flex-col font-sans overflow-x-hidden">
       <div className="mt-8">
-      {/* 🪔 3D Floating Golden Ribbon Ticker */}
-      <div className="mt-6 md:mt-8 lg:mt-10 xl:mt-12 relative z-50 py- overflow-hidden">
-        <div className="bg-gradient-to-r   shadow-2xl  py-1 px-4 flex items-center">
-          <div className="flex animate-marquee whitespace-nowrap text-yellow-900 font-semibold text-l md:text-xl tracking-wider drop-shadow-lg ribbon-text">
-            <span className="mx-8">🪔🎇 ದೀಪಾವಳಿ ಡಬಲ್ ಡಿಸ್ಕೌಂಟ್! ತಪ್ಪಿಸಿಕೊಳ್ಳಬೇಡಿ!</span>
-            <span className="mx-8">🪔🎇 Double Discount this Deepavali! Don’t miss out!</span>
+
+        {/* Ticker */}
+        <div className="mt-6 md:mt-8 lg:mt-10 xl:mt-12 relative overflow-hidden z-50">
+          <div className="bg-gradient-to-r shadow-2xl py-1 px-4 flex items-center">
+            <div className="flex animate-marquee whitespace-nowrap text-yellow-900 font-semibold text-l md:text-xl tracking-wider drop-shadow-lg ribbon-text">
+              <span className="mx-8">🪔🎇 ದೀಪಾವಳಿ ಡಬಲ್ ಡಿಸ್ಕೌಂಟ್! ತಪ್ಪಿಸಿಕೊಳ್ಳಬೇಡಿ!</span>
+              <span className="mx-8">🪔🎇 Double Discount this Deepavali! Don’t miss out!</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <style jsx>{`
-        @keyframes marquee {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-          display: flex;
-          width: max-content;
-          animation: marquee 12s linear infinite;
-        }
+        <style jsx>{`
+          @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+          }
+          .animate-marquee {
+            display: flex;
+            width: max-content;
+            animation: marquee 12s linear infinite;
+          }
+        `}</style>
 
-       
-      `}</style>
+        {/* Header */}
+        <Header />
 
-      {/* Header */}
-      <Header />
-
-      {/* Categories Scroll */}
-      <div className="overflow-x-auto scrollbar-hide py-1 bg-white shadow-md ">
-        <div className="flex gap-3 px-3 sm:gap-4 sm:px-4">
-          {categories.map((cat) => (
-            <Link
-              key={cat.name}
-              href={`/categories/${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
-              className="flex-shrink-0 flex flex-col items-center cursor-pointer transform transition hover:scale-105"
-            >
-              <div className="relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 overflow-hidden rounded-xl  hover:shadow-2xl transition-shadow">
-                <Image
-                  src={cat.image || "/placeholder.png"}
-                  alt={cat.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <span
-                className="mt-1 text-[10px] sm:text-[12px] md:text-sm text-gray-700 font-medium text-center truncate max-w-[60px] sm:max-w-[70px] block"
-                title={cat.name}
+        {/* Categories Scroll */}
+        <div className="overflow-x-auto scrollbar-hide py-1 bg-white shadow-md w-full">
+          <div className="flex gap-3 px-3 sm:gap-4 sm:px-4">
+            {categories.map((cat) => (
+              <Link
+                key={cat.name}
+                href={`/categories/${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
+                className="flex-shrink-0 flex flex-col items-center hover:scale-105 transition"
               >
-                {cat.name}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Hero Section */}
-      <div className="w-full h-60 sm:h-72 md:h-96 my- relative overflow-hidden  ">
-        <Hero />
-      </div>
-
-      {/* Products Grid */}
-      <main className="flex-grow  sm:p-6 pb-24">
-        {loading ? (
-          <p className="text-gray-500 text-center text-lg">Loading products...</p>
-        ) : products.length === 0 ? (
-          <p className="text-gray-500 text-center text-lg">No products found.</p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+                <div className="relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 overflow-hidden rounded-xl hover:shadow-2xl transition-shadow">
+                  <Image
+                    src={cat.image || "/placeholder.png"}
+                    alt={cat.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <span className="mt-1 text-[10px] sm:text-[12px] md:text-sm text-gray-700 font-medium text-center truncate max-w-[60px] sm:max-w-[70px]">
+                  {cat.name}
+                </span>
+              </Link>
             ))}
           </div>
-        )}
-      </main>
+        </div>
 
-      <Footer />
-    </div>
+        {/* Hero Section */}
+        <div className="w-full h-60 sm:h-72 md:h-96 my-4 relative overflow-hidden">
+          <Hero />
+        </div>
+
+        {/* Products */}
+        <main className="flex-grow sm:p-6 pb-24">
+          {error ? (
+            <p className="text-center text-red-600 text-lg py-6">{error}</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* FIXED FOOTER */}
+      <div className="fixed bottom-0 left-0 w-full z-50 bg-white border-t shadow-lg">
+        <Footer />
+      </div>
     </div>
   );
 }

@@ -35,6 +35,7 @@ function isValidObjectId(id: string) {
 // ----------------------
 // GET: Fetch Product
 // ----------------------
+// GET: Fetch Product
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -43,35 +44,45 @@ export async function GET(
     const { id } = await params;
 
     if (!isValidObjectId(id)) {
-      return NextResponse.json(
-        { error: "Invalid product ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
     }
 
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        reviews: true,
+        reviews: true, // if you want the reviews, else remove
       },
     });
 
     if (!product) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ product });
+    // Normalize response shape to match frontend expectations
+    const normalized = {
+      id: product.id, // keep as-is (Prisma string)
+      name: product.name ?? "",
+      description: product.description ?? "",
+      images: product.images ?? [],
+      price: product.price ?? 0,
+      mrp: product.mrp ?? null,
+      sizes: product.sizes ?? [],
+      rating: product.rating ?? 0,
+      reviewCount: product.reviewCount ?? (product.reviews ? product.reviews.length : 0),
+      category: product.category ?? null,
+      subCategory: product.subCategory ?? null,
+      subSubCategory: product.subSubCategory ?? null,
+      // add any other fields you need
+    };
+
+    // Return normalized object (NOT wrapped in { product: ... })
+    return NextResponse.json(normalized);
   } catch (err) {
     console.error("Product GET Error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch product" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
   }
 }
+
 
 // ----------------------
 // DELETE: Delete Product

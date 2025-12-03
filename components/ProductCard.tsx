@@ -48,7 +48,7 @@ export default function ProductCard({
     ? product.variants
     : [
         {
-          sizes: ["FREE"],
+          sizes: ["One size"],
           price: product.price,
           mrp: product.mrp ?? product.price,
           discount: product.discount ?? 0,

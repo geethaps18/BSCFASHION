@@ -12,15 +12,32 @@ export default function LoginPageInner() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
-  // 🔥 FIX: if user is already logged in, redirect immediately
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // ------------------------------------------
+  // 🔥 FIX: SAFE TOKEN CHECK (NO LOOP)
+  // ------------------------------------------
   useEffect(() => {
     const token = getCookie("token");
-    if (token) {
+    if (token && token !== "undefined") {
       router.replace(redirectTo);
+    } else {
+      setCheckingAuth(false); // allow page to show
     }
   }, []);
 
+  // Show nothing until we know if user is logged in
+  if (checkingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-gray-500">
+        Checking login...
+      </div>
+    );
+  }
 
+  // ------------------------------------------
+  // LOGIN STATE
+  // ------------------------------------------
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -31,14 +48,14 @@ export default function LoginPageInner() {
   const isEmail = (input: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
+  // ------------------------------------------
+  // SEND OTP
+  // ------------------------------------------
   const handleSendOtp = async () => {
-    if (!contact) {
-      toast.error("Enter phone or email");
-      return;
-    }
+    if (!contact) return toast.error("Enter phone or email");
+
     if (!isPhone && !isEmail(contact)) {
-      toast.error("Enter valid email");
-      return;
+      return toast.error("Enter valid email");
     }
 
     setLoading(true);
@@ -50,20 +67,22 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
-
       if (res.ok) {
-        toast.success(data.message || "OTP sent");
+        toast.success("OTP sent");
         setOtpSent(true);
       } else {
         toast.error(data.message || "Failed to send OTP");
       }
-    } catch (err) {
-      toast.error("Something went wrong");
+    } catch {
+      toast.error("Internet issue. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ------------------------------------------
+  // VERIFY OTP
+  // ------------------------------------------
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp) return toast.error("Enter OTP");
@@ -77,32 +96,27 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
+
       if (res.ok && data.token) {
         setCookie("token", data.token, {
           maxAge: 60 * 60 * 24 * 365,
           path: "/",
           sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
         });
 
-        toast.success("Login successful!");
-       setVerified(true);
-
+        setVerified(true);
+        setTimeout(() => {
+          router.replace(redirectTo);
+        }, 800);
       } else {
-        toast.error(data.message || "Invalid OTP");
+        toast.error("Invalid OTP");
       }
-    } catch (err) {
-      toast.error("Something went wrong");
+    } catch {
+      toast.error("Unable to verify. Check your internet.");
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => {
-  if (verified) {
-    router.replace(redirectTo); // replace = no back button issue
-  }
-}, [verified]);
-
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -112,19 +126,20 @@ export default function LoginPageInner() {
         <div className="mb-4 flex justify-center">
           <button
             type="button"
+            onClick={() => setIsPhone(true)}
             className={`px-4 py-2 rounded-l-md ${
               isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
             }`}
-            onClick={() => setIsPhone(true)}
           >
             Phone
           </button>
+
           <button
             type="button"
+            onClick={() => setIsPhone(false)}
             className={`px-4 py-2 rounded-r-md ${
               !isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
             }`}
-            onClick={() => setIsPhone(false)}
           >
             Email
           </button>
@@ -137,7 +152,7 @@ export default function LoginPageInner() {
                 <PhoneInput
                   country="in"
                   value={contact}
-                  onChange={(phone) => setContact("+" + phone)}
+                  onChange={(v) => setContact("+" + v)}
                   inputStyle={{ width: "100%" }}
                 />
               ) : (
@@ -152,11 +167,11 @@ export default function LoginPageInner() {
 
               <button
                 type="button"
-                onClick={handleSendOtp}
                 disabled={loading}
+                onClick={handleSendOtp}
                 className="w-full bg-yellow-500 text-white py-2 rounded-md"
               >
-                {loading ? "Sending OTP..." : "Send OTP"}
+                {loading ? "Sending..." : "Send OTP"}
               </button>
             </>
           )}
@@ -174,9 +189,9 @@ export default function LoginPageInner() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gray-800 text-white py-2 rounded-md"
+                className="w-full bg-gray-900 text-white py-2 rounded-md"
               >
-                {loading ? "Verifying..." : "Verify OTP & Login"}
+                {loading ? "Verifying..." : "Verify OTP"}
               </button>
             </>
           )}
@@ -196,7 +211,7 @@ export default function LoginPageInner() {
             }
             className="text-yellow-500 hover:underline"
           >
-            Sign Up
+            Sign up
           </button>
         </p>
       </div>

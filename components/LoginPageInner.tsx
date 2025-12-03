@@ -13,43 +13,57 @@ export default function LoginPageInner() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
-  // States
+  // ---------------------------
+  // HOOKS
+  // ---------------------------
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPhone, setIsPhone] = useState(true);
-  const [checkingLogin, setCheckingLogin] = useState(true);
+  const [verified, setVerified] = useState(false);
+  const [checkingLogin, setCheckingLogin] = useState(true); // stays here
 
-  // -----------------------------
-  // CHECK IF ALREADY LOGGED IN
-  // -----------------------------
-  useEffect(() => {
-    const token = getCookie("token");
+ // ---------------------------
+// CHECK IF ALREADY LOGGED IN
+// ---------------------------
+useEffect(() => {
+  const token = getCookie("token");
+  if (token) {
+    router.push(redirectTo || "/");
+  } else {
+    setCheckingLogin(false);
+  }
+}, []);
 
-    if (token) {
-      router.replace(redirectTo);
-      router.refresh();
-    } else {
-      setCheckingLogin(false);
-    }
-  }, [redirectTo, router]);
+// ---------------------------
+// REDIRECT AFTER VERIFIED
+// ---------------------------
+useEffect(() => {
+  if (!verified) return;
 
+  const timer = setTimeout(() => {
+    router.push(redirectTo || "/");
+  }, 100);
+
+  return () => clearTimeout(timer);
+}, [verified]);
+
+
+  // ---------------------------
+  // HELPERS
+  // ---------------------------
   const isEmail = (input: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
-  // -----------------------------
+  // ---------------------------
   // SEND OTP
-  // -----------------------------
+  // ---------------------------
   const handleSendOtp = async () => {
     if (!contact) return toast.error("Enter phone or email");
-
-    if (!isPhone && !isEmail(contact)) {
-      return toast.error("Enter valid email");
-    }
+    if (!isPhone && !isEmail(contact)) return toast.error("Enter valid email");
 
     setLoading(true);
-
     try {
       const res = await fetch("/api/otp/send", {
         method: "POST",
@@ -60,7 +74,7 @@ export default function LoginPageInner() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("OTP sent");
+        toast.success(data.message || "OTP sent");
         setOtpSent(true);
       } else {
         toast.error(data.message || "Failed to send OTP");
@@ -72,12 +86,11 @@ export default function LoginPageInner() {
     }
   };
 
-  // -----------------------------
+  // ---------------------------
   // VERIFY OTP
-  // -----------------------------
+  // ---------------------------
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!otp) return toast.error("Enter OTP");
 
     setLoading(true);
@@ -90,9 +103,7 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
-
       if (res.ok && data.token) {
-        // Set cookie
         setCookie("token", data.token, {
           maxAge: 60 * 60 * 24 * 365,
           path: "/",
@@ -100,11 +111,14 @@ export default function LoginPageInner() {
           secure: process.env.NODE_ENV === "production",
         });
 
-        toast.success("Login successful!");
+       toast.success("Login successful!");
 
-        // 🔥 IMMEDIATE REDIRECT (fix)
-        router.replace(redirectTo);
-        router.refresh();
+setTimeout(() => {
+  setVerified(true);
+  router.refresh();   // 🔥 force re-render of whole app
+}, 50);
+
+
       } else {
         toast.error(data.message || "Invalid OTP");
       }
@@ -115,20 +129,17 @@ export default function LoginPageInner() {
     }
   };
 
-  // -----------------------------
-  // LOADING LOGIN CHECK
-  // -----------------------------
+  // ---------------------------
+  // UI RENDER
+  // ---------------------------
   if (checkingLogin) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-600">
-        Checking login...
+        Checking...
       </div>
     );
   }
 
-  // -----------------------------
-  // UI SCREEN
-  // -----------------------------
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
       <div className="w-full max-w-md bg-white shadow-lg p-8 rounded-lg">
@@ -146,7 +157,7 @@ export default function LoginPageInner() {
 
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
 
-        {/* Switch – Phone / Email */}
+        {/* PHONE / EMAIL SWITCH */}
         <div className="mb-4 flex justify-center">
           <button
             type="button"
@@ -171,13 +182,14 @@ export default function LoginPageInner() {
 
         {/* FORM */}
         <form onSubmit={handleVerifyOtp} className="space-y-4">
+
           {!otpSent && (
             <>
               {isPhone ? (
                 <PhoneInput
                   country="in"
                   value={contact}
-                  onChange={(v) => setContact("+" + v)}
+                  onChange={(phone) => setContact("+" + phone)}
                   inputStyle={{ width: "100%" }}
                 />
               ) : (
@@ -201,7 +213,7 @@ export default function LoginPageInner() {
             </>
           )}
 
-          {otpSent && (
+          {otpSent && !verified && (
             <>
               <input
                 type="text"
@@ -220,9 +232,14 @@ export default function LoginPageInner() {
               </button>
             </>
           )}
+
+          {verified && (
+            <p className="text-green-600 text-center">
+              Login successful! Redirecting...
+            </p>
+          )}
         </form>
 
-        {/* SIGN UP LINK */}
         <p className="text-center mt-4">
           New here?{" "}
           <button

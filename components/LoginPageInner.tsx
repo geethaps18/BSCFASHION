@@ -13,57 +13,43 @@ export default function LoginPageInner() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
-  // ---------------------------
-  // HOOKS
-  // ---------------------------
+  // States
   const [contact, setContact] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPhone, setIsPhone] = useState(true);
-  const [verified, setVerified] = useState(false);
-  const [checkingLogin, setCheckingLogin] = useState(true); // stays here
+  const [checkingLogin, setCheckingLogin] = useState(true);
 
- // ---------------------------
-// CHECK IF ALREADY LOGGED IN
-// ---------------------------
-useEffect(() => {
-  const token = getCookie("token");
-  if (token) {
-    router.push(redirectTo || "/");
-  } else {
-    setCheckingLogin(false);
-  }
-}, []);
+  // -----------------------------
+  // CHECK IF ALREADY LOGGED IN
+  // -----------------------------
+  useEffect(() => {
+    const token = getCookie("token");
 
-// ---------------------------
-// REDIRECT AFTER VERIFIED
-// ---------------------------
-useEffect(() => {
-  if (!verified) return;
+    if (token) {
+      router.replace(redirectTo);
+      router.refresh();
+    } else {
+      setCheckingLogin(false);
+    }
+  }, [redirectTo, router]);
 
-  const timer = setTimeout(() => {
-    router.push(redirectTo || "/");
-  }, 100);
-
-  return () => clearTimeout(timer);
-}, [verified]);
-
-
-  // ---------------------------
-  // HELPERS
-  // ---------------------------
   const isEmail = (input: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
 
-  // ---------------------------
+  // -----------------------------
   // SEND OTP
-  // ---------------------------
+  // -----------------------------
   const handleSendOtp = async () => {
     if (!contact) return toast.error("Enter phone or email");
-    if (!isPhone && !isEmail(contact)) return toast.error("Enter valid email");
+
+    if (!isPhone && !isEmail(contact)) {
+      return toast.error("Enter valid email");
+    }
 
     setLoading(true);
+
     try {
       const res = await fetch("/api/otp/send", {
         method: "POST",
@@ -74,7 +60,7 @@ useEffect(() => {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(data.message || "OTP sent");
+        toast.success("OTP sent");
         setOtpSent(true);
       } else {
         toast.error(data.message || "Failed to send OTP");
@@ -86,11 +72,12 @@ useEffect(() => {
     }
   };
 
-  // ---------------------------
+  // -----------------------------
   // VERIFY OTP
-  // ---------------------------
+  // -----------------------------
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!otp) return toast.error("Enter OTP");
 
     setLoading(true);
@@ -103,7 +90,9 @@ useEffect(() => {
       });
 
       const data = await res.json();
+
       if (res.ok && data.token) {
+        // Set cookie
         setCookie("token", data.token, {
           maxAge: 60 * 60 * 24 * 365,
           path: "/",
@@ -112,8 +101,10 @@ useEffect(() => {
         });
 
         toast.success("Login successful!");
-        setTimeout(() => setVerified(true), 50);
 
+        // 🔥 IMMEDIATE REDIRECT (fix)
+        router.replace(redirectTo);
+        router.refresh();
       } else {
         toast.error(data.message || "Invalid OTP");
       }
@@ -124,17 +115,20 @@ useEffect(() => {
     }
   };
 
-  // ---------------------------
-  // UI RENDER
-  // ---------------------------
+  // -----------------------------
+  // LOADING LOGIN CHECK
+  // -----------------------------
   if (checkingLogin) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-600">
-        Checking...
+        Checking login...
       </div>
     );
   }
 
+  // -----------------------------
+  // UI SCREEN
+  // -----------------------------
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
       <div className="w-full max-w-md bg-white shadow-lg p-8 rounded-lg">
@@ -152,7 +146,7 @@ useEffect(() => {
 
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
 
-        {/* PHONE / EMAIL SWITCH */}
+        {/* Switch – Phone / Email */}
         <div className="mb-4 flex justify-center">
           <button
             type="button"
@@ -177,14 +171,13 @@ useEffect(() => {
 
         {/* FORM */}
         <form onSubmit={handleVerifyOtp} className="space-y-4">
-
           {!otpSent && (
             <>
               {isPhone ? (
                 <PhoneInput
                   country="in"
                   value={contact}
-                  onChange={(phone) => setContact("+" + phone)}
+                  onChange={(v) => setContact("+" + v)}
                   inputStyle={{ width: "100%" }}
                 />
               ) : (
@@ -208,7 +201,7 @@ useEffect(() => {
             </>
           )}
 
-          {otpSent && !verified && (
+          {otpSent && (
             <>
               <input
                 type="text"
@@ -227,14 +220,9 @@ useEffect(() => {
               </button>
             </>
           )}
-
-          {verified && (
-            <p className="text-green-600 text-center">
-              Login successful! Redirecting...
-            </p>
-          )}
         </form>
 
+        {/* SIGN UP LINK */}
         <p className="text-center mt-4">
           New here?{" "}
           <button

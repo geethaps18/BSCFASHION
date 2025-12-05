@@ -26,6 +26,7 @@ export default function ProductCard({
   // Rating state
   const [rating, setRating] = useState(product.rating ?? 0);
   const [reviewCount, setReviewCount] = useState(product.reviewCount ?? 0);
+  
 
   // Fetch latest ratings
   useEffect(() => {

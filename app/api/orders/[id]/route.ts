@@ -2,9 +2,6 @@ import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import jwt from "jsonwebtoken";
 
-/**
- * Helper: Get userId from JWT token stored in cookies
- */
 function getUserId(req: NextRequest): string | null {
   const token = req.cookies.get("token")?.value;
   if (!token) return null;
@@ -17,21 +14,37 @@ function getUserId(req: NextRequest): string | null {
   }
 }
 
-/**
- * =========================
- * GET — Fetch Order Details
- * =========================
- */
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
 
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: {
+          select: {
+            id: true,          // order item id
+            productId: true,   // REAL PRODUCT ID
+            name: true,
+            price: true,
+            quantity: true,
+            size: true,
+            image: true,       // fallback image saved in order
+            product: {
+              select: {
+                id: true,
+                name: true,
+                images: true,
+                price: true,
+                description: true,
+              },
+            },
+          },
+        },
         user: true,
-        
       },
     });
 
@@ -44,7 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       try {
         parsedAddress = JSON.parse(order.address);
       } catch {
-        parsedAddress = { raw: order.address }; // fallback
+        parsedAddress = { raw: order.address };
       }
     }
 
@@ -59,34 +72,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 
-/**
- * =========================
- * POST — Create Review
- * =========================
- */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }   // ✔ ADD THIS
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // still unused, but required by Next.js to prevent warning:
     await params;
-
     const userId = getUserId(req);
-    if (!userId) {
+
+    if (!userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const { productId, orderId, rating, comment, images } = await req.json();
 
-    if (!productId || !rating) {
+    if (!productId || !rating)
       return NextResponse.json(
-        { error: "productId and rating are required" },
+        { error: "productId and rating required" },
         { status: 400 }
       );
-    }
 
-    // Create review
     const review = await prisma.review.create({
       data: {
         userId,
@@ -98,7 +102,6 @@ export async function POST(
       },
     });
 
-    // Update product rating + count
     const agg = await prisma.review.aggregate({
       where: { productId },
       _avg: { rating: true },
@@ -115,7 +118,7 @@ export async function POST(
 
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {
-    console.error("❌ Error creating review:", error);
+    console.error(error);
     return NextResponse.json(
       { error: "Failed to create review" },
       { status: 500 }

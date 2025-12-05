@@ -9,6 +9,7 @@ import { Truck, Home } from "lucide-react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
+import { Items } from "openai/resources/conversations/items";
 
 interface Product {
   id: string;
@@ -18,6 +19,7 @@ interface Product {
   price: number;
   quantity: number;
   size?: string;
+  
 }
 
 interface Address {
@@ -37,19 +39,38 @@ interface Review {
   images?: string[];
   createdAt: string;
 }
+interface ProductWithReviews {
+  id: string;            // order item id
+  productId: string;     // REAL PRODUCT ID (IMPORTANT!)
+  name: string;
+  size?: string;
+  quantity: number;
+  price: number;
+  description?: string;
 
-interface ProductWithReviews extends Product {
+  product?: {
+    id?: string;
+    name?: string;
+    images?: string[];
+    price?: number;
+    description?: string;
+  };
+
   reviews?: Review[];
 }
+
 
 interface Order {
   id: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;    // NEW
+  deliveredAt?: string;  // NEW
   items: ProductWithReviews[];
   totalAmount: number;
   address?: Address;
 }
+
 
 interface ProductCardProps {
   product: ProductWithReviews;
@@ -119,25 +140,7 @@ export default function OrderDetailsPage() {
     }
   }, [adminOrders, order]);
 
-  const calculateEstimatedDelivery = () => {
-    const createdDate = new Date(order!.createdAt);
-    let estimatedDate = new Date(createdDate);
-    switch (order!.status) {
-      case "PENDING":
-        estimatedDate.setDate(createdDate.getDate() + 3);
-        break;
-      case "SHIPPED":
-        estimatedDate.setDate(createdDate.getDate() + 5);
-        break;
-      case "OUT_FOR_DELIVERY":
-        estimatedDate.setDate(createdDate.getDate() + 1);
-        break;
-      case "DELIVERED":
-        estimatedDate = createdDate;
-        break;
-    }
-    return estimatedDate.toLocaleDateString();
-  };
+ 
 
   // Handle review submission and update global order state
   const handleSubmitReview = async (
@@ -207,6 +210,53 @@ export default function OrderDetailsPage() {
   const steps = ["Order Placed", "Shipped", "Out for Delivery", "Delivered"];
   const currentStepIndex = steps.findIndex((s) => s === STATUS_TEXT[order.status]?.text);
 
+  const calculateEstimatedDelivery = () => {
+  if (!order) return "";
+
+  const createdDate = new Date(order.createdAt);
+  const estimatedDate = new Date(createdDate);
+
+  // If delivered → show delivered date
+  if (order.status === "DELIVERED") {
+    const deliveredDate = order.deliveredAt
+      ? new Date(order.deliveredAt)
+      : new Date(order.updatedAt); // fallback
+
+    return `Delivered on ${deliveredDate.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })}`;
+  }
+
+  // If NOT delivered → estimate based on status
+  switch (order.status) {
+    case "PENDING":
+      estimatedDate.setDate(createdDate.getDate() + 4);
+      break;
+    case "SHIPPED":
+      estimatedDate.setDate(createdDate.getDate() + 2);
+      break;
+    case "OUT_FOR_DELIVERY":
+      estimatedDate.setDate(createdDate.getDate() + 1);
+      break;
+    default:
+      estimatedDate.setDate(createdDate.getDate() + 5);
+  }
+
+  // Avoid Sunday delivery → move to Monday
+  if (estimatedDate.getDay() === 0) {
+    estimatedDate.setDate(estimatedDate.getDate() + 1);
+  }
+
+  return `Estimated Delivery: ${estimatedDate.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })}`;
+};
+
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -258,7 +308,8 @@ export default function OrderDetailsPage() {
         {/* Estimated Delivery */}
         <div className="bg-white p-4 border border-gray-200 rounded">
           <div className="text-sm text-gray-700">
-            Estimated Delivery: {calculateEstimatedDelivery()}
+           {calculateEstimatedDelivery()}
+
           </div>
         </div>
 
@@ -312,7 +363,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const [comment, setComment] = useState("");
   const [images, setImages] = useState<File[]>([]);
 
-  // Compute hasReviewed dynamically from backend reviews and localStorage
+  // Compute review status
   const hasReviewed = useMemo(() => {
     const reviewedProducts = JSON.parse(
       localStorage.getItem("reviewedProducts") || "[]"
@@ -332,7 +383,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
     await onSubmitReview(product.id, rating, comment, images);
 
-    // Save productId to localStorage so form stays hidden on refresh
     const reviewedProducts = JSON.parse(
       localStorage.getItem("reviewedProducts") || "[]"
     );
@@ -341,7 +391,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
       localStorage.setItem("reviewedProducts", JSON.stringify(reviewedProducts));
     }
 
-    // Clear form
     setRating(0);
     setComment("");
     setImages([]);
@@ -349,40 +398,46 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md flex flex-col gap-4">
-      {/* Product Info */}
-      
-      {/* Product Info - CLICK to open product page */}
-<div
- className="flex flex-col gap-4">
-  <Link
-    href={`/product/${product.id}`}
-    className="flex gap-4 items-center hover:bg-gray-50 p-2 rounded cursor-pointer"
-  >
-    <div className="flex-shrink-0 w-32 flex justify-center items-center">
-      <Image
-        src={product.images?.[0] || "/placeholder.png"}
-        alt={product.name}
-        width={120}
-        height={120}
-        className="rounded border bg-gray-50 object-contain"
-      />
-    </div>
-    <div className="flex-1 flex flex-col justify-between">
-      <h2 className="text-sm font-semibold text-gray-700">{product.name}</h2>
-      {product.description && (
-        <p className="text-xs text-gray-500">{product.description}</p>
-      )}
-      <div className="text-xs text-gray-400 mt-1 flex gap-4">
-        {product.size && <span>Size: {product.size}</span>}
-        <span>Qty: {product.quantity}</span>
-      </div>
-      <div className="text-sm font-medium text-gray-700 mt-2">
-        ₹{product.price * product.quantity}
-      </div>
-    </div>
-  </Link>
-</div>
-      {/* Existing Reviews */}
+
+      {/* PRODUCT HEADER */}
+     <Link
+  href={`/product/${product.productId}`}
+  className="flex gap-4 items-center hover:bg-gray-50 p-2 rounded cursor-pointer"
+>
+
+        <div className="flex-shrink-0 w-28 h-28 flex justify-center items-center">
+       <img
+  src={
+    product.product?.images?.[0] ||   // full product image
+    (product as any).image ||         // fallback stored in order item (IMPORTANT FIX)
+    "/placeholder.png"
+  }
+  alt={product.product?.name || product.name}
+  className="rounded border bg-gray-50 object-contain w-full h-full"
+/>
+
+
+        </div>
+
+        <div className="flex-1">
+          <h2 className="text-sm font-semibold text-gray-700">{product.name}</h2>
+
+          {product.description && (
+            <p className="text-xs text-gray-500">{product.description}</p>
+          )}
+
+          <div className="text-xs text-gray-400 mt-1 flex gap-4">
+            {product.size && <span>Size: {product.size}</span>}
+            <span>Qty: {product.quantity}</span>
+          </div>
+
+          <div className="text-sm font-medium text-gray-700 mt-2">
+            ₹{product.price * product.quantity}
+          </div>
+        </div>
+      </Link>
+
+      {/* EXISTING REVIEWS */}
       {product.reviews && product.reviews.length > 0 && (
         <div className="mt-2 border-t border-gray-200 pt-2">
           <h4 className="font-semibold text-gray-700 text-sm mb-1">Reviews:</h4>
@@ -392,7 +447,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 {[1, 2, 3, 4, 5].map((s) => (
                   <span
                     key={s}
-                    className={`text-sm ${s <= r.rating ? "text-yellow-500" : "text-gray-300"}`}
+                    className={`text-sm ${
+                      s <= r.rating ? "text-yellow-500" : "text-gray-300"
+                    }`}
                   >
                     ★
                   </span>
@@ -401,7 +458,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
                   {new Date(r.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              {r.comment && <p className="text-xs text-gray-600">{r.comment}</p>}
+
+              {r.comment && (
+                <p className="text-xs text-gray-600">{r.comment}</p>
+              )}
+
               {r.images && r.images.length > 0 && (
                 <div className="flex gap-2 mt-1 overflow-x-auto">
                   {r.images.map((img, idx) => (
@@ -421,7 +482,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       )}
 
-      {/* Review Form: only if delivered & not reviewed */}
+      {/* REVIEW FORM */}
       {orderStatus === "DELIVERED" && !hasReviewed && (
         <div className="mt-2 border-t border-gray-200 pt-2 flex flex-col gap-2">
           <div className="flex items-center gap-1">
@@ -429,19 +490,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
               <button
                 key={star}
                 onClick={() => setRating(star)}
-                className={`text-xl ${star <= rating ? "text-yellow-500" : "text-gray-300"}`}
+                className={`text-xl ${
+                  star <= rating ? "text-yellow-500" : "text-gray-300"
+                }`}
               >
                 ★
               </button>
             ))}
           </div>
+
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Write a review..."
             className="border border-gray-300 rounded p-2 text-sm w-full"
           />
+
           <input type="file" multiple onChange={handleFileChange} className="text-xs" />
+
           <button
             onClick={handleSubmit}
             className="py-2 bg-green-600 text-white rounded text-sm mt-1 hover:bg-green-700"
@@ -449,10 +515,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
             Submit Review
           </button>
         </div>
-        
       )}
     </div>
-    
   );
 };
+
 

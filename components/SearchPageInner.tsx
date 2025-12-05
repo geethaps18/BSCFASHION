@@ -55,8 +55,8 @@ export default function SearchPageInner() {
 
   return (
     <main
-      className="min-h-screen bg-white px-0.5 sm:px-6 lg:px-10"
-      style={{ paddingTop: HEADER_HEIGHT + 20 }}
+      className="min-h-screen bg-white px-0.5 sm:px-6 lg:px-10 pt-20"
+    
     >
       <Header />
 
@@ -106,7 +106,7 @@ export default function SearchPageInner() {
 
       {/* Product Grid */}
       {!loading && results.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0.5 sm:gap-2 gap-x-1 gap-y-0 ">
           {results.map((product) => (
             <div key={product.id}>
               <ProductCard product={product} />

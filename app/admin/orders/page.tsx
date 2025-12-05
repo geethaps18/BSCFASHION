@@ -33,7 +33,7 @@ interface Product {
 
 interface OrderItem {
   id: string;
-  product: Product;
+  product?: Product | null;
   quantity: number;
   price: number;
   size?: string | null;
@@ -49,7 +49,7 @@ interface Order {
   paymentMode: string;
 }
 
-// Status Colors & Text
+// Status Colors
 const STATUS_TEXT: Record<OrderStatus, { text: string; color: string }> = {
   PENDING: { text: "Order Placed", color: "bg-yellow-100 text-yellow-800" },
   CONFIRMED: { text: "Confirmed", color: "bg-blue-100 text-blue-800" },
@@ -69,9 +69,7 @@ const statusStages: OrderStatus[] = [
   "DELIVERED",
 ];
 
-// ------------------------------
-// DOWNLOAD PDF USING BACKEND API
-// ------------------------------
+// PDF download
 const downloadPDF = async (order: Order) => {
   try {
     const res = await fetch("/api/orders/pdf", {
@@ -87,24 +85,19 @@ const downloadPDF = async (order: Order) => {
         }, ${order.address?.landmark ?? ""}, ${order.address?.city ?? ""} ${
           order.address?.state ?? ""
         } - ${order.address?.pincode ?? ""}`,
-
         products: order.items.map((item) => ({
-          name: item.product.name,
+          name: item.product?.name ?? "Deleted Product",
           variant: item.size ?? "-",
           qty: item.quantity,
           price: item.price * item.quantity,
         })),
-
         total: order.totalAmount,
         status: order.status,
-        paymentMode: order.paymentMode, 
+        paymentMode: order.paymentMode,
       }),
     });
 
-    if (!res.ok) {
-      alert("Failed to generate PDF");
-      return;
-    }
+    if (!res.ok) return alert("Failed to generate PDF");
 
     const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
@@ -116,7 +109,7 @@ const downloadPDF = async (order: Order) => {
 
     window.URL.revokeObjectURL(url);
   } catch (err) {
-    console.error("PDF Download Error:", err);
+    console.error("PDF Error:", err);
   }
 };
 
@@ -162,31 +155,29 @@ export default function AdminOrdersPage() {
         const currentIndex = statusStages.indexOf(order.status);
 
         return (
-          
           <div
             key={order.id}
             className="border rounded-lg shadow mb-6 p-4 bg-white"
           >
-      {/* HEADER */}
-<div className="flex justify-between items-start mb-4">
-  <div>
-    <p className="font-semibold">Order ID: {order.id}</p>
-    <p>
-      User: {order.user?.name ?? "Unknown"} (
-      {order.user?.email ?? "-"})
-    </p>
-    <p>
-      Payment Mode:{" "}
-      {["PhonePe", "GPay", "Google Pay", "Paytm", "Card"].includes(order.paymentMode)
-        ? "Prepaid"
-        : order.paymentMode === "COD"
-        ? "Cash on Delivery"
-        : order.paymentMode}
-    </p>
-  </div>
-
-
-
+            {/* HEADER */}
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <p className="font-semibold">Order ID: {order.id}</p>
+                <p>
+                  User: {order.user?.name ?? "Unknown"} (
+                  {order.user?.email ?? "-"})
+                </p>
+                <p>
+                  Payment Mode:{" "}
+                  {["PhonePe", "GPay", "Google Pay", "Paytm", "Card"].includes(
+                    order.paymentMode
+                  )
+                    ? "Prepaid"
+                    : order.paymentMode === "COD"
+                    ? "Cash on Delivery"
+                    : order.paymentMode}
+                </p>
+              </div>
 
               <p
                 className={`px-2 py-1 rounded text-sm ${STATUS_TEXT[order.status].color}`}
@@ -246,9 +237,8 @@ export default function AdminOrdersPage() {
                     updateStatus(order.id, statusStages[currentIndex + 1])
                   }
                   className={`bg-blue-500 text-white px-3 py-1 rounded ${
-                    loadingId === order.id
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
+                    loadingId === order.id &&
+                    "opacity-50 cursor-not-allowed"
                   }`}
                   disabled={loadingId === order.id}
                 >
@@ -273,33 +263,40 @@ export default function AdminOrdersPage() {
               <h3 className="font-semibold mb-2">Products</h3>
 
               {order.items.length ? (
-                order.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex justify-between items-center border-b py-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={item.product.images?.[0] ?? "/placeholder.png"}
-                        className="w-16 h-16 object-cover rounded"
-                      />
+                order.items.map((item) => {
+                  const img =
+                    item.product?.images?.[0] ??
+                    item.product?.images?.[1] ??
+                    "/placeholder.png";
 
-                      <div>
-                        <p>
-                          {item.product.name}{" "}
-                          {item.size ? ` - ${item.size}` : ""}
-                        </p>
-                        <p className="text-gray-500 text-sm">
-                          Qty: {item.quantity}
-                        </p>
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex justify-between items-center border-b py-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={img}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+
+                        <div>
+                          <p>
+                            {item.product?.name ?? "Deleted Product"}{" "}
+                            {item.size ? ` - ${item.size}` : ""}
+                          </p>
+                          <p className="text-gray-500 text-sm">
+                            Qty: {item.quantity}
+                          </p>
+                        </div>
                       </div>
-                    </div>
 
-                    <p className="font-semibold">
-                      ₹{item.price * item.quantity}
-                    </p>
-                  </div>
-                ))
+                      <p className="font-semibold">
+                        ₹{item.price * item.quantity}
+                      </p>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-gray-500">No items found</p>
               )}
@@ -311,7 +308,6 @@ export default function AdminOrdersPage() {
           </div>
         );
       })}
-      
 
       <Footer />
     </div>

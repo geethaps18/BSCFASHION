@@ -314,8 +314,8 @@ model OrderItem {
   id            String       @id @default(auto()) @map("_id") @db.ObjectId
   orderId       String       @db.ObjectId
   order         Order        @relation(fields: [orderId], references: [id])
-  productId     String       @db.ObjectId
-  product       Product      @relation(fields: [productId], references: [id])
+  productId     String?       @db.ObjectId
+  product       Product?      @relation(fields: [productId], references: [id])
   name          String?       // <-- new field for product name
   quantity      Int
   price         Float

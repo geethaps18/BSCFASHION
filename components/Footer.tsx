@@ -28,7 +28,7 @@ export default function Footer() {
 
   return (
     <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-sm z-50">
-      <div className="relative flex justify-around items-center h-12 sm:h-16">
+      <div className="relative flex justify-around items-center h-14 sm:h-16">
         {tabs.map((tab, index) => {
           const isActive = index === activeIndex;
 

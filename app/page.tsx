@@ -59,7 +59,7 @@ export default function Home() {
                 }))
               : [
                   {
-                    sizes: ["Free"],
+                    sizes: ["One size"],
                     color: { name: p.color || "Default", hex: "#111827" },
                     price: basePrice,
                     mrp: baseMRP,

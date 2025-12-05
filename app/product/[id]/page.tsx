@@ -17,14 +17,64 @@ import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import { Product as ProductType } from "@/types/product";
 
+/** --------------------------
+ * ZoomImage component (click to zoom + move-to-pan)
+ * --------------------------- */
+function ZoomImage({ src, alt }: { src: string; alt: string }) {
+  const MIN = 1;
+  const MAX = 2;
+  const [zoom, setZoom] = useState<number>(MIN);
+  const [bgPos, setBgPos] = useState<string>("center");
+
+  const toggleZoom = () => {
+    setZoom((prev) => (prev === MIN ? MAX : MIN));
+    if (zoom !== MIN) setBgPos("center");
+  };
+
+  const setPos = (x: number, y: number, el: HTMLDivElement) => {
+    if (zoom === MIN) return;
+    const rect = el.getBoundingClientRect();
+    const rx = ((x - rect.left) / rect.width) * 100;
+    const ry = ((y - rect.top) / rect.height) * 100;
+    setBgPos(`${rx}% ${ry}%`);
+  };
+
+  return (
+    <div className="relative w-full overflow-hidden shadow-lg">
+      <div
+        onClick={toggleZoom}
+        onMouseMove={(e) => setPos(e.clientX, e.clientY, e.currentTarget)}
+        onTouchMove={(e) =>
+          // @ts-ignore - touch typing
+          setPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
+        }
+        className={`w-full h-[400px] md:h-[360px] bg-gray-50 select-none ${
+          zoom === MIN ? "cursor-zoom-in" : "cursor-move"
+        }`}
+        style={{
+          backgroundImage: `url(${src})`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: zoom === MIN ? "center" : bgPos,
+          backgroundSize: zoom === MIN ? "contain" : `${zoom * 100}%`,
+        }}
+      >
+        {/* Invisible Image keeps layout/resolution stable for Next/Image optimization */}
+        <Image src={src} alt={alt} fill className="opacity-0" draggable={false} />
+      </div>
+    </div>
+  );
+}
+
+/** ---- Types ---- */
 interface Review {
   id: string;
   rating: number;
   comment?: string;
   images?: string[];
   createdAt?: string;
-  user?: string | { name?: string } | null;
-  userName?: string; // fallback
+  // Prisma include gives user.name; or your API may return userName
+  user?: { name?: string | null } | string | null;
+  userName?: string | null;
 }
 
 type ProductWithReviews = ProductType & {
@@ -42,19 +92,21 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<ProductWithReviews | null>(null);
   const [similarProducts, setSimilarProducts] = useState<ProductType[]>([]);
-  const [networkError, setNetworkError] = useState("");
+  const [networkError, setNetworkError] = useState<string>("");
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [addingToBag, setAddingToBag] = useState(false);
   const [sizeError, setSizeError] = useState(false);
   const sizesRef = useRef<HTMLDivElement | null>(null);
 
-  // Modal state for Real Images fullscreen slider
+  // Gallery modal state for Real Images fullscreen slider
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
 
   // ---------------- FETCH PRODUCT ----------------
   useEffect(() => {
     if (!id) return;
+
     const load = async () => {
       try {
         const res = await fetch(`/api/products/${id}`);
@@ -62,10 +114,19 @@ export default function ProductDetailPage() {
           setProduct(null);
           return;
         }
-        const data = (await res.json()) as ProductWithReviews;
-        setProduct(data);
 
-        // fetch similar
+        const data = (await res.json()) as ProductWithReviews;
+        // ensure fields exist
+        setProduct({
+          ...data,
+          reviews: Array.isArray(data.reviews) ? data.reviews : [],
+          rating: data.rating ?? 0,
+          reviewCount: data.reviewCount ?? (data.reviews ? data.reviews.length : 0),
+        });
+
+        setSelectedColor((data as any)?.colors?.[0]?.hex ?? null);
+
+        // Fetch similar products
         const params2 = new URLSearchParams();
         if ((data as any).subSubCategory) params2.append("subSubCategory", (data as any).subSubCategory);
         else if ((data as any).subCategory) params2.append("subCategory", (data as any).subCategory);
@@ -76,7 +137,7 @@ export default function ProductDetailPage() {
         if (sim.ok) setSimilarProducts(await sim.json());
       } catch (err) {
         console.error("Product fetch error:", err);
-        setNetworkError("No internet connection.");
+        setNetworkError("No internet connection. Please check your network.");
         setProduct(null);
       }
     };
@@ -85,41 +146,53 @@ export default function ProductDetailPage() {
   }, [id]);
 
   if (networkError) {
-    return <div className="p-6 text-center text-red-600 mt-20">{networkError}</div>;
+    return (
+      <div className="p-6 text-center text-red-600 text-lg mt-20">
+        {networkError}
+      </div>
+    );
   }
 
   if (!product) {
-    return <p className="p-6 text-center text-gray-500 mt-20">Product not found.</p>;
+    return (
+      <p className="p-6 text-center text-gray-500 mt-20">
+        Product not found.
+      </p>
+    );
   }
 
   // ---------------- Derived / Safe data ----------------
-  const images = product.images && product.images.length ? product.images : ["/placeholder.png"];
+  const images = product.images?.length ? product.images : ["/placeholder.png"];
   const isWishlisted = wishlist.some((p) => p.id === product.id);
+
   const price = product.price;
   const mrp = product.mrp ?? null;
+  const discount =
+    product.discount ??
+    (mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
 
-  // Safe reviews array
+  // Reviews safe
   const reviewsList: Review[] = Array.isArray(product.reviews) ? product.reviews : [];
 
-  // Real images array (only images submitted by reviewers). We keep track of origin review for caption if needed.
-  const realImageEntries = reviewsList
-    .flatMap((r) =>
-      (r.images || []).map((img) => ({
-        img,
-        reviewId: r.id,
-        reviewer:
-          typeof r.user === "string"
-            ? r.user
-            : (r.user && (r.user as any).name) || r.userName || "BSCFashion User",
-        createdAt: r.createdAt,
-      }))
-    );
+  // Real images array (only images submitted by reviewers)
+  const realImageEntries = reviewsList.flatMap((r) =>
+    (r.images || []).map((img) => ({
+      img,
+      reviewId: r.id,
+      reviewer:
+        typeof r.user === "string"
+          ? r.user
+          : (r.user && (r.user as any).name) || r.userName || "BSCFashion User",
+      createdAt: r.createdAt,
+    }))
+  );
 
-  // Rating breakdown (1..5)
+  // Rating breakdown in 5 → 1 order (user requested 5 first)
   const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
     const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
     return { star, count };
   });
+
   const totalReviews = reviewsList.length;
 
   const ratingLabels: Record<number, string> = {
@@ -151,13 +224,12 @@ export default function ProductDetailPage() {
     );
 
     toast.success("Added to bag");
-    setTimeout(() => setAddingToBag(false), 900);
+    setTimeout(() => setAddingToBag(false), 1000);
   };
 
   const openGalleryAt = (index: number) => {
     setGalleryStartIndex(index);
     setIsGalleryOpen(true);
-    // prevent body scroll
     document.body.style.overflow = "hidden";
   };
 
@@ -172,54 +244,70 @@ export default function ProductDetailPage() {
       <Header productName={product.name} />
 
       <div className="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto mt-4">
-        {/* IMAGES */}
+        {/* Images */}
         <div className="w-full md:w-1/2 relative">
           <div className="absolute bottom-6 right-2 z-10">
-           {product.rating > 0 ? (
-  <div className="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1">
-    ★ {product.rating.toFixed(1)}
-  </div>
-) : (
-  <div className="bg-black text-white text-xs font-semibold px-2 py-1 rounded shadow-lg">
-    New
-  </div>
-)}
-
+            {product.rating && product.rating > 0 ? (
+              <div className="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1">
+                ★ {product.rating.toFixed(1)}
+              </div>
+            ) : (
+              <div className="bg-black text-white text-xs font-semibold px-2 py-1 rounded shadow-lg">
+                New
+              </div>
+            )}
           </div>
 
+          {/* Mobile: Swiper slides (swipe only) */}
           <div className="md:hidden mb-4">
-            <Swiper slidesPerView={1.2} spaceBetween={10} centeredSlides modules={[Pagination, Scrollbar]}>
+            <Swiper
+              slidesPerView={1.2}
+              spaceBetween={10}
+              centeredSlides
+              modules={[Pagination, Scrollbar]}
+              scrollbar={{ draggable: true }}
+            >
               {images.map((img) => (
                 <SwiperSlide key={img}>
                   <div className="w-full h-[360px] bg-gray-50 rounded overflow-hidden">
-                    <Image src={img} alt={product.name} fill className="object-contain" />
+                    {/* mobile still uses zoom on tap inside ZoomImage */}
+                    <ZoomImage src={img} alt={product.name} />
                   </div>
                 </SwiperSlide>
               ))}
             </Swiper>
           </div>
 
-          <div className="hidden md:grid grid-cols-2 gap-1 h-[700px] overflow-y-auto pr-2">
+          {/* Desktop: two-column zoom grid (same as your original UI) */}
+          <div className="hidden md:grid grid-cols-2 gap-1 max-h-[700px] overflow-y-auto pr-2">
             {images.map((img) => (
-              <div key={img} className="w-full h-[340px] bg-gray-50 rounded overflow-hidden">
-                <Image src={img} alt={product.name} fill className="object-contain" />
-              </div>
+              <ZoomImage key={img} src={img} alt={product.name} />
             ))}
           </div>
         </div>
 
-        {/* INFORMATION */}
+        {/* Information */}
         <div className="flex flex-col gap-4 w-full md:w-1/2">
-          <h1 className="text-lg font-light tracking-tight">{product.name}</h1>
+          <div>
+            <div className="flex justify-between items-center">
+              <h1 className="text-lg font-light tracking-tight">{product.name}</h1>
+              <Share2 className="h-5 w-5 text-gray-700" />
+            </div>
 
-          <div className="flex items-center gap-2">
-            {mrp && mrp > price && <span className="line-through text-gray-400 text-sm">Rs.{mrp}</span>}
-            <span className="text-gray-900 text-lg font-semibold">Rs.{price}</span>
+            <div className="flex items-center gap-2 mt-1">
+              {mrp && mrp > price && (
+                <span className="line-through text-gray-400 text-sm">Rs.{mrp}</span>
+              )}
+              <span className="text-gray-900">Rs.{price}</span>
+              {discount > 0 && (
+                <span className="text-yellow-600 text-xs font-semibold">{discount}% OFF</span>
+              )}
+            </div>
           </div>
 
-          {/* SIZES */}
+          {/* Sizes */}
           {product.sizes?.length > 0 && (
-            <div ref={sizesRef} className={`${sizeError ? "ring-2 ring-red-400 p-2 rounded" : ""}`}>
+            <div ref={sizesRef} className={`${sizeError ? "ring-2 ring-red-400 rounded-md p-2" : ""}`}>
               <p className="text-gray-700 mb-2">Size</p>
               <div className="grid grid-cols-10 gap-2">
                 {product.sizes.map((size) => (
@@ -229,76 +317,71 @@ export default function ProductDetailPage() {
                       setSelectedSize(size);
                       setSizeError(false);
                     }}
-                    className={`border py-2 rounded-md text-sm ${selectedSize === size ? "border-black bg-gray-200" : "border-gray-300"}`}
+                    className={`border py-2 rounded-md text-sm ${
+                      selectedSize === size ? "border-black bg-gray-200" : "border-gray-300"
+                    }`}
                   >
                     {size}
                   </button>
                 ))}
               </div>
+              {sizeError && <p className="text-red-500 text-xs mt-1">Please select your size</p>}
             </div>
           )}
 
-          {/* DESCRIPTION */}
-          {product.description && <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>}
+          {/* Description */}
+          {product.description && (
+            <p className="text-gray-600 leading-relaxed text-sm">{product.description}</p>
+          )}
 
-         
-{/* ⭐ RATING SUMMARY — SHOW ONLY IF reviews exist */}
-{totalReviews > 0 && (
-  <div className="bg-white p-4 rounded-lg  mt-6">
-    <h2 className="text-lg font-semibold mb-3">Ratings</h2>
+          {/* ⭐ RATING SUMMARY — show only when reviews exist */}
+          {totalReviews > 0 && (
+            <div className="mt-6 bg-white p-4 rounded-lg ">
+              <h2 className="text-lg font-semibold mb-3">Ratings</h2>
 
-    <div className="flex items-center gap-4 mb-4">
-      <div className="text-3xl font-bold text-green-600">
-        ★ {product.rating?.toFixed(1)}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="text-3xl font-bold text-green-600">★ {product.rating?.toFixed(1)}</div>
+                <div className="text-sm text-gray-600">
+                  {totalReviews} Ratings
+                  <div className="text-green-700 font-medium">✔ Verified by BSCFASHION</div>
+                </div>
+              </div>
+
+             {ratingBreakdown.map((item) => {
+  const percent = totalReviews > 0 ? (item.count / totalReviews) * 100 : 0;
+
+  return (
+    <div key={item.star} className="flex items-center gap-3 mb-2">
+      <span className="w-20 font-medium text-gray-700">
+        {ratingLabels[item.star]}
+      </span>
+
+      <div className="flex-1 bg-gray-200 h-2 rounded">
+        <div
+          className="bg-green-500 h-full rounded"
+          style={{ width: `${percent}%` }}
+        ></div>
       </div>
 
-      <div className="text-sm text-gray-600">
-        {totalReviews} Ratings
-        <div className="text-green-700 font-medium">
-          ✔ Verified by BSCFASHION
-        </div>
-      </div>
+      <span className="text-sm w-10 text-right text-gray-600">
+        {item.count}
+      </span>
     </div>
+  );
+})}
+</div>
+          )}
 
-    {/* ⭐ Rating Bars */}
-    {ratingBreakdown
-     
-      .map((item) => {
-        const percent = (item.count / totalReviews) * 100;
-
-        return (
-          <div key={item.star} className="flex items-center gap-3 mb-2">
-            <span className="w-20 font-medium text-gray-700">
-              {ratingLabels[item.star]}
-            </span>
-
-            <div className="flex-1 bg-gray-200 h-2 rounded">
-              <div
-                className="bg-green-500 h-full rounded"
-                style={{ width: `${percent}%` }}
-              ></div>
-            </div>
-
-            <span className="text-sm w-10 text-right text-gray-600">
-              {item.count}
-            </span>
-          </div>
-        );
-      })}
-  </div>
-)}
-
-
-           {/* ---------------- Real Images (Meesho style) ---------------- */}
+          {/* ---------------- Real Images (Meesho style) ---------------- */}
           {realImageEntries.length > 0 && (
-            <div className="mt-2 bg-white p-2">
+            <div className="mt-4 bg-white p-2 rounded">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-lg">Real Images</h3>
                 <div className="text-sm text-gray-500">{realImageEntries.length} photos</div>
               </div>
 
-              {/* Horizontal thumbnails row */}
-              <div className="flex gap-2 overflow-x-auto pb-2 overflow-hidden">
+              {/* Horizontal thumbnail row (use <img> to avoid Next/Image domain config issues) */}
+              <div className="flex gap-2 overflow-x-auto pb-2">
                 {realImageEntries.map((entry, idx) => (
                   <button
                     key={`${entry.img}-${idx}`}
@@ -306,23 +389,20 @@ export default function ProductDetailPage() {
                     className="flex-shrink-0 w-20 h-20 rounded overflow-hidden border"
                     aria-label={`Open photo ${idx + 1}`}
                   >
-                    {/* Use plain <img> for simple thumbnails (faster rendering) */}
                     <img src={entry.img} alt={`real-${idx}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
 
-              {/* Small caption / optional */}
               <div className="text-xs text-gray-500 mt-2">Photos from customers who bought this product.</div>
             </div>
           )}
 
-
           {/* Buttons */}
-          <div className="flex gap-3 mt-4">
+          <div className="flex flex-row sm:flex-col gap-3 mt-4">
             <button
               onClick={() => toggleWishlist(product)}
-              className="flex-1 py-3 bg-white ring-1 ring-black/10 flex items-center justify-center gap-2"
+              className="flex-1 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2"
             >
               <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
               {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
@@ -331,7 +411,9 @@ export default function ProductDetailPage() {
             <button
               onClick={handleAddToBag}
               disabled={addingToBag}
-              className={`flex-1 py-3 text-sm font-semibold bg-gradient-to-r from-yellow-300 to-yellow-500 ${addingToBag ? "opacity-50" : ""}`}
+              className={`flex-1 py-3 text-sm font-semibold bg-gradient-to-r from-yellow-300 to-yellow-500 ${
+                addingToBag ? "opacity-50" : ""
+              }`}
             >
               <ShoppingBag className="inline w-5 h-5 mr-2" />
               {addingToBag ? "Added!" : "Add to Bag"}
@@ -340,7 +422,7 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* SIMILAR PRODUCTS */}
+      {/* Similar products */}
       {similarProducts.length > 0 && (
         <div className="mt-10 max-w-6xl mx-auto">
           <h2 className="text-lg font-medium mb-4">You May Also Like</h2>
@@ -352,18 +434,10 @@ export default function ProductDetailPage() {
         </div>
       )}
 
-      {/* ---------------- Fullscreen gallery modal (Swiper) ---------------- */}
+      {/* Fullscreen gallery modal (Swiper) for real images */}
       {isGalleryOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-          role="dialog"
-          aria-modal="true"
-        >
-          <button
-            onClick={closeGallery}
-            className="absolute top-4 right-4 z-50 text-white text-xl p-2"
-            aria-label="Close gallery"
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" role="dialog" aria-modal="true">
+          <button onClick={closeGallery} className="absolute top-4 right-4 z-50 text-white text-xl p-2" aria-label="Close gallery">
             ✕
           </button>
 

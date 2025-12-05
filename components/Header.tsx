@@ -8,16 +8,9 @@ import { Search, Heart, ShoppingBag, Menu, X, ArrowLeft, Layout } from "lucide-r
 import { useCart } from "@/app/context/BagContext";
 import { useWishlist } from "@/app/context/WishlistContext";
 import { Product } from "@/types/product";
+import SearchBar from "./SearchBar";
 
-const trendingProducts = [
-  "Silk Saree",
-  "Cotton Saree",
-  "Men's Kurta",
-  "Kids Wear",
-  "Bedsheets",
-  "Mats",
-  "T-Shirts",
-];
+
 
 interface HeaderProps {
   productName?: string;
@@ -178,24 +171,15 @@ export default function Header({ productName }: HeaderProps) {
           )}
         </div>
 
-        {/* Desktop Search */}
-        <form
-          onSubmit={handleSearchSubmit}
-          className="hidden lg:flex flex-1 max-w-md"
-        >
-          <div className="flex items-center w-full border border-gray-300 rounded-full px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-gray-300 transition">
-            <Search className="w-5 h-5 text-gray-500 stroke-[1.2]" />
-            <input
-              type="text"
-              placeholder="Search for products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full outline-none px-3 py-1 text-sm text-gray-700 placeholder-gray-400"
-            />
-          </div>
-        </form>
+        <div className="hidden lg:flex flex-1 max-w-md">
+ <SearchBar
+  placeholder="Search for sarees, men, kids, bedsheets…"
+  disableOutsideClose={true}   // ⭐ prevents hiding when clicking empty area
+  autoOpen={true}              // ⭐ open dropdown immediately
+/>
 
-        {/* Right Icons */}
+</div>
+{/* Right Icons */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             aria-label="Search"
@@ -261,98 +245,27 @@ export default function Header({ productName }: HeaderProps) {
         </div>
       </div>
 
-      {/* Mobile Search Overlay */}
-      {isSearchOpen && (
-        <div className="fixed inset-0 bg-white z-50 flex flex-col p-4 sm:p-6 overflow-y-auto">
-          <div className="flex items-center mb-3">
-            <button
-              onClick={() => setIsSearchOpen(false)}
-              className="text-gray-600 font-medium mr-3"
-            >
-              Close
-            </button>
-            <form
-              onSubmit={handleSearchSubmit}
-              className="flex items-center flex-1 border border-gray-300 rounded-full px-3 py-1.5 shadow-sm focus-within:ring-2 focus-within:ring-gray-300 transition"
-            >
-              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 stroke-[1.2]" />
-              <input
-                type="text"
-                placeholder="Search for products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full outline-none px-2 text-sm sm:text-base text-gray-700 placeholder-gray-400"
-                autoFocus
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="ml-2 text-gray-400 hover:text-gray-600"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </form>
-          </div>
+{isSearchOpen && (
+  <div className="fixed top-0 left-0 right-0 bg-white z-50 p-4 shadow-md">
+    {/* Top bar: Back + SearchBar */}
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => setIsSearchOpen(false)}
+        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200"
+      >
+        <ArrowLeft size={22} className="text-gray-600" />
+      </button>
 
-          {!searchQuery && (
-            <div className="mb-6 flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <h2 className="text-lg font-semibold mb-3 text-gray-800">
-                  Trending Products
-                </h2>
-                <div className="flex flex-col gap-3">
-                  {trendingProducts.map((item) => (
-                    <button
-                      key={item}
-                      onClick={() => {
-                        router.push(`/search?query=${encodeURIComponent(item)}`);
-                        setIsSearchOpen(false);
-                      }}
-                      className="w-50 sm:w-50 px-4 py-2 bg-gray-100 text-sm font-medium hover:bg-gray-200 text-left rounded-lg"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {popularProducts.length > 0 && (
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold mb-3 text-gray-800">
-                    Popular Products
-                  </h2>
-                  <div className="grid grid-cols-1 gap-3">
-                    {popularProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        className="flex items-center gap-3 bg-gray-100 p-2 rounded-lg cursor-pointer hover:bg-gray-200"
-                        onClick={() => {
-                          router.push(`/product/${product.id}`);
-                          setIsSearchOpen(false);
-                        }}
-                      >
-                        <Image
-                          src={product.images?.[0] || "/images/logo.png"}
-                          alt={product.name}
-                          width={50}
-                          height={50}
-                          className="rounded-md object-cover"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{product.name}</span>
-                          <span className="text-xs text-gray-600">₹{product.price}</span>
-                        </div>
-                      </div>
-                    ))}
+      <div className="flex-1">
+        <SearchBar
+          placeholder="Search for sarees, men, kids, bedsheets…"
+          autoOpen={true}
+        />
+      </div>
+    
                   </div>
                 </div>
               )}
-            </div>
-          )}
-        </div>
-      )}
     </header>
   );
 }

@@ -115,7 +115,8 @@ export default function ProductCard({
   return (
     <Link
       href={`/product/${product.id}`}
-      className="cursor-pointer w-full sm:w-[160px] md:w-[200px] lg:w-[240px] m-2"
+     className="cursor-pointer w-full p-0.5"
+
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

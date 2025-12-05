@@ -73,12 +73,14 @@ setProducts(mappedProducts);
   }
 
   return (
-    <div className="min-h-screen bg-white pt-16 pb-20 px-6 sm:px-10">
+   <div className="min-h-screen bg-white pt-16 pb-20 px-0.5">
+
      
 
       {/* Subcategories */}
       {mainCat?.subCategories.length ? (
-        <div className="mb-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-[2px] sm:grid-cols-3 md:grid-cols-4 sm:gap-4 px-1 mb-2">
+
           {mainCat.subCategories.map((sub) => {
             const subSlug = sub.name.toLowerCase().replace(/\s+/g, "-");
             return (
@@ -114,11 +116,12 @@ setProducts(mappedProducts);
           No products available in this category.
         </div>
       ) : (
-         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
-                    {products.map((product) => (
-                      <ProductCard key={product.id} product={product} />
-                    ))}
-                  </div>
+         <div className="grid grid-cols-2 gap-[2px] sm:grid-cols-4 lg:grid-cols-6 sm:gap-3 px-0.5">
+  {products.map((product) => (
+    <ProductCard key={product.id} product={product} />
+  ))}
+</div>
+
                  
       )}
        </main>

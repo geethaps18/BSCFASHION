@@ -8,7 +8,9 @@ import Header from "@/components/Header";
 
 export default function SearchPageInner() {
   const searchParams = useSearchParams();
-  const query = searchParams.get("query") || "";
+
+  // ✅ Correct param name (SearchBar uses ?q=)
+  const query = searchParams.get("q") || "";
 
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ export default function SearchPageInner() {
         const res = await fetch("/api/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ q: query }), // IMPORTANT
         });
 
         const data = await res.json();
@@ -45,24 +47,25 @@ export default function SearchPageInner() {
 
   return (
     <main
-      className="min-h-screen bg-white px-4 sm:px-6 lg:px-10"
+      className="min-h-screen bg-white px-0.5 sm:px-6 lg:px-10"
       style={{ paddingTop: HEADER_HEIGHT + 20 }}
     >
-      {/* Search Info - only show if results > 0 */}
+      <Header />
+
+      {/* Search Info */}
       {query && results.length > 0 && (
-        <div className="mb-6">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-700 font-lora">
+        <div className="mt-4 mb-6">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-700">
             {loading
               ? "Searching..."
-              : `${results.length} ${
-                  results.length === 1 ? "Result" : "Results"
-                }`}{" "}
-            for <span className="font-bold text-gray-900">"{query}"</span>
+              : `${results.length} ${results.length === 1 ? "Result" : "Results"}`}
+            {"  "}for{" "}
+            <span className="font-bold text-gray-900">"{query}"</span>
           </h1>
         </div>
       )}
 
-      {/* Loading State */}
+      {/* Loading */}
       {loading && (
         <p className="text-center text-gray-500 mt-20 animate-pulse">
           🔍 Searching for awesome stuff...
@@ -90,7 +93,6 @@ export default function SearchPageInner() {
           >
             Go Back Home 🏠
           </button>
-          <Header/>
         </div>
       )}
 
@@ -98,11 +100,10 @@ export default function SearchPageInner() {
       {!loading && results.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0.5">
           {results.map((product) => (
-            <div key={product.id} className="transition-transform">
+            <div key={product.id}>
               <ProductCard product={product} />
             </div>
           ))}
-          <Header/>
         </div>
       )}
     </main>

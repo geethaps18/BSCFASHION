@@ -59,61 +59,56 @@ export default function Sub1Page() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-16 pb-20 px-6 sm:px-10">
-      
-       
+  <div className="min-h-screen bg-white pt-16 pb-20 px-0.5 gap-0">
 
-    
 
-      {/* Sub-subcategories */}
-      {sub1Cat?.subCategories.length ? (
-        <div className="mb-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {sub1Cat.subCategories.map((sub2) => {
-            const sub2Slug = sub2.name.toLowerCase().replace(/\s+/g, "-");
-            return (
-              <Link
-                key={sub2.name}
-                href={`/categories/${mainSlug}/${sub1Slug}/${sub2Slug}`}
-                className="relative group block w-full h-40 sm:h-48 md:h-56 rounded-lg overflow-hidden"
-              >
-                {/* Background Image */}
-                <Image
-                  src={sub2.image}
-                  alt={sub2.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+    {/* Sub-subcategories */}
+    {sub1Cat?.subCategories.length ? (
+      <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0.5 px-0">
+        {sub1Cat.subCategories.map((sub2) => {
+          const sub2Slug = sub2.name.toLowerCase().replace(/\s+/g, "-");
+          return (
+            <Link
+              key={sub2.name}
+              href={`/categories/${mainSlug}/${sub1Slug}/${sub2Slug}`}
+              className="relative group block w-full h-40 sm:h-48 md:h-56 rounded-lg overflow-hidden"
+            >
+              <Image
+                src={sub2.image}
+                alt={sub2.name}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-white text-sm sm:text-base font-medium drop-shadow-md">
+                  {sub2.name}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    ) : null}
 
-                {/* Overlay */}
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
-
-                {/* Centered Text */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-white text-sm sm:text-base font-medium drop-shadow-md">
-                    {sub2.name}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {/* Products */}
+    {/* Products */}
+    <main className="flex-grow p-0 pb-24">
       {loading ? (
         <p className="text-center text-gray-500 py-16">Loading products...</p>
       ) : products.length === 0 ? (
         <p className="text-gray-500 text-center">No products found.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-[2px] w-full px-0.5">
           {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}
+    </main>
 
-      <Header />
-      <Footer />
-    </div>
-  );
+    <Header />
+    <Footer />
+  </div>
+);
+
 }

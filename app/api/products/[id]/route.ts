@@ -1,7 +1,6 @@
 // app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { ObjectId } from "mongodb";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -19,23 +18,21 @@ function getUserId(req: NextRequest): string | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     return decoded.userId;
-  } catch (err) {
-    console.error("JWT verify failed:", err);
+  } catch {
     return null;
   }
 }
 
 // ----------------------
-// Utility: Validate ObjectId
+// Validate Mongo ObjectId
 // ----------------------
 function isValidObjectId(id: string) {
   return /^[a-fA-F0-9]{24}$/.test(id);
 }
 
 // ----------------------
-// GET: Fetch Product
+// ⭐ GET PRODUCT + REVIEWS
 // ----------------------
-// GET: Fetch Product
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -44,48 +41,81 @@ export async function GET(
     const { id } = await params;
 
     if (!isValidObjectId(id)) {
-      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid product ID" },
+        { status: 400 }
+      );
     }
 
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        reviews: true, // if you want the reviews, else remove
+        reviews: {
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            images: true,
+            createdAt: true,
+            user: {
+              select: { name: true }, // user may be null (SAFE)
+            },
+          },
+        },
       },
     });
 
     if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
+      );
     }
 
-    // Normalize response shape to match frontend expectations
-    const normalized = {
-      id: product.id, // keep as-is (Prisma string)
-      name: product.name ?? "",
-      description: product.description ?? "",
-      images: product.images ?? [],
-      price: product.price ?? 0,
-      mrp: product.mrp ?? null,
-      sizes: product.sizes ?? [],
-      rating: product.rating ?? 0,
-      reviewCount: product.reviewCount ?? (product.reviews ? product.reviews.length : 0),
-      category: product.category ?? null,
-      subCategory: product.subCategory ?? null,
-      subSubCategory: product.subSubCategory ?? null,
-      // add any other fields you need
-    };
+   const averageRating =
+  product.reviews.length > 0
+    ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
+      product.reviews.length
+    : 0;
 
-    // Return normalized object (NOT wrapped in { product: ... })
+const normalized = {
+  id: product.id,
+  name: product.name ?? "",
+  description: product.description ?? "",
+  images: product.images ?? [],
+  price: product.price ?? 0,
+  mrp: product.mrp ?? null,
+  sizes: product.sizes ?? [],
+  rating: averageRating,                  // ⭐ average rating
+  reviewCount: product.reviews.length,    // ⭐ total rating count
+
+  reviews: product.reviews.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    images: r.images ?? [],
+    createdAt: r.createdAt,
+    userName: r.user?.name ?? "BSCFASHION User",
+  })),
+
+  category: product.category ?? null,
+  subCategory: product.subCategory ?? null,
+  subSubCategory: product.subSubCategory ?? null,
+};
+
+
     return NextResponse.json(normalized);
   } catch (err) {
     console.error("Product GET Error:", err);
-    return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch product" },
+      { status: 500 }
+    );
   }
 }
 
-
 // ----------------------
-// DELETE: Delete Product
+// DELETE PRODUCT
 // ----------------------
 export async function DELETE(
   req: NextRequest,
@@ -96,25 +126,28 @@ export async function DELETE(
 
     const userId = getUserId(req);
     if (!userId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
 
     const deleted = await prisma.product.delete({ where: { id } });
 
     return NextResponse.json(
-      { message: "✅ Product deleted!", product: deleted },
+      { message: "Product deleted!", product: deleted },
       { status: 200 }
     );
   } catch (err: any) {
     console.error("DELETE /product error:", err);
     return NextResponse.json(
-      { message: "❌ Failed to delete product", error: err.message },
+      { message: "Failed to delete product", error: err.message },
       { status: 500 }
     );
   }
 }
 
 // ----------------------
-// PUT: Update Product
+// UPDATE PRODUCT
 // ----------------------
 export async function PUT(
   req: NextRequest,
@@ -125,7 +158,10 @@ export async function PUT(
 
     const userId = getUserId(req);
     if (!userId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
 
     const body = await req.json();
     const { name, description, price, stock, category } = body;
@@ -143,13 +179,13 @@ export async function PUT(
     });
 
     return NextResponse.json(
-      { message: "✅ Product updated!", product: updated },
+      { message: "Product updated!", product: updated },
       { status: 200 }
     );
   } catch (err: any) {
     console.error("PUT /product error:", err);
     return NextResponse.json(
-      { message: "❌ Failed to update product", error: err.message },
+      { message: "Failed to update product", error: err.message },
       { status: 500 }
     );
   }

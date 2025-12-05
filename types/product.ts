@@ -40,5 +40,7 @@ export interface Review {
   rating: number;        // 1-5
   comment?: string;      // Optional comment
   images?: string[];     // Optional images array
+  createdAt:string;
+  userName:string;
 }
 

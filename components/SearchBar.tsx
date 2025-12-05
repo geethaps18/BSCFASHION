@@ -91,8 +91,7 @@ useEffect(() => {
   document.addEventListener("mousedown", onDoc);
   return () => document.removeEventListener("mousedown", onDoc);
 }, [isSearchPage]);
- [disableOutsideClose
-];
+ 
 
 
 
@@ -103,7 +102,8 @@ useEffect(() => {
       const recents = recent.map((r) => ({ kind: "recent", text: r } as SearchResult));
       const trends = trending.map((t) => ({ kind: "trending", text: t } as SearchResult));
       setResults([...recents, ...trends]);
-      setOpen(true);
+      if (!isSearchPage) setOpen(true);
+
       setLoading(false);
       return;
     }
@@ -125,7 +125,8 @@ useEffect(() => {
 
         // Merge: suggestions first, then products
         setResults([...suggestionResults, ...productResults]);
-        setOpen(true);
+        if (!isSearchPage) setOpen(true);
+
         setActive(-1);
       } catch (err) {
         console.error("search error", err);
@@ -195,7 +196,8 @@ useEffect(() => {
       <div
         className="flex items-center w-full border border-gray-300 rounded-full px-4 py-2 shadow-sm bg-white"
         onClick={() => {
-          setOpen(true);
+          if (!isSearchPage) setOpen(true);
+
         }}
       >
         <svg className="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none">

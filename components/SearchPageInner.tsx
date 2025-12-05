@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import ProductCard from "@/components/ProductCard";
 import { Product } from "@/types/product";
 import Header from "@/components/Header";
+import { usePathname } from "next/navigation";
+
 
 export default function SearchPageInner() {
   const searchParams = useSearchParams();
@@ -14,8 +16,13 @@ export default function SearchPageInner() {
 
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const pathname = usePathname();
+
+  const isSearchPage = pathname.startsWith("/search");
+
 
   const HEADER_HEIGHT = 70;
+  
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -23,6 +30,7 @@ export default function SearchPageInner() {
         setResults([]);
         return;
       }
+      
 
       setLoading(true);
       try {
@@ -54,7 +62,7 @@ export default function SearchPageInner() {
 
       {/* Search Info */}
       {query && results.length > 0 && (
-        <div className="mt-4 mb-6">
+        <div className="mt-0 mb-0.5">
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-700">
             {loading
               ? "Searching..."
@@ -74,7 +82,7 @@ export default function SearchPageInner() {
 
       {/* No Results */}
       {!loading && results.length === 0 && query && (
-        <div className="flex flex-col items-center justify-center mt-20 space-y-3">
+        <div className="flex flex-col items-center justify-center mt-10 space-y-3">
           <img
             src="/images/empty-search.png"
             alt="No results"

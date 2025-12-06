@@ -45,8 +45,9 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
         onClick={toggleZoom}
         onMouseMove={(e) => setPos(e.clientX, e.clientY, e.currentTarget)}
         onTouchMove={(e) =>
-          // @ts-ignore - touch typing
-          setPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
+        
+        setPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
+
         }
         className={`w-full h-[400px] md:h-[360px] bg-gray-50 select-none ${
           zoom === MIN ? "cursor-zoom-in" : "cursor-move"

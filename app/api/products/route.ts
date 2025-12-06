@@ -1,16 +1,7 @@
 // app/api/products/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { createClient } from "@supabase/supabase-js";
-
-// ----------------------
-// Supabase client
-// ----------------------
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
+import { supabase } from "@/lib/supabase";
 // ----------------------
 // Helper: upload file to Supabase
 // ----------------------

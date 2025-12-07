@@ -55,7 +55,6 @@ export async function GET(
             id: true,
             rating: true,
             comment: true,
-            images: true,
             createdAt: true,
             user: {
               select: { name: true }, // user may be null (SAFE)
@@ -93,7 +92,6 @@ const normalized = {
     id: r.id,
     rating: r.rating,
     comment: r.comment,
-    images: r.images ?? [],
     createdAt: r.createdAt,
     userName: r.user?.name ?? "BSCFASHION User",
   })),

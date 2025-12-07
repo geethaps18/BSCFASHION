@@ -153,7 +153,6 @@ if (Array.isArray(images) && images.length > 0) {
         data: {
           rating,
           comment,
-          images: uploadedUrls.length > 0 ? uploadedUrls : existing.images,
           updatedAt: new Date(),
         },
       });
@@ -165,7 +164,6 @@ if (Array.isArray(images) && images.length > 0) {
           orderId: order.id,
           rating,
           comment,
-          images: uploadedUrls,
         },
       });
     }

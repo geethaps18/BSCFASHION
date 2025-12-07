@@ -64,7 +64,6 @@ export async function POST(
         userId,
         rating: body.rating,
         comment: body.comment,
-        images: body.images
       }
     });
 

@@ -98,7 +98,6 @@ export async function POST(
         orderId,
         rating,
         comment,
-        images: images || [],
       },
     });
 

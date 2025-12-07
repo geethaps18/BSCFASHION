@@ -95,6 +95,10 @@ const handleWishlistClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     return;
   }
 
+  // If user is logged in → normal wishlist toggle
+  if (onWishlistToggle) onWishlistToggle();
+  else toggleWishlist(product);
+
 };
 
 
@@ -114,8 +118,10 @@ const handleWishlistClick = (e: React.MouseEvent<HTMLButtonElement>) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add to bag");
       setBagItems(data.items);
+      toast.success(`${product.name} (${size}) added to bag`);
     } catch (err: any) {
       console.error(err);
+      toast.error(err.message || "Something went wrong");
     }
   };
 

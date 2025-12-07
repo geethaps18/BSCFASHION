@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { setCookie } from "cookies-next";
+import Header from "./Header";
 
 export default function SignupPageInner() {
   const router = useRouter();
@@ -98,7 +99,7 @@ export default function SignupPageInner() {
         <h1 className="text-2xl font-bold mb-6 text-gray-700 text-center">
           Sign Up
         </h1>
-
+        <Header/>
         {/* Toggle Phone / Email */}
         <div className="mb-4 flex justify-center">
           <button

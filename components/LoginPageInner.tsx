@@ -125,8 +125,22 @@ export default function LoginPageInner() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
+   
       <div className="w-full max-w-md bg-white shadow-lg p-8 rounded-lg">
-        <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
+      
+      
+
+  {/* ⭐ Brand Logo */}
+  <div className="flex justify-center mb-4">
+    <img
+      src="/images/logo.png"
+      alt="BSCFashion Logo"
+      className="w-40 h-40 object-contain"
+    />
+  </div>
+
+  
+  <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
 
         <div className="mb-4 flex justify-center">
           <button
@@ -220,5 +234,6 @@ export default function LoginPageInner() {
         </p>
       </div>
     </div>
+    
   );
 }

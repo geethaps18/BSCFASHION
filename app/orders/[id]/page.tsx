@@ -506,8 +506,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
             className="border border-gray-300 rounded p-2 text-sm w-full"
           />
 
-          <input type="file" multiple onChange={handleFileChange} className="text-xs" />
-
           <button
             onClick={handleSubmit}
             className="py-2 bg-green-600 text-white rounded text-sm mt-1 hover:bg-green-700"

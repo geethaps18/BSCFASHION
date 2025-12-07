@@ -175,7 +175,6 @@ model Review {
   rating    Float // numeric rating 1-5
   comment   String?
   review    String?
-  images    String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

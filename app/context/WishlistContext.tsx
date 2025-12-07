@@ -105,7 +105,7 @@ try {
         body: JSON.stringify({ productId: product.id }),
       });
 
-      toast.success(liked ? "Removed from wishlist" : "Added to wishlist");
+     
     } catch (err) {
       console.error(err);
       toast.error("Something went wrong");

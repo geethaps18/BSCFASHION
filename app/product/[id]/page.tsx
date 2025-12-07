@@ -16,6 +16,10 @@ import { useCart } from "@/app/context/BagContext";
 import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import { Product as ProductType } from "@/types/product";
+import { getCookie } from "cookies-next";
+import { useRouter } from "next/navigation";
+
+
 
 /** --------------------------
  * ZoomImage component (click to zoom + move-to-pan)
@@ -90,11 +94,11 @@ export default function ProductDetailPage() {
 
   const { wishlist, toggleWishlist } = useWishlist();
   const { addToCart } = useCart();
+  const router = useRouter();
 
   const [product, setProduct] = useState<ProductWithReviews | null>(null);
   const [similarProducts, setSimilarProducts] = useState<ProductType[]>([]);
   const [networkError, setNetworkError] = useState<string>("");
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [addingToBag, setAddingToBag] = useState(false);
   const [sizeError, setSizeError] = useState(false);
@@ -103,6 +107,8 @@ export default function ProductDetailPage() {
   // Gallery modal state for Real Images fullscreen slider
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
+  const [showStickyBar, setShowStickyBar] = useState(true);
+
 
   // ---------------- FETCH PRODUCT ----------------
   useEffect(() => {
@@ -125,7 +131,6 @@ export default function ProductDetailPage() {
           reviewCount: data.reviewCount ?? (data.reviews ? data.reviews.length : 0),
         });
 
-        setSelectedColor((data as any)?.colors?.[0]?.hex ?? null);
 
         // Fetch similar products
         const params2 = new URLSearchParams();
@@ -204,10 +209,34 @@ export default function ProductDetailPage() {
     1: "Poor",
   };
 
+  const handleWishlistClick = () => {
+  const token = getCookie("token");
+
+  if (!token) {
+    router.push("/login?redirect=product");
+    return;
+  }
+
+  toggleWishlist(product);
+ 
+};
+const handleAddToBagWithLoginCheck = () => {
+  const token = getCookie("token");
+
+  if (!token) {
+    router.push("/login?redirect=bag");
+    return;
+  }
+
+  handleAddToBag();
+};
+
+
+
   // ---------------- Actions ----------------
   const handleAddToBag = () => {
     if (!selectedSize && product.sizes?.length) {
-      toast.error("Please select your size");
+     
       setSizeError(true);
       return;
     }
@@ -224,7 +253,7 @@ export default function ProductDetailPage() {
       selectedSize ?? undefined
     );
 
-    toast.success("Added to bag");
+    
     setTimeout(() => setAddingToBag(false), 1000);
   };
 
@@ -338,13 +367,13 @@ export default function ProductDetailPage() {
           {/* ⭐ RATING SUMMARY — show only when reviews exist */}
           {totalReviews > 0 && (
             <div className="mt-6 bg-white p-4 rounded-lg ">
-              <h2 className="text-lg font-semibold mb-3">Ratings</h2>
+              <h2 className="text-lg font-semibold mb-3">Ratings & Reviews</h2>
 
               <div className="flex items-center gap-4 mb-4">
-                <div className="text-3xl font-bold text-green-600">★ {product.rating?.toFixed(1)}</div>
+                <div className="text-xl font-bold text-green-600">★ {product.rating?.toFixed(1)}</div>
                 <div className="text-sm text-gray-600">
                   {totalReviews} Ratings
-                  <div className="text-green-700 font-medium">✔ Verified by BSCFASHION</div>
+                  <div className="text-green-700 font-medium">✔ Verified by BSCFASHION Users</div>
                 </div>
               </div>
 
@@ -373,55 +402,53 @@ export default function ProductDetailPage() {
 </div>
           )}
 
-          {/* ---------------- Real Images (Meesho style) ---------------- */}
-          {realImageEntries.length > 0 && (
-            <div className="mt-4 bg-white p-2 rounded">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-lg">Real Images</h3>
-                <div className="text-sm text-gray-500">{realImageEntries.length} photos</div>
-              </div>
+         
 
-              {/* Horizontal thumbnail row (use <img> to avoid Next/Image domain config issues) */}
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {realImageEntries.map((entry, idx) => (
-                  <button
-                    key={`${entry.img}-${idx}`}
-                    onClick={() => openGalleryAt(idx)}
-                    className="flex-shrink-0 w-20 h-20 rounded overflow-hidden border"
-                    aria-label={`Open photo ${idx + 1}`}
-                  >
-                    <img src={entry.img} alt={`real-${idx}`} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
+     {/* Desktop Buttons (Hidden on Mobile) */}
+<div className="hidden md:flex flex-col gap-3 mt-4">
+  <button
+    onClick={handleWishlistClick}
+    className="flex-1 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2"
+  >
+    <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
+    {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
+  </button>
 
-              <div className="text-xs text-gray-500 mt-2">Photos from customers who bought this product.</div>
-            </div>
-          )}
+  <button
+    onClick={handleAddToBagWithLoginCheck}
+    disabled={addingToBag}
+    className={`flex-1 py-3 text-sm font-semibold bg-gradient-to-r from-yellow-300 to-yellow-500 ${
+      addingToBag ? "opacity-50" : ""
+    }`}
+  >
+    <ShoppingBag className="inline w-5 h-5 mr-2" />
+    {addingToBag ? "Added!" : "Add to Bag"}
+  </button>
+</div>
 
-          {/* Buttons */}
-          <div className="flex flex-row sm:flex-col gap-3 mt-4">
-            <button
-              onClick={() => toggleWishlist(product)}
-              className="flex-1 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2"
-            >
-              <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
-              {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
-            </button>
+{/* MOBILE FIXED BUTTON BAR */}
+<div className="md:hidden fixed bottom-0 left-0 right-0 bg-white  flex gap-2 p-3 z-50">
+  <button
+    onClick={handleWishlistClick}
+    className="w-1/2 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2 rounded-md"
+  >
+    <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
+    {isWishlisted ? "Wishlisted" : "Wishlist"}
+  </button>
 
-            <button
-              onClick={handleAddToBag}
-              disabled={addingToBag}
-              className={`flex-1 py-3 text-sm font-semibold bg-gradient-to-r from-yellow-300 to-yellow-500 ${
-                addingToBag ? "opacity-50" : ""
-              }`}
-            >
-              <ShoppingBag className="inline w-5 h-5 mr-2" />
-              {addingToBag ? "Added!" : "Add to Bag"}
-            </button>
-          </div>
-        </div>
-      </div>
+  <button
+    onClick={handleAddToBagWithLoginCheck}
+    disabled={addingToBag}
+    className={`w-1/2 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500 ${
+      addingToBag ? "opacity-50" : ""
+    }`}
+  >
+    <ShoppingBag className="inline w-5 h-5 mr-2" />
+    {addingToBag ? "Added!" : "Add to Bag"}
+  </button>
+</div>
+</div>
+</div>
 
       {/* Similar products */}
       {similarProducts.length > 0 && (

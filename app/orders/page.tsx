@@ -7,6 +7,8 @@ import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ChevronRight, Search } from "lucide-react";
+import { getCookie } from "cookies-next";
+
 
 interface Product {
   id: string;
@@ -42,7 +44,9 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const router = useRouter();
+
+   const router = useRouter();
+  const token = getCookie("token");
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -64,6 +68,13 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
+  useEffect(() => {
+    if (!token) {
+      router.push("/login?redirect=orders");
+    }
+  }, [token, router]);
+
+
   // ----------------------
   // Filter + Search Logic
   // ----------------------
@@ -81,8 +92,7 @@ export default function OrdersPage() {
   if (loading)
     return <div className="p-6 text-center">Loading orders...</div>;
 
-  if (!loading && orders.length === 0)
-    return <div className="p-6 text-center text-gray-500">No orders found</div>;
+ 
 
   return (
     <div className="min-h-screen flex flex-col ">

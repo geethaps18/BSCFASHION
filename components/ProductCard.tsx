@@ -7,6 +7,9 @@ import { useWishlist } from "@/app/context/WishlistContext";
 import { useCart } from "@/app/context/BagContext";
 import Link from "next/link";
 import { Product, ProductVariant } from "@/types/product";
+import { getCookie } from "cookies-next";
+import { useRouter } from "next/navigation";
+
 
 interface ProductCardProps {
   product: Product;
@@ -26,6 +29,7 @@ export default function ProductCard({
   // Rating state
   const [rating, setRating] = useState(product.rating ?? 0);
   const [reviewCount, setReviewCount] = useState(product.reviewCount ?? 0);
+  
   
 
   // Fetch latest ratings
@@ -77,18 +81,22 @@ export default function ProductCard({
 
   const liked = wishlistProp ?? wishlistContext.some((p) => p.id === product.id);
 
-  // ✅ Wishlist toggle — works without login
-  const handleWishlistClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    e.preventDefault();
+const router = useRouter();
 
-    if (onWishlistToggle) onWishlistToggle();
-    else toggleWishlist(product);
+const handleWishlistClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  e.stopPropagation();
+  e.preventDefault();
 
-    // Feedback toast
-    if (!liked) toast.success("Added to wishlist");
-    else toast("Removed from wishlist");
-  };
+  const token = getCookie("token");
+
+  // ⚠️ If user is NOT logged in → Go to login page
+  if (!token) {
+    router.push("/login?redirect=wishlist");
+    return;
+  }
+
+};
+
 
   // Add product to bag
   const handleSizeClick = async (
@@ -106,10 +114,8 @@ export default function ProductCard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add to bag");
       setBagItems(data.items);
-      toast.success(`${product.name} (${size}) added to bag`);
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Something went wrong");
     }
   };
 

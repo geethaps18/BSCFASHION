@@ -26,6 +26,8 @@ const categories = [
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState(""); // ONLY INTERNET ERROR
+  
+  
 
   useEffect(() => {
     const fetchProducts = async () => {

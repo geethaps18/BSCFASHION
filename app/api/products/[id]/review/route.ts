@@ -2,15 +2,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import jwt from "jsonwebtoken";
-import { supabase } from "@/lib/supabase"; 
-
-
+import { supabaseAdmin } from "@/lib/supabase"; // IMPORTANT: ADMIN CLIENT
+import { supabase } from "@/lib/supabase";
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-// Extract userId from token
+// ------------------------------
+// Extract user ID from JWT
+// ------------------------------
 function getCurrentUser(req: NextRequest) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return null;
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     return decoded.userId;
@@ -19,13 +21,14 @@ function getCurrentUser(req: NextRequest) {
   }
 }
 
+// Valid Mongo ObjectId
 function isValidObjectId(id: string) {
   return /^[a-fA-F0-9]{24}$/.test(id);
 }
 
-// =========================
-// GET — Fetch Product Reviews
-// =========================
+/* ============================================================
+   GET: Fetch reviews for a product
+============================================================ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,48 +37,36 @@ export async function GET(
     const { id } = await params;
 
     if (!isValidObjectId(id)) {
-      return NextResponse.json(
-        { error: "Invalid product ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
     }
 
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
         reviews: {
-          orderBy: { createdAt: "desc" }
-        }
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
     if (!product) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
     return NextResponse.json({
       rating: product.rating ?? 0,
       reviewCount: product.reviewCount ?? 0,
-      reviews: product.reviews
+      reviews: product.reviews ?? [],
     });
   } catch (err) {
     console.error("Review GET error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch reviews" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 });
   }
 }
 
-// =========================
-// POST — Create / Update Review
-// =========================
-// =========================
-// POST — Create / Update Review WITH REAL IMAGE UPLOAD
-// =========================
+/* ============================================================
+   POST: Create or Update Review + REAL IMAGE UPLOAD
+============================================================ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -95,10 +86,10 @@ export async function POST(
     const { rating, comment, images } = await req.json();
 
     if (typeof rating !== "number" || rating < 1 || rating > 5) {
-      return NextResponse.json({ error: "Rating must be 1-5" }, { status: 400 });
+      return NextResponse.json({ error: "Rating must be 1–5" }, { status: 400 });
     }
 
-    // Check purchased + delivered
+    // Has the user purchased + received this item?
     const order = await prisma.order.findFirst({
       where: {
         userId,
@@ -114,34 +105,42 @@ export async function POST(
       );
     }
 
-    // -------------- IMAGE UPLOAD FIX --------------
-    let uploadedUrls: string[] = [];
+// -------------- IMAGE UPLOAD FIX (FINAL) --------------
+let uploadedUrls: string[] = [];
 
-    if (Array.isArray(images) && images.length > 0) {
-      for (const base64 of images) {
-        // Convert base64 → file buffer
-        const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
-        const buffer = Buffer.from(base64Data, "base64");
+if (Array.isArray(images) && images.length > 0) {
+  for (const base64 of images) {
+    const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, "base64");
 
-        const fileName = `review-${Date.now()}-${Math.random()}.jpg`;
+    const blob = new Blob([buffer], { type: "image/jpeg" });
+    const fileName = `review-${Date.now()}-${Math.random()}.jpg`;
 
-        const upload = await supabase.storage
-          .from("reviews")
-          .upload(fileName, buffer, {
-            contentType: "image/jpeg",
-            upsert: false,
-          });
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("reviews")
+      .upload(fileName, blob, {
+        contentType: "image/jpeg",
+        upsert: false,
+      });
 
-        if (!upload.error) {
-          const { data } = supabase.storage.from("reviews").getPublicUrl(fileName);
-          uploadedUrls.push(data.publicUrl);
-        }
-      }
+    if (uploadError) {
+      console.log("Upload failed:", uploadError.message);
+      continue;
     }
 
-    // ------------------------------------------------
+    const publicUrl = supabase.storage
+      .from("reviews")
+      .getPublicUrl(fileName).data.publicUrl;
 
-    // Check if review exists
+    uploadedUrls.push(publicUrl);
+  }
+}
+
+
+
+    /* -------------------------------------------------------
+       CREATE OR UPDATE REVIEW IN DATABASE
+    ------------------------------------------------------- */
     const existing = await prisma.review.findUnique({
       where: { userId_productId: { userId, productId } },
     });
@@ -166,12 +165,14 @@ export async function POST(
           orderId: order.id,
           rating,
           comment,
-          images: uploadedUrls, // ONLY URLs
+          images: uploadedUrls,
         },
       });
     }
 
-    // Update avg rating
+    /* -------------------------------------------------------
+       UPDATE PRODUCT RATING SUMMARY
+    ------------------------------------------------------- */
     const agg = await prisma.review.aggregate({
       where: { productId },
       _avg: { rating: true },
@@ -198,4 +199,3 @@ export async function POST(
     );
   }
 }
-

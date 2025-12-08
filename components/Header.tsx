@@ -43,9 +43,9 @@ export default function Header({ productName }: HeaderProps) {
     });
 
     const data = await res.json();
-    const email = data.user?.email;
+    const contact = data.user?.contact;
 
-    if (email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+    if (contact === process.env.NEXT_PUBLIC_ADMIN_CONTACT) {
       setIsAdmin(true);
     } else {
       setIsAdmin(false);

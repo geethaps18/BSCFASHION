@@ -40,12 +40,16 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({
-      userId: payload.userId,
-      name: payload.name || null,
-      email: payload.email || null,
-      phone: payload.phone || null,
-    });
+   return NextResponse.json({
+  user: {
+    userId: payload.userId,
+    name: payload.name || null,
+    email: payload.email || null,
+    phone: payload.phone || null,
+    contact: payload.email || payload.phone || null,
+  }
+});
+
   } catch (err) {
     console.error("JWT verification failed:", err);
     return NextResponse.json(

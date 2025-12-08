@@ -70,12 +70,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5️⃣ Generate JWT
-    const token = jwt.sign(
-      { userId: user.id, contact },
-      process.env.JWT_SECRET || "supersecretkey123",
-      { expiresIn: "7d" }
-    );
+   // 5️⃣ Generate JWT
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
+
+const token = jwt.sign(
+  {
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    contact: user.email || user.phone, // IMPORTANT for admin
+  },
+  JWT_SECRET,
+  { expiresIn: "365d" }
+);
 
     // 6️⃣ Success response
     return NextResponse.json({

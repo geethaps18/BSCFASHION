@@ -26,7 +26,7 @@ export default function Sub2Page() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-10 pb-20 px-0">
+    <div className="min-h-screen bg-white pt-15 pb-20 px-0">
       <Header />
 
       {/* Product grid */}

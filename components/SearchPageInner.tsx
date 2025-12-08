@@ -1,87 +1,42 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import ProductCard from "@/components/ProductCard";
-import { Product } from "@/types/product";
 import Header from "@/components/Header";
-import { usePathname } from "next/navigation";
-
+import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 
 export default function SearchPageInner() {
   const searchParams = useSearchParams();
+  const q = searchParams.get("q") ?? "";   // 🔥 SAFE FIX
 
-  // ✅ Correct param name (SearchBar uses ?q=)
-  const query = searchParams.get("q") || "";
-
-  const [results, setResults] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
-  const pathname = usePathname();
-
-  const isSearchPage = pathname.startsWith("/search");
-
-
-  const HEADER_HEIGHT = 70;
-  
-
-  useEffect(() => {
-    const fetchResults = async () => {
-      if (!query.trim()) {
-        setResults([]);
-        return;
-      }
-      
-
-      setLoading(true);
-      try {
-        const res = await fetch("/api/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ q: query }), // IMPORTANT
-        });
-
-        const data = await res.json();
-        setResults(Array.isArray(data.products) ? data.products : []);
-      } catch (err) {
-        console.error("Search fetch error:", err);
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResults();
-  }, [query]);
+  // 🔥 Infinite scroll hook (only one source of products)
+  const { products } = useInfiniteProducts(
+    `search-${q}`,
+    `/api/search?q=${q}`
+  );
 
   return (
-    <main
-      className="min-h-screen bg-white px-0.5 sm:px-6 lg:px-10 pt-20"
-    
-    >
+    <main className="min-h-screen bg-white px-0.5 sm:px-6 lg:px-10 pt-20">
       <Header />
 
-      {/* Search Info */}
-      {query && results.length > 0 && (
-        <div className="mt-0 mb-0.5">
+      {/* Search Title */}
+      {q && (
+        <div className="mt-0 mb-2">
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-700">
-            {loading
-              ? "Searching..."
-              : `${results.length} ${results.length === 1 ? "Result" : "Results"}`}
-            {"  "}for{" "}
-            <span className="font-bold text-gray-900">"{query}"</span>
+            Results for <span className="font-bold text-black">"{q}"</span>
           </h1>
         </div>
       )}
 
-      {/* Loading */}
-      {loading && (
-        <p className="text-center text-gray-500 mt-20 animate-pulse">
-          🔍 Searching for awesome stuff...
-        </p>
+      {/* No Query */}
+      {!q && (
+        <div className="mt-10 text-center text-gray-500">
+          Type something to search 🔍
+        </div>
       )}
 
       {/* No Results */}
-      {!loading && results.length === 0 && query && (
+      {q && products.length === 0 && (
         <div className="flex flex-col items-center justify-center mt-10 space-y-3">
           <img
             src="/images/empty-search.png"
@@ -89,11 +44,8 @@ export default function SearchPageInner() {
             className="w-60 h-60 object-contain opacity-80"
           />
           <p className="text-center text-gray-600 font-medium">
-            Oops! Nothing found for{" "}
-            <span className="font-semibold text-black">"{query}"</span>
-          </p>
-          <p className="text-sm text-gray-500 italic">
-            Maybe your product is chilling on vacation 🏝️
+            No results found for{" "}
+            <span className="font-semibold text-black">"{q}"</span>
           </p>
           <button
             onClick={() => (window.location.href = "/")}
@@ -104,13 +56,11 @@ export default function SearchPageInner() {
         </div>
       )}
 
-      {/* Product Grid */}
-      {!loading && results.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0.5 sm:gap-2 gap-x-1 gap-y-0 ">
-          {results.map((product) => (
-            <div key={product.id}>
-              <ProductCard product={product} />
-            </div>
+      {/* Products */}
+      {products.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1 sm:gap-3">
+          {products.map((product: any) => (
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}

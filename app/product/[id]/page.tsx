@@ -111,6 +111,12 @@ export default function ProductDetailPage() {
 
 
   // ---------------- FETCH PRODUCT ----------------
+
+  // 🛑 Prevent scroll resetting when coming back
+useEffect(() => {
+  window.history.scrollRestoration = "manual";
+}, []);
+
   useEffect(() => {
     if (!id) return;
 
@@ -162,7 +168,7 @@ export default function ProductDetailPage() {
   if (!product) {
     return (
       <p className="p-6 text-center text-gray-500 mt-20">
-        Product not found.
+        loading...
       </p>
     );
   }

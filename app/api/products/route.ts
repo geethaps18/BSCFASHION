@@ -2,8 +2,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+
 // ----------------------
-// Helper: upload file to Supabase
+// Upload helper
 // ----------------------
 async function uploadToSupabase(file: File): Promise<string | null> {
   try {
@@ -22,9 +23,9 @@ async function uploadToSupabase(file: File): Promise<string | null> {
       return null;
     }
 
-    const { data } = supabase.storage.from("products").getPublicUrl(
-      `images/${fileName}`
-    );
+    const { data } = supabase.storage
+      .from("products")
+      .getPublicUrl(`images/${fileName}`);
 
     return data?.publicUrl ?? null;
   } catch (err) {
@@ -34,17 +35,21 @@ async function uploadToSupabase(file: File): Promise<string | null> {
 }
 
 // ----------------------
-// GET products (with optional filters + similar products)
+// GET Products (with pagination + filters + home)
 // ----------------------
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
+    const page = Number(searchParams.get("page") || 1);
+    const pageSize = 1000000;
+    const skip = (page - 1) * pageSize;
+
     const mainSlug = searchParams.get("main");
     const sub1Slug = searchParams.get("sub1");
     const sub2Slug = searchParams.get("sub2");
-    const excludeId = searchParams.get("exclude"); // exclude current product
-    const limit = Number(searchParams.get("limit") || 100000);
+    const home = searchParams.get("home"); // 👈 ADDED
+    const excludeId = searchParams.get("exclude");
 
     const slugToName = (slug: string | null) =>
       slug ? slug.replace(/-/g, " ").toLowerCase() : undefined;
@@ -55,38 +60,54 @@ export async function GET(req: Request) {
 
     const where: any = {};
 
-    if (main && !sub1 && !sub2) {
-      // Only main category
-      where.category = { equals: main, mode: "insensitive" };
-    } else if (sub1 && !sub2) {
-      where.subCategory = { equals: sub1, mode: "insensitive" };
-    } else if (sub2) {
-      where.subSubCategory = { equals: sub2, mode: "insensitive" };
+    // HOME PRODUCTS LOGIC -----------------------------
+    if (home === "true") {
+      // Show all products for home — newest first
+      // (You can later change this to trending / random)
+    } else {
+      // CATEGORY FILTER LOGIC ---------------------------
+      if (main && !sub1 && !sub2) {
+        where.category = { equals: main, mode: "insensitive" };
+      } else if (sub1 && !sub2) {
+        where.subCategory = { equals: sub1, mode: "insensitive" };
+      } else if (sub2) {
+        where.subSubCategory = { equals: sub2, mode: "insensitive" };
+      }
     }
 
     if (excludeId) {
       where.id = { not: excludeId };
     }
 
+    // Count total for pagination
+    const total = await prisma.product.count({ where });
+
+    // Fetch products
     const products = await prisma.product.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: limit,
+      skip,
+      take: pageSize,
       include: { variants: true },
     });
 
-   const safeProducts = products.map((p: typeof products[number]) => ({
-  ...p,
-  images: Array.isArray(p.images) ? p.images : [],
-  variants:
-    p.variants?.map((v: typeof p.variants[number]) => ({
-      ...v,
-      images: Array.isArray(v.images) ? v.images : [],
-    })) ?? [],
-}));
+    const safeProducts = products.map((p) => ({
+      ...p,
+      images: Array.isArray(p.images) ? p.images : [],
+      variants:
+        p.variants?.map((v) => ({
+          ...v,
+          images: Array.isArray(v.images) ? v.images : [],
+        })) ?? [],
+    }));
 
+    const hasMore = total > page * pageSize;
 
-    return NextResponse.json({ products: safeProducts });
+    return NextResponse.json({
+      products: safeProducts,
+      hasMore,
+      page,
+    });
   } catch (err: any) {
     console.error("GET /products error:", err);
     return NextResponse.json(
@@ -97,7 +118,7 @@ export async function GET(req: Request) {
 }
 
 // ----------------------
-// POST new product
+// POST — Add Product
 // ----------------------
 export async function POST(req: Request) {
   try {
@@ -116,43 +137,40 @@ export async function POST(req: Request) {
 
     const price = Number(formData.get("price")) || 0;
     const mrp =
-      Number(formData.get("mrp")) || price + Math.floor(Math.random() * 200 + 50);
+      Number(formData.get("mrp")) ||
+      price + Math.floor(Math.random() * 200 + 50);
     const discount =
       Number(formData.get("discount")) ||
       (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
+
     const stock = Number(formData.get("stock")) || 0;
 
     const sizes: string[] = formData.get("sizes")
       ? JSON.parse(formData.get("sizes") as string)
       : [];
+
     const colors: string[] = formData.get("colors")
       ? JSON.parse(formData.get("colors") as string)
       : [];
 
-    // Upload main images
+    // Main product images
     const productFiles = formData.getAll("images") as File[];
     const productImages: string[] = [];
+
     for (const file of productFiles) {
       const url = await uploadToSupabase(file);
       if (url) productImages.push(url);
     }
 
-    // Parse variants
+    // Variants
     const variantsRaw = formData.get("variants") as string;
-    const variantsParsed: {
-      sizes?: string[];
-      colors?: string[];
-      design?: string;
-      price?: number;
-      mrp?: number;
-      discount?: number;
-      stock?: number;
-    }[] = variantsRaw ? JSON.parse(variantsRaw) : [];
+    const variantsParsed = variantsRaw ? JSON.parse(variantsRaw) : [];
 
     const variantData = await Promise.all(
-      variantsParsed.map(async (v, i) => {
-        const uploadedVariantImages: string[] = [];
+      variantsParsed.map(async (v: any, i: number) => {
         const variantFiles = formData.getAll(`variantImages-${i}`) as File[];
+        const uploadedVariantImages: string[] = [];
+
         for (const file of variantFiles) {
           const url = await uploadToSupabase(file);
           if (url) uploadedVariantImages.push(url);
@@ -163,8 +181,8 @@ export async function POST(req: Request) {
           colors: v.colors || [],
           design: v.design || "",
           price: Number(v.price ?? price),
-          mrp: v.mrp ? Number(v.mrp) : mrp,
-          discount: v.discount ? Number(v.discount) : discount,
+          mrp: Number(v.mrp ?? mrp),
+          discount: Number(v.discount ?? discount),
           stock: Number(v.stock ?? 0),
           images: uploadedVariantImages,
         };
@@ -181,9 +199,10 @@ export async function POST(req: Request) {
         price,
         mrp,
         discount,
-        stock: variantData.length
-          ? variantData.reduce((sum, v) => sum + v.stock, 0)
-          : stock,
+        stock:
+          variantData.length > 0
+            ? variantData.reduce((sum, v) => sum + v.stock, 0)
+            : stock,
         sizes,
         colors,
         images: productImages,

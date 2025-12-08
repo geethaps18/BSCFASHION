@@ -60,6 +60,7 @@ export default function BagPage() {
           className="w-70 mb-6"
         />
         <h2 className="text-2xl font-bold mb-2">Your bag is empty 😅</h2>
+        
         <Link
           href="/"
           className="bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-gray-900 px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5"
@@ -71,7 +72,7 @@ export default function BagPage() {
     );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 pt-0">
+    <div className="flex flex-col min-h-screen  pt-0">
       {/* Stepper */}
       <CheckoutStepper />
 

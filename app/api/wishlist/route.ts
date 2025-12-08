@@ -2,32 +2,61 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserIdFromToken } from "@/utils/getUserIdFormToken";
 
-// GET wishlist
+// PAGE SIZE (how many items per scroll load)
+const PAGE_SIZE = 12;
+
+// -----------------------
+// GET Wishlist (Paginated)
+// -----------------------
 export async function GET(req: NextRequest) {
   try {
     const userId = getUserIdFromToken(req);
     if (!userId) {
-      return NextResponse.json({ products: [] }, { status: 401 });
+      return NextResponse.json(
+        { products: [], hasMore: false, page: 1 },
+        { status: 401 }
+      );
     }
 
+    const { searchParams } = new URL(req.url);
+    const page = Number(searchParams.get("page") || 1);
+    const skip = (page - 1) * PAGE_SIZE;
+
+    // Count total items
+    const total = await prisma.wishlist.count({
+      where: { userId },
+    });
+
+    // Fetch paginated wishlist items
     const entries = await prisma.wishlist.findMany({
       where: { userId },
       include: { product: true },
       orderBy: { createdAt: "desc" },
+      skip,
+      take: PAGE_SIZE,
     });
 
     const products = entries
       .filter((entry) => entry.product !== null)
       .map((entry) => entry.product!);
 
-    return NextResponse.json({ products });
+    return NextResponse.json({
+      products,
+      hasMore: total > page * PAGE_SIZE,
+      page,
+    });
   } catch (err) {
     console.error("Wishlist GET error:", err);
-    return NextResponse.json({ products: [] }, { status: 500 });
+    return NextResponse.json(
+      { products: [], hasMore: false },
+      { status: 500 }
+    );
   }
 }
 
-// POST toggle wishlist
+// -----------------------
+// POST Toggle Wishlist
+// -----------------------
 export async function POST(req: NextRequest) {
   try {
     const userId = getUserIdFromToken(req);
@@ -41,7 +70,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if product exists
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
     if (!product) {
       return NextResponse.json({ error: "Invalid productId" }, { status: 404 });
     }

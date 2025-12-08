@@ -12,6 +12,7 @@ import {
   writePending,
   clearPending,
 } from "@/utils/wishlistPending";
+import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 
 export default function WishlistPage() {
   const [wishlist, setWishlist] = useState<Product[]>([]);
@@ -19,6 +20,8 @@ export default function WishlistPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [pendingRemovals, setPendingRemovals] = useState<string[]>([]);
   const pathname = usePathname();
+  const { products } = useInfiniteProducts("wishlist", "/api/wishlist");
+
 
   // --- decode token once on mount
   useEffect(() => {
@@ -211,7 +214,7 @@ export default function WishlistPage() {
           href="/"
           className="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600"
         >
-          Shop Now
+          Add Products You Love
         </Link>
       </div>
     );

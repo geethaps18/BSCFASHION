@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-
 import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
 import Footer from "@/components/Footer";
-import { Product, ProductVariant } from "@/types/product";
 import Header from "@/components/Header";
+import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 
 const categories = [
   { name: "Men", image: "/images/men.png" },
@@ -24,84 +22,12 @@ const categories = [
 ];
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [error, setError] = useState(""); // ONLY INTERNET ERROR
-  
-  
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch("/api/products"); // INTERNET FAILS → goes to catch()
-
-        const data = await res.json();
-
-        const normalized: Product[] = data.products?.map((p: any) => {
-          const basePrice = Number(p.price) || 0;
-          const baseMRP =
-            Number(p.mrp) > basePrice
-              ? Number(p.mrp)
-              : basePrice + Math.floor(Math.random() * 200 + 50);
-          const baseDiscount =
-            Number(p.discount) > 0
-              ? Number(p.discount)
-              : Math.round(((baseMRP - basePrice) / baseMRP) * 100);
-
-          const variants: ProductVariant[] =
-            Array.isArray(p.variants) && p.variants.length > 0
-              ? p.variants.map((v: any) => ({
-                  sizes: v.sizes?.length ? v.sizes : ["S", "M", "L"],
-                  color: v.color || { name: "Default", hex: "#111827" },
-                  price: Number(v.price ?? basePrice),
-                  mrp: Number(v.mrp ?? baseMRP),
-                  discount: Number(v.discount ?? baseDiscount),
-                  images: v.images?.length ? v.images : ["/placeholder.png"],
-                  stock: Number(v.stock ?? 0),
-                  design: v.design || "",
-                }))
-              : [
-                  {
-                    sizes: ["One size"],
-                    color: { name: p.color || "Default", hex: "#111827" },
-                    price: basePrice,
-                    mrp: baseMRP,
-                    discount: baseDiscount,
-                    images:
-                      Array.isArray(p.images) && p.images.length
-                        ? p.images
-                        : ["/placeholder.png"],
-                    stock: p.stock ?? 10,
-                    design: "",
-                  },
-                ];
-
-          return {
-            id: p.id,
-            name: p.name,
-            description: p.description ?? "",
-            category: p.category ?? "",
-            price: basePrice,
-            mrp: baseMRP,
-            discount: baseDiscount,
-            variants,
-            images:
-              Array.isArray(p.images) && p.images.length
-                ? p.images
-                : variants[0].images,
-            createdAt: p.createdAt ?? new Date().toISOString(),
-          };
-        }) ?? [];
-
-        setProducts(normalized);
-        setError("");
-      } catch (err) {
-        // ONLY INTERNET OFF → SHOW MESSAGE
-        setError("No internet connection. Please check your network.");
-      }
-    };
-
-    fetchProducts();
-  }, []);
+  // 🔥 NEW infinite scroll products
+  const { products } = useInfiniteProducts(
+    "home",
+    "/api/products?home=true"
+  );
 
   return (
     <div className="min-h-screen flex flex-col font-sans overflow-x-hidden">
@@ -143,7 +69,7 @@ export default function Home() {
               >
                 <div className="relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 overflow-hidden rounded-xl hover:shadow-2xl transition-shadow">
                   <Image
-                    src={cat.image || "/placeholder.png"}
+                    src={cat.image}
                     alt={cat.name}
                     fill
                     className="object-cover"
@@ -164,15 +90,11 @@ export default function Home() {
 
         {/* Products */}
         <main className="flex-grow sm:p-6 pb-24">
-          {error ? (
-            <p className="text-center text-red-600 text-lg py-6">{error}</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
+            {products.map((product: any) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
         </main>
       </div>
 

@@ -5,22 +5,11 @@ import Link from "next/link";
 import Image from "next/image";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import { useEffect, useState } from "react";
+
 import { categories, SubCategory } from "@/data/categories";
 import ProductCard from "@/components/ProductCard";
-import { Product as ProductType } from "@/types/product";
 
-// Fetch products for main category
-async function fetchProducts(mainSlug: string): Promise<ProductType[]> {
-  try {
-    const res = await fetch(`/api/products?main=${mainSlug}`);
-    const data = await res.json();
-    return data.products || [];
-  } catch (err) {
-    console.error("Failed to fetch products:", err);
-    return [];
-  }
-}
+import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 
 export default function MainCategoryPage() {
   const { main } = useParams();
@@ -30,40 +19,6 @@ export default function MainCategoryPage() {
     (c) => c.name.toLowerCase().replace(/\s+/g, "-") === mainSlug
   );
 
-  const mainName = mainCat?.name ?? mainSlug;
-
-  const [products, setProducts] = useState<ProductType[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!mainSlug) return;
-    setLoading(true);
-
-    fetchProducts(mainSlug)
-      .then((data) => {
-       // inside useEffect -> fetchProducts(...).then((data) => { ... })
-const mappedProducts: ProductType[] = data.map((p: any) => ({
-  id: p.id,
-  name: p.name,
-  price: p.price,
-  mrp: p.mrp ?? p.price,
-  discount: p.discount ?? 0,
-  images: p.images?.length ? p.images : ["/placeholder.png"],
-  colors: p.colors ?? p.colorNames ?? [],
-  sizes: p.sizes ?? ["Free"],
-  createdAt: p.createdAt ?? new Date().toISOString(),
-  // <<< ADDED updatedAt (required by Product type) >>>
-  updatedAt: p.updatedAt ?? p.createdAt ?? new Date().toISOString(),
-  reviewCount: p.reviewCount ?? 0,
-  rating: p.rating ?? 0,
-  variants: p.variants ?? [],
-}));
-setProducts(mappedProducts);
-
-      })
-      .finally(() => setLoading(false));
-  }, [mainSlug]);
-
   if (!mainSlug) {
     return (
       <div className="p-8 text-center text-red-600">
@@ -72,17 +27,21 @@ setProducts(mappedProducts);
     );
   }
 
-  return (
-   <div className="min-h-screen bg-white pt-16 pb-20 px-0.5">
+  // 🔥 NEW infinite scroll hook (the ONLY products variable)
+  const { products } = useInfiniteProducts(
+    `main-${mainSlug}`,
+    `/api/products?main=${mainSlug}`
+  );
 
-     
+  return (
+    <div className="min-h-screen bg-white pt-16 pb-20 px-0.5">
 
       {/* Subcategories */}
       {mainCat?.subCategories.length ? (
         <div className="grid grid-cols-2 gap-[2px] sm:grid-cols-3 md:grid-cols-4 sm:gap-4 px-1 mb-2">
-
           {mainCat.subCategories.map((sub) => {
             const subSlug = sub.name.toLowerCase().replace(/\s+/g, "-");
+
             return (
               <Link
                 key={sub.name}
@@ -96,6 +55,7 @@ setProducts(mappedProducts);
                   height={300}
                   className="w-full h-40 object-cover group-hover:scale-105 transition-transform"
                 />
+
                 <div className="absolute bottom-0 w-full bg-black/35 text-white text-center py-20 text-sm font-semibold">
                   {sub.name}
                 </div>
@@ -105,26 +65,20 @@ setProducts(mappedProducts);
         </div>
       ) : null}
 
-    
-
       {/* Products */}
-      <main className="flex-grow  sm:p-6 pb-24">
-      {loading ? (
-        <div className="text-center py-10 text-gray-600">Loading products...</div>
-      ) : products.length === 0 ? (
-        <div className="text-gray-500 mt-4 text-center">
-          No products available in this category.
-        </div>
-      ) : (
-         <div className="grid grid-cols-2 gap-[2px] sm:grid-cols-4 lg:grid-cols-6 sm:gap-3 px-0.5">
-  {products.map((product) => (
-    <ProductCard key={product.id} product={product} />
-  ))}
-</div>
-
-                 
-      )}
-       </main>
+      <main className="flex-grow sm:p-6 pb-24">
+        {products.length === 0 ? (
+          <div className="text-gray-500 mt-4 text-center">
+            No products available in this category.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-[2px] sm:grid-cols-4 lg:grid-cols-6 sm:gap-3 px-0.5">
+            {products.map((product: any) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
+      </main>
 
       <Header />
       <Footer />

@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
-import PhoneInput from "react-phone-input-2";
-import "react-phone-input-2/lib/style.css";
 import { setCookie, getCookie } from "cookies-next";
 
 export default function LoginPageInner() {
@@ -12,176 +10,135 @@ export default function LoginPageInner() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
 
+  // 🔥 If already logged in → redirect
   useEffect(() => {
-  const token = String(getCookie("token", { path: "/" }) || "");
+    const token = String(getCookie("token") || "");
 
+    if (!token || token === "undefined") return;
 
-  if (!token || token === "undefined") return;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const now = Math.floor(Date.now() / 1000);
 
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    const now = Math.floor(Date.now() / 1000);
+      if (!payload.exp || payload.exp < now) {
+        document.cookie =
+          "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        return;
+      }
 
-    if (!payload.exp || payload.exp < now) {
-      // 🔥 ONE-MOVE FIX: clear expired token
-      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      return;
+      router.replace(redirectTo);
+    } catch {
+      document.cookie =
+        "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     }
+  }, []);
 
-    // ✔ Token is valid → redirect normally
-    router.replace(redirectTo);
-  } catch {
-    // 🔥 If token is invalid → remove it
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-  }
-}, []);
-
-
-
-  const [contact, setContact] = useState("");
+  // ------------------------
+  // EMAIL ONLY LOGIN
+  // ------------------------
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isPhone, setIsPhone] = useState(true);
   const [verified, setVerified] = useState(false);
 
-  const isEmail = (input: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+  const isEmailValid = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+  // Send OTP
   const handleSendOtp = async () => {
-    if (!contact) {
-      toast.error("Enter phone or email");
-      return;
-    }
-    if (!isPhone && !isEmail(contact)) {
-      toast.error("Enter valid email");
-      return;
-    }
+    if (!email) return toast.error("Enter your email");
+    if (!isEmailValid(email)) return toast.error("Enter valid email");
 
     setLoading(true);
+
     try {
       const res = await fetch("/api/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact }),
+        body: JSON.stringify({ contact: email }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(data.message || "OTP sent");
+        toast.success(data.message || "OTP sent to your email");
         setOtpSent(true);
       } else {
         toast.error(data.message || "Failed to send OTP");
       }
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
+  // Verify OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp) return toast.error("Enter OTP");
 
     setLoading(true);
+
     try {
       const res = await fetch("/api/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact, otp }),
+        body: JSON.stringify({ contact: email, otp }),
       });
 
       const data = await res.json();
+
       if (res.ok && data.token) {
-  setCookie("token", data.token, {
-  maxAge: 60 * 60 * 24 * 365, // 1 year
-  path: "/",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  secure: process.env.NODE_ENV === "production", 
-});
+        setCookie("token", data.token, {
+          maxAge: 60 * 60 * 24 * 365,
+          path: "/",
+        });
 
-
-
-        toast.success("Login successful!");
-       setVerified(true);
-
+        toast.success("Login successful");
+        setVerified(true);
       } else {
         toast.error(data.message || "Invalid OTP");
       }
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
     }
-  };
-  useEffect(() => {
-  if (verified) {
-    router.replace(redirectTo); // replace = no back button issue
-  }
-}, [verified]);
 
+    setLoading(false);
+  };
+
+  // Redirect after success
+  useEffect(() => {
+    if (verified) router.replace(redirectTo);
+  }, [verified]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
-   
       <div className="w-full max-w-md bg-white shadow-lg p-8 rounded-lg">
-      
-      
-
-  {/* ⭐ Brand Logo */}
-  <div className="flex justify-center mb-4">
-    <img
-      src="/images/logo.png"
-      alt="BSCFashion Logo"
-      className="w-40 h-40 object-contain"
-    />
-  </div>
-
-  
-  <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
-
-        <div className="mb-4 flex justify-center">
-          <button
-            type="button"
-            className={`px-4 py-2 rounded-l-md ${
-              isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
-            }`}
-            onClick={() => setIsPhone(true)}
-          >
-            Phone
-          </button>
-          <button
-            type="button"
-            className={`px-4 py-2 rounded-r-md ${
-              !isPhone ? "bg-yellow-500 text-white" : "bg-gray-200"
-            }`}
-            onClick={() => setIsPhone(false)}
-          >
-            Email
-          </button>
+        
+        {/* Logo */}
+        <div className="flex justify-center mb-4">
+          <img
+            src="/images/logo.png"
+            alt="BSCFashion Logo"
+            className="w-40 h-40 object-contain"
+          />
         </div>
 
+        <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>
+
+        {/* Email Login Only */}
         <form onSubmit={handleVerifyOtp} className="space-y-4">
           {!otpSent && (
             <>
-              {isPhone ? (
-                <PhoneInput
-                  country="in"
-                  value={contact}
-                  onChange={(phone) => setContact("+" + phone)}
-                  inputStyle={{ width: "100%" }}
-                />
-              ) : (
-                <input
-                  type="email"
-                  placeholder="email@example.com"
-                  value={contact}
-                  onChange={(e) => setContact(e.target.value)}
-                  className="w-full border px-3 py-2 rounded-md"
-                />
-              )}
+              <input
+                type="email"
+                placeholder="email@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border px-3 py-2 rounded-md"
+              />
 
               <button
                 type="button"
@@ -209,7 +166,7 @@ export default function LoginPageInner() {
                 disabled={loading}
                 className="w-full bg-gray-800 text-white py-2 rounded-md"
               >
-                {loading ? "Verifying..." : "Verify OTP & Login"}
+                {loading ? "Verifying..." : "Verify OTP"}
               </button>
             </>
           )}
@@ -234,6 +191,5 @@ export default function LoginPageInner() {
         </p>
       </div>
     </div>
-    
   );
 }

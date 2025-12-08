@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import { categories, SubCategory } from "@/data/categories";
 import { Product } from "@/types/product";
+import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 
 // Fetch products for main + sub1 + sub2
 async function fetchProducts(mainSlug: string, sub1Slug: string, sub2Slug: string): Promise<Product[]> {
@@ -41,39 +42,37 @@ export default function Sub2Page() {
   const sub1Name = sub1Cat?.name ?? sub1Slug;
   const sub2Name = sub2Cat?.name ?? sub2Slug;
 
-  const [products, setProducts] = useState<Product[]>([]);
+  
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!mainSlug || !sub1Slug || !sub2Slug) return;
     setLoading(true);
     fetchProducts(mainSlug, sub1Slug, sub2Slug)
-      .then((data) => setProducts(data))
+     
       .finally(() => setLoading(false));
   }, [mainSlug, sub1Slug, sub2Slug]);
 
   if (!mainSlug || !sub1Slug || !sub2Slug) {
     return <div className="p-8 text-center text-red-600">Category not found</div>;
   }
+   const { products } = useInfiniteProducts(
+    `sub2-${mainSlug}-${sub1Slug}-${sub2Slug}`,
+    `/api/products?main=${mainSlug}&sub1=${sub1Slug}&sub2=${sub2Slug}`
+  );
 
   return (
-   <div className="min-h-screen bg-white pt-16 pb-20 px-0">
-
-   
-      {/* Products grid */}
-      {loading ? (
-        <p className="text-center text-gray-500 py-16">Loading products...</p>
-      ) : products.length === 0 ? (
-        <p className="text-gray-500 text-center">No products found.</p>
-      ) : (
+   <div className="min-h-screen bg-white pt-10 pb-20 px-0">
+    <Header />
+         (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5">
           {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
-      )}
+      )
 
-      <Header />
+      
       <Footer />
     </div>
   );

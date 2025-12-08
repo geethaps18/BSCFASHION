@@ -12,7 +12,7 @@ export function middleware(req: NextRequest) {
   // -----------------------------
   // 1️⃣ USER PROTECTED ROUTES
   // -----------------------------
-  const protectedPaths = ["/wishlist", "/bag", "/account", "/orders"];
+  const protectedPaths = ["/wishlist", "/bag", "/account"];
   const isProtected = protectedPaths.some((path) =>
     url.pathname.startsWith(path)
   );
@@ -53,6 +53,6 @@ export const config = {
     "/wishlist",
     "/bag",
     "/account",
-    "/admin/:path*", // 👈 NEW ADMIN PROTECTION
+  // 👈 NEW ADMIN PROTECTION
   ],
 };

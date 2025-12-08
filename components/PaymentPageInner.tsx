@@ -303,15 +303,7 @@ export default function PaymentPageInner() {
               ))}
             </div>
 
-            {["GPay", "PhonePe", "Paytm"].includes(paymentMode) && (
-              <input
-                type="text"
-                placeholder="Enter your UPI ID"
-                value={upiId}
-                onChange={(e) => setUpiId(e.target.value)}
-                className="mt-2 w-full border rounded-md p-2 text-sm"
-              />
-            )}
+          
           </label>
 
           {/* CARD Section */}
@@ -368,9 +360,20 @@ export default function PaymentPageInner() {
             )}
           </label>
         </div>
-
+<div className="hidden md:flex flex-col gap-3 mt-4">
+  <button
+            onClick={handlePayment}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-500 text-gray-900 font-semibold py-3 shadow-lg hover:shadow-xl transition flex flex-col items-center"
+          >
+            <span className="text-white text-sm">₹{total.toFixed(2)}</span>
+            <span className="text-gray-900 font-bold">
+              {loading ? "Processing..." : paymentMode === "COD" ? "Place Order" : "Pay Now"}
+            </span>
+          </button>
+</div>
         {/* Bottom Payment Button */}
-        <div className="bg-white border-t shadow-md p-0 fixed bottom-0 left-0 w-full">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white  flex gap-2 p-3 z-50">
           <button
             onClick={handlePayment}
             disabled={loading}

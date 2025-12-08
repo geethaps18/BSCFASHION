@@ -14,14 +14,12 @@ export default function Sub1Page() {
   const mainSlug = Array.isArray(main) ? main[0] : main;
   const sub1Slug = Array.isArray(sub1) ? sub1[0] : sub1;
 
-  const mainCat: SubCategory | undefined = categories.find(
-    (cat) => cat.name.toLowerCase().replace(/\s+/g, "-") === mainSlug
-  );
+  // 🔥 HOOK MUST RUN BEFORE ANY RETURN
+  const key = `sub1-${mainSlug}-${sub1Slug}`;
+  const apiURL = `/api/products?main=${mainSlug}&sub1=${sub1Slug}`;
+  const { products } = useInfiniteProducts(key, apiURL);
 
-  const sub1Cat: SubCategory | undefined = mainCat?.subCategories.find(
-    (sub) => sub.name.toLowerCase().replace(/\s+/g, "-") === sub1Slug
-  );
-
+  // Now safe to validate slugs
   if (!mainSlug || !sub1Slug) {
     return (
       <div className="p-8 text-center text-red-600">
@@ -30,16 +28,18 @@ export default function Sub1Page() {
     );
   }
 
-  // 🔥 INFINITE SCROLL (the ONLY source of product data)
-  const { products } = useInfiniteProducts(
-    `sub1-${mainSlug}-${sub1Slug}`,
-    `/api/products?main=${mainSlug}&sub1=${sub1Slug}`
+  const mainCat: SubCategory | undefined = categories.find(
+    (cat) => cat.name.toLowerCase().replace(/\s+/g, "-") === mainSlug
+  );
+
+  const sub1Cat: SubCategory | undefined = mainCat?.subCategories.find(
+    (sub) => sub.name.toLowerCase().replace(/\s+/g, "-") === sub1Slug
   );
 
   return (
     <div className="min-h-screen bg-white pt-16 pb-20 px-0.5">
 
-      {/* Sub-Subcategories */}
+      {/* Sub-subcategories */}
       {sub1Cat?.subCategories.length ? (
         <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0.5 px-0">
           {sub1Cat.subCategories.map((sub2) => {
@@ -56,7 +56,6 @@ export default function Sub1Page() {
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-white text-sm sm:text-base font-medium drop-shadow-md">
@@ -69,7 +68,7 @@ export default function Sub1Page() {
         </div>
       ) : null}
 
-      {/* Products List */}
+      {/* Products list */}
       <main className="flex-grow p-0 pb-24">
         {products.length === 0 ? (
           <p className="text-gray-500 text-center py-16">No products found.</p>

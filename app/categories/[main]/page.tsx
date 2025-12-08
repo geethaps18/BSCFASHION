@@ -15,10 +15,12 @@ export default function MainCategoryPage() {
   const { main } = useParams();
   const mainSlug = Array.isArray(main) ? main[0] : main;
 
-  const mainCat: SubCategory | undefined = categories.find(
-    (c) => c.name.toLowerCase().replace(/\s+/g, "-") === mainSlug
-  );
+  // 🔥 Hook MUST always be at the top — before ANY return
+  const key = `main-${mainSlug || "none"}`;
+  const apiUrl = `/api/products?main=${mainSlug || ""}`;
+  const { products } = useInfiniteProducts(key, apiUrl);
 
+  // Now safe to check conditions
   if (!mainSlug) {
     return (
       <div className="p-8 text-center text-red-600">
@@ -27,10 +29,8 @@ export default function MainCategoryPage() {
     );
   }
 
-  // 🔥 NEW infinite scroll hook (the ONLY products variable)
-  const { products } = useInfiniteProducts(
-    `main-${mainSlug}`,
-    `/api/products?main=${mainSlug}`
+  const mainCat: SubCategory | undefined = categories.find(
+    (c) => c.name.toLowerCase().replace(/\s+/g, "-") === mainSlug
   );
 
   return (

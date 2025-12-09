@@ -329,40 +329,9 @@ export default function PaymentPageInner() {
               <span className="font-medium">Credit/Debit Card</span>
             </div>
 
-            {paymentMode === "Card" && (
-              <div className="grid grid-cols-1 gap-3 mt-2">
-                <input
-                  type="text"
-                  placeholder="Card Number"
-                  value={cardDetails.number}
-                  onChange={(e) => setCardDetails({ ...cardDetails, number: e.target.value })}
-                  className="w-full border rounded-md p-2 text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="Name on Card"
-                  value={cardDetails.name}
-                  onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })}
-                  className="w-full border rounded-md p-2 text-sm"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="MM/YY"
-                    value={cardDetails.expiry}
-                    onChange={(e) => setCardDetails({ ...cardDetails, expiry: e.target.value })}
-                    className="w-full border rounded-md p-2 text-sm"
-                  />
-                  <input
-                    type="password"
-                    placeholder="CVV"
-                    value={cardDetails.cvv}
-                    onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value })}
-                    className="w-full border rounded-md p-2 text-sm"
-                  />
-                </div>
-              </div>
-            )}
+            {paymentMode === "Card" 
+              
+            }
           </label>
         </div>
 <div className="hidden md:flex flex-col gap-3 mt-4">

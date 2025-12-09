@@ -141,7 +141,7 @@ export default function PaymentPageInner() {
     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
     amount: total * 100,
     currency: "INR",
-    name: "BSCFASHION",
+    name: "B S CHANNABASAPPA & SONS",
     description: "Order Payment",
     order_id: data.orderId,
     handler: function (response) {

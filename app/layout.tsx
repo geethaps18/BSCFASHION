@@ -6,6 +6,7 @@ import { WishlistProvider } from "./context/WishlistContext";
 import { BagProvider } from "./context/BagContext";
 import { AuthProvider } from "./context/AuthContext";
 import { SearchProvider } from "./context/SearchContext";
+import Script from "next/script";
 
 import { Toaster } from "react-hot-toast";
 import PolicyFooter from "@/components/PolicyFooter";
@@ -47,15 +48,17 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-                    <head>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-</head>
+  
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white`}>
         <AuthProvider>
           <BagProvider>
             <WishlistProvider>
               <SearchProvider>
   
+<Script
+  src="https://checkout.razorpay.com/v1/checkout.js"
+  strategy="afterInteractive"
+/>
 
                
                 <Toaster position="top-center" reverseOrder={false} />

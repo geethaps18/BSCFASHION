@@ -8,6 +8,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { SearchProvider } from "./context/SearchContext";
 
 import { Toaster } from "react-hot-toast";
+import PolicyFooter from "@/components/PolicyFooter";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,8 +52,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <BagProvider>
             <WishlistProvider>
               <SearchProvider>
+               
                 <Toaster position="top-center" reverseOrder={false} />
-                <main className="min-h-screen">{children}</main>
+                <main className="min-h-screen">{children}
+                   <PolicyFooter/>
+                </main>
               </SearchProvider>
             </WishlistProvider>
           </BagProvider>

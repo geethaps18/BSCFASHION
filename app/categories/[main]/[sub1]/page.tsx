@@ -37,7 +37,7 @@ export default function Sub1Page() {
   );
 
   return (
-    <div className="min-h-screen bg-white pt-16 pb-20 px-0.5">
+    <div className="min-h-screen bg-white pt-16 pb-2 px-0.5">
 
       {/* Sub-subcategories */}
       {sub1Cat?.subCategories.length ? (
@@ -69,7 +69,7 @@ export default function Sub1Page() {
       ) : null}
 
       {/* Products list */}
-      <main className="flex-grow p-0 pb-24">
+      <main className="flex-grow p-0 pb-2">
         {products.length === 0 ? (
           <p className="text-gray-500 text-center py-16">No products found.</p>
         ) : (

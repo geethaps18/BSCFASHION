@@ -89,7 +89,7 @@ export default function Home() {
         </div>
 
         {/* Products */}
-        <main className="flex-grow sm:p-6 pb-24">
+        <main className="flex-grow sm:p-6 pb-2">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
             {products.map((product: any) => (
               <ProductCard key={product.id} product={product} />

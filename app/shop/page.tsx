@@ -17,7 +17,7 @@ export default function Shop() {
       <div className="pt-16 sm:pt-20 md:pt-24">
         
         {/* Products Grid */}
-        <main className="flex-grow p-1 sm:p-6 pb-24">
+        <main className="flex-grow p-1 sm:p-6 pb-2">
           {products.length === 0 ? (
             <p className="text-gray-500 text-center py-10">No products found.</p>
           ) : (

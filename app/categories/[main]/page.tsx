@@ -34,7 +34,7 @@ export default function MainCategoryPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white pt-16 pb-20 px-0.5">
+    <div className="min-h-screen bg-white pt-16 pb- px-0.5">
 
       {/* Subcategories */}
       {mainCat?.subCategories.length ? (
@@ -66,7 +66,7 @@ export default function MainCategoryPage() {
       ) : null}
 
       {/* Products */}
-      <main className="flex-grow sm:p-6 pb-24">
+      <main className="flex-grow sm:p-6 pb-2">
         {products.length === 0 ? (
           <div className="text-gray-500 mt-4 text-center">
             No products available in this category.

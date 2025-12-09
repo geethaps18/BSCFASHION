@@ -31,6 +31,7 @@ export default function Footer() {
       <div className="relative flex justify-around items-center h-14 sm:h-16">
         {tabs.map((tab, index) => {
           const isActive = index === activeIndex;
+          
 
           return (
             <Link

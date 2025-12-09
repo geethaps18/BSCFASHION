@@ -37,10 +37,7 @@ export async function POST(req: Request) {
     } else {
       // If user exists and name is provided, update name
       if (name && user.name !== name) {
-        user = await prisma.user.update({
-          where: { phone: contact },
-          data: { name },
-        });
+        
       }
     }
 

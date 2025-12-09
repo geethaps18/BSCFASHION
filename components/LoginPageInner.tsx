@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setCookie, getCookie } from "cookies-next";
+import Link from "next/link";
 
 export default function LoginPageInner() {
   const router = useRouter();
@@ -119,11 +120,13 @@ export default function LoginPageInner() {
         
         {/* Logo */}
         <div className="flex justify-center mb-4">
-          <img
-            src="/images/logo.png"
-            alt="BSCFashion Logo"
-            className="w-40 h-40 object-contain"
-          />
+         <Link href="/">
+  <img
+    src="/images/logo.png"
+    alt="BSCFashion Logo"
+    className="w-40 h-40 object-contain cursor-pointer"
+  />
+</Link>
         </div>
 
         <h1 className="text-2xl font-bold mb-6 text-center">Login / Sign Up</h1>

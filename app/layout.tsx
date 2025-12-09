@@ -47,11 +47,16 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+                    <head>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white`}>
         <AuthProvider>
           <BagProvider>
             <WishlistProvider>
               <SearchProvider>
+  
+
                
                 <Toaster position="top-center" reverseOrder={false} />
                 <main className="min-h-screen">{children}

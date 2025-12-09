@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import CheckoutStepper from "@/components/CheckoutStepper";
 import { getCookie } from "cookies-next";
+import Razorpay from "razorpay";
 
 interface BagItem {
   id: string;
@@ -122,34 +123,38 @@ export default function PaymentPageInner() {
   }, [addressId]);
 
   const handleRazorpayPayment = async () => {
-    if (!userId) return toast.error("User not found");
-    if (!selectedAddress) return toast.error("Please select an address");
-    if (bagItems.length === 0) return toast.error("Bag is empty");
+  if (!userId) return toast.error("User not found");
 
-    try {
-      setLoading(true);
+  const res = await fetch("/api/razorpay-order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount: total }),
+  });
 
-      const res = await fetch("/api/razorpay-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: total }),
-      });
+  const data = await res.json();
+  if (!data.success) {
+    toast.error("Failed to create order");
+    return;
+  }
 
-      const data = await res.json();
-
-      if (!data.success) {
-        toast.error("Failed to create Razorpay order");
-        return;
-      }
-
-      window.location.href = data.hostedUrl;
-    } catch (err) {
-      console.error(err);
-      toast.error("Payment failed");
-    } finally {
-      setLoading(false);
-    }
+  const options = {
+    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY,
+    amount: total * 100,
+    currency: "INR",
+    name: "BSCFASHION",
+    description: "Order Payment",
+    order_id: data.orderId,
+    handler: function (response) {
+      router.push(`/payment-success?razorpay_payment_id=${response.razorpay_payment_id}`);
+    },
+    theme: {
+      color: "#fbbf24",
+    },
   };
+
+  const rzp = new window.Razorpay(options);
+  rzp.open();
+};
 
   const handlePayment = () => {
     if (paymentMode === "COD") {

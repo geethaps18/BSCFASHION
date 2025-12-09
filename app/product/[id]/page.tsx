@@ -18,6 +18,7 @@ import ProductCard from "@/components/ProductCard";
 import { Product as ProductType } from "@/types/product";
 import { getCookie } from "cookies-next";
 import { useRouter } from "next/navigation";
+import LoadingRing from "@/components/LoadingRing";
 
 
 
@@ -165,13 +166,16 @@ useEffect(() => {
     );
   }
 
-  if (!product) {
-    return (
-      <p className="p-6 text-center text-gray-500 mt-20">
-        loading...
-      </p>
-    );
-  }
+
+
+if (!product) {
+  return (
+    <div className="flex justify-center items-center h-[60vh]">
+      <LoadingRing />
+    </div>
+  );
+}
+
 
   // ---------------- Derived / Safe data ----------------
   const images = product.images?.length ? product.images : ["/placeholder.png"];

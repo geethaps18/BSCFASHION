@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ChevronRight, Search } from "lucide-react";
 import { getCookie } from "cookies-next";
+import LoadingRing from "@/components/LoadingRing";
 
 
 interface Product {
@@ -88,9 +89,13 @@ export default function OrdersPage() {
       return matchSearch && matchStatus;
     });
   }, [orders, search, statusFilter]);
+if (loading)
+  return (
+    <div className="flex justify-center items-center py-20">
+      <LoadingRing />
+    </div>
+  );
 
-  if (loading)
-    return <div className="p-6 text-center">Loading orders...</div>;
 
  
 

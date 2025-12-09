@@ -13,6 +13,8 @@ import {
   clearPending,
 } from "@/utils/wishlistPending";
 import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
+import LoadingRing from "@/components/LoadingRing";
+
 
 export default function WishlistPage() {
   const [wishlist, setWishlist] = useState<Product[]>([]);
@@ -189,8 +191,13 @@ export default function WishlistPage() {
     }
   };
 
-  // --- UI
-  if (loading) return <p className="mt-20 text-center">Loading wishlist...</p>;
+if (loading)
+  return (
+    <div className="flex justify-center items-center py-20">
+      <LoadingRing />
+    </div>
+  );
+
 
   if (!userId)
     return (

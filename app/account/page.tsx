@@ -16,6 +16,7 @@ import Header from "@/components/Header";
 import toast from "react-hot-toast";
 import { deleteCookie } from "cookies-next";
 import ProductCard from "@/components/ProductCard";
+import LoadingRing from "@/components/LoadingRing";
 
 // ----------------- Types -----------------
 interface Account {
@@ -269,9 +270,12 @@ export default function AccountPage() {
           ))}
         </div>
 
-        {loading ? (
-          <p className="text-center text-gray-500">Loading...</p>
-        ) : (
+       {loading ? (
+  <div className="flex justify-center items-center py-20">
+    <LoadingRing />
+  </div>
+) : (
+
           <>
             {/* Bank Details Form */}
             {tab === "bank-details" && (

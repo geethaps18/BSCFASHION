@@ -10,6 +10,7 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { Items } from "openai/resources/conversations/items";
+import LoadingRing from "@/components/LoadingRing";
 
 interface Product {
   id: string;
@@ -203,9 +204,13 @@ export default function OrderDetailsPage() {
     }
   };
 
-  if (!orderId) return <div className="p-6 text-center text-gray-500">Invalid order ID</div>;
-  if (loading) return <div className="p-6 text-center">Loading order details...</div>;
-  if (!order) return <div className="p-6 text-center text-gray-500">Order not found</div>;
+if (loading)
+  return (
+    <div className="flex justify-center items-center py-20">
+      <LoadingRing />
+    </div>
+  );
+
 
   const steps = ["Order Placed", "Shipped", "Out for Delivery", "Delivered"];
   const currentStepIndex = steps.findIndex((s) => s === STATUS_TEXT[order.status]?.text);

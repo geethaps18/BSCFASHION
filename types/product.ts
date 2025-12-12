@@ -3,16 +3,16 @@ export interface ColorOption {
   hex: string;
 }
 
-export interface ProductVariant {
-  sizes: string[];
-  colors: ColorOption[];
-  price: number;
-  mrp?: number;
-  discount?: number;
-  images: string[];
-  stock: number;
-  design?: string;
-}
+//export interface ProductVariant {
+  //sizes: string[];
+  //colors: ColorOption[];
+  //price: number;
+  //mrp?: number;
+  //discount?: number;
+  //images: string[];
+  //stock: number;
+  //design?: string;
+
 
 export interface Product {
   id: string;
@@ -27,7 +27,7 @@ export interface Product {
   images: string[];
   colors: ColorOption[];
   sizes?: string[];
-  variants?: ProductVariant[];
+  //variants?: ProductVariant[];
   createdAt: string;   // API
   rating?: number;
   reviewCount: number; 

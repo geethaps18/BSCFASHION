@@ -6,6 +6,7 @@ import { getUserIdFromToken } from "@/utils/getUserIdFormToken";
 export async function GET(req: NextRequest) {
   try {
     const userId = getUserIdFromToken(req);
+
     if (!userId) {
       return NextResponse.json({ orders: [] }, { status: 401 });
     }
@@ -19,45 +20,38 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const formattedOrders = orders.map((order) => {
-      let parsedAddress: any = {};
-      try {
-        parsedAddress = order.address ? JSON.parse(order.address) : {};
-      } catch (err) {
-        console.warn("Failed to parse order address:", order.address);
-      }
+    const formattedOrders = orders.map((order) => ({
+      id: order.id,
+      totalAmount: order.totalAmount,
+      status: order.status,
+      paymentMode: order.paymentMode,
 
-      return {
-        id: order.id,
-        totalAmount: order.totalAmount,
-        status: order.status,
-        paymentMode: order.paymentMode,
-        address: parsedAddress,
-        expectedDelivery: order.expectedDelivery ?? null,
-        trackingNumber: order.trackingNumber ?? null,
+      // ⭐ Address is ALREADY an object, no parse needed
+      address: order.address || {},
 
-        // ❗ FIX: avoid Prisma crash
-        createdAt: order.createdAt ?? new Date(0),
-        updatedAt: order.updatedAt ?? null,
+      expectedDelivery: order.expectedDelivery ?? null,
+      trackingNumber: order.trackingNumber ?? null,
 
-        items: order.items.map((item) => {
-          const product = item.product;
-          return {
-            itemId: item.id,
-            name: product?.name ?? "Unknown Item",
-            quantity: item.quantity,
-            price: item.price,
-            size: item.size ?? null,
-            product: {
-              id: product?.id ?? "",
-              name: product?.name ?? "Unknown Product",
-              price: product?.price ?? 0,
-              images: Array.isArray(product?.images) ? product.images : [],
-            },
-          };
-        }),
-      };
-    });
+      createdAt: order.createdAt ?? new Date(0),
+      updatedAt: order.updatedAt ?? null,
+
+      items: order.items.map((item) => {
+        const product = item.product;
+        return {
+          itemId: item.id,
+          name: product?.name ?? "Unknown Item",
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size ?? null,
+          product: {
+            id: product?.id ?? "",
+            name: product?.name ?? "Unknown Product",
+            price: product?.price ?? 0,
+            images: Array.isArray(product?.images) ? product.images : [],
+          },
+        };
+      }),
+    }));
 
     return NextResponse.json({ orders: formattedOrders });
   } catch (err) {

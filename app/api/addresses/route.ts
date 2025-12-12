@@ -19,6 +19,7 @@ interface AddressBody {
   state?: string;
   pincode: string;
   isDefault?: boolean;
+  email?:string;
 }
 
 interface PincodeValidationResult {
@@ -98,9 +99,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as AddressBody;
 
-    const { type, name, phone, doorNumber, street, landmark, city, state, pincode, isDefault } = body;
+    const { type, name, phone,email, doorNumber, street, landmark, city, state, pincode, isDefault } = body;
 
-    if (!type || !name || !phone || !doorNumber || !street || !pincode) {
+    if (!type || !name || !phone || !email ||!doorNumber || !street || !pincode) {
       return NextResponse.json({ success: false, error: "All required fields must be filled" }, { status: 400 });
     }
 
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
         userId,
         type,
         name,
+        email,
         phone,
         doorNumber,
         street,

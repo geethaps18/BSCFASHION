@@ -49,7 +49,6 @@ export async function GET(req: Request) {
         category: true,
         subCategory: true,
         subSubCategory: true,
-        colors: true,
         sizes: true,
       },
     });

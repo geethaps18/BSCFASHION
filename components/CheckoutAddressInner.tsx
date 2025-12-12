@@ -21,6 +21,7 @@ interface Address {
   type: "Home" | "Work" | "Other";
   name: string;
   phone: string;
+  email:string;
   doorNumber?: string;
   street?: string;
   landmark?: string;
@@ -86,6 +87,8 @@ export default function CheckoutAddressInner() {
     city: "",
     state: "",
     pincode: "",
+    email: "",
+
   });
 
   const [pincodeSuggestions, setPincodeSuggestions] = useState<PincodeSuggestion[]>([]);
@@ -217,6 +220,7 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       city: "",
       state: "",
       pincode: "",
+      email:"",
     });
     setEditingId(null);
     setIsDefault(false);
@@ -285,6 +289,7 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       city: addr.city ?? "",
       state: addr.state ?? "",
       pincode: addr.pincode ?? "",
+      email:addr.email??"",
     });
     setEditingId(addr.id);
     setIsDefault(Boolean(addr.isDefault));
@@ -524,12 +529,15 @@ return (
               </button>
             )}
 
+
+
             {formVisible && (
               <div className="border p-3 rounded space-y-2 mt-4">
                 <h3 className="font-medium">{editingId ? "Edit Address" : "Add New Address"}</h3>
 
-                {["name","phone","doorNumber","street","landmark","pincode"].map(field => (
+                {["name","phone","email","doorNumber","street","landmark","pincode"].map(field => (
                   <div key={field}>
+                    
                     <input
                       name={field}
                       placeholder={field.replace(/([A-Z])/g," $1").replace(/^./, str=>str.toUpperCase())}

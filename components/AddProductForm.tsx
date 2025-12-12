@@ -1,12 +1,21 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { X, Loader2 } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { X, Loader2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { categories, SubCategory } from "@/data/categories";
 
+/*
+  Tailwind-UI style, tabbed Add Product form
+  - Tabs: Basic, Media, Pricing, Inventory, Variants, Review
+  - Uses FormData POST to /api/products
+  - Image previews, drag & drop, variant management
+*/
+
 type ColorOption = { name: string; hex: string };
 type Variant = {
+  id: string;
+  name?: string;
   sizes: string[];
   colors: ColorOption[];
   design?: string;
@@ -18,7 +27,8 @@ type Variant = {
   previews: string[];
 };
 
-export default function AddProductForm() {
+export default function AddProductFormTabbed() {
+  const [activeTab, setActiveTab] = useState<number>(0);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<SubCategory | null>(categories[0] || null);
@@ -32,291 +42,410 @@ export default function AddProductForm() {
   const [discount, setDiscount] = useState("");
   const [stock, setStock] = useState("");
 
-  const [productImages, setProductImages] = useState<File[]>([]);
+  const [productFiles, setProductFiles] = useState<File[]>([]);
   const [productPreviews, setProductPreviews] = useState<string[]>([]);
+
   const [variants, setVariants] = useState<Variant[]>([]);
-
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const productInputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","XXXL","FREE"];
-  const KIDS_SIZES = ["0-3 Months","3-6 Months","6-9 Months","9-12 Months","1-2 Years","2-3 Years","3-4 Years","4-5 Years","5-6 Years","6-7 Years","7-8 Years","8-9 Years","9-10 Years"];
+  // Sizes + Colors constants
+  const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","FREE"];
+  const KIDS_SIZES = ["0-3M","3-6M","6-9M","9-12M","1-2Y","2-3Y","3-4Y"];
   const currentSizes = category?.name === "Kids" ? KIDS_SIZES : STANDARD_SIZES;
 
-  const COLORS: ColorOption[] = [
+  const COLOR_PALETTE: ColorOption[] = [
     { name: "Red", hex: "#EF4444" }, { name: "Pink", hex: "#EC4899" },
     { name: "Orange", hex: "#F97316" }, { name: "Yellow", hex: "#F59E0B" },
     { name: "Green", hex: "#10B981" }, { name: "Blue", hex: "#3B82F6" },
     { name: "Black", hex: "#111827" }, { name: "White", hex: "#F9FAFB" }
   ];
 
-  const calcDiscount = (mrpVal: string | number, priceVal: string | number) => {
-    const m = Number(mrpVal), p = Number(priceVal);
-    if (!m || !p || m <= 0 || p >= m) return "";
-    return String(Math.round(((m - p) / m) * 100));
-  };
-  useEffect(() => setDiscount(calcDiscount(mrp, price)), [mrp, price]);
+  useEffect(() => {
+    const d = calcDiscount(mrp, price);
+    setDiscount(d);
+  }, [mrp, price]);
 
-  const handleProductImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const files = Array.from(e.target.files);
-    setProductImages(prev => [...prev, ...files]);
-    setProductPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
-  };
-  const removeProductImage = (i: number) => {
-    setProductImages(prev => prev.filter((_, idx) => idx !== i));
-    setProductPreviews(prev => prev.filter((_, idx) => idx !== i));
-  };
-  const handleVariantImage = (files: File[], idx: number) => {
-    const previews = files.map(f => URL.createObjectURL(f));
+  function calcDiscount(m: string, p: string) {
+    const mm = Number(m); const pp = Number(p);
+    if (!mm || !pp || mm <= 0 || pp >= mm) return "";
+    return String(Math.round(((mm - pp) / mm) * 100));
+  }
+
+  // File handlers (product)
+  function onFilesPicked(files: FileList | null) {
+    if (!files) return;
+    const arr = Array.from(files);
+    setProductFiles(prev => [...prev, ...arr]);
+    setProductPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))]);
+  }
+  function removeProductImage(idx: number) {
+    setProductFiles(prev => prev.filter((_, i) => i !== idx));
+    setProductPreviews(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  // Variant helpers
+  function newVariant(): Variant {
+    return { id: String(Date.now()) + Math.random().toString(36).slice(2), sizes: [], colors: [], price: "", mrp: "", discount: "", stock: "", images: [], previews: [] };
+  }
+  function addVariant() { setVariants(v => [...v, newVariant()]); }
+  function removeVariant(i:number) { setVariants(v => v.filter((_, idx) => idx !== i)); }
+  function handleVariantFiles(files: FileList | null, idx:number) {
+    if (!files) return;
+    const arr = Array.from(files);
     setVariants(prev => {
       const copy = [...prev];
-      copy[idx].images = [...copy[idx].images, ...files];
-      copy[idx].previews = [...copy[idx].previews, ...previews];
+      copy[idx].images = [...copy[idx].images, ...arr];
+      copy[idx].previews = [...copy[idx].previews, ...arr.map(a => URL.createObjectURL(a))];
       return copy;
     });
-  };
-  const removeVariantImage = (vIdx: number, iIdx: number) => {
+  }
+  function removeVariantImage(vIdx:number, iIdx:number) {
     setVariants(prev => {
       const copy = [...prev];
       copy[vIdx].images = copy[vIdx].images.filter((_, i) => i !== iIdx);
       copy[vIdx].previews = copy[vIdx].previews.filter((_, i) => i !== iIdx);
       return copy;
     });
-  };
+  }
 
-  const addVariant = () => setVariants(prev => [...prev, { sizes: [], colors: [], design: "", price: "", mrp: "", discount: "", stock: "", images: [], previews: [] }]);
-  const removeVariant = (i: number) => setVariants(prev => prev.filter((_, idx) => idx !== i));
+  // Basic validation per tab
+  function validateBasic() {
+    const err: Record<string,string> = {};
+    if (!name.trim()) err.name = "Product name required";
+    setErrors(err);
+    return Object.keys(err).length === 0;
+  }
+  function validateMedia() {
+    const err: Record<string,string> = {};
+    if (productFiles.length === 0) err.images = "Add at least one image";
+    setErrors(err);
+    return Object.keys(err).length === 0;
+  }
+  function validatePricing() {
+    const err: Record<string,string> = {};
+    if (!price || Number(price) <= 0) err.price = "Valid price required";
+    if (!mrp || Number(mrp) <= 0) err.mrp = "Valid MRP required";
+    setErrors(err);
+    return Object.keys(err).length === 0;
+  }
+  function validateInventory() {
+    const err: Record<string,string> = {};
+    if (stock === "" || Number(stock) < 0) err.stock = "Stock must be >= 0";
+    setErrors(err);
+    return Object.keys(err).length === 0;
+  }
 
-  const validateForm = () => {
-    const newErrors: { [key: string]: string } = {};
-    if (!name.trim()) newErrors.name = "Name required";
-    if (!category) newErrors.category = "Category required";
-    if (!price || Number(price) <= 0) newErrors.price = "Price must be >0";
-    if (!mrp || Number(mrp) <= 0) newErrors.mrp = "MRP must be >0";
-    if (!stock || Number(stock) < 0) newErrors.stock = "Stock >=0";
-    if (!productImages.length) newErrors.images = "Add product images";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
+    // final validation
+    if (!validateBasic() || !validateMedia() || !validatePricing() || !validateInventory()) { toast.error("Fix errors"); return; }
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append("name", name);
-      formData.append("description", description);
+      const form = new FormData();
+      form.append("name", name);
+      form.append("description", description);
+      const catPath = [category?.name, subCategory?.name, subSubCategory?.name].filter(Boolean);
+      form.append("categoryPath", JSON.stringify(catPath));
+      form.append("price", String(price));
+      form.append("mrp", String(mrp));
+      form.append("discount", String(discount));
+      form.append("stock", String(stock));
+      form.append("sizes", JSON.stringify(sizes));
+      form.append("colors", JSON.stringify(colors.map(c => c.name)));
+      productFiles.forEach(f => form.append("images", f));
+      form.append("variants", JSON.stringify(variants.map(v => ({ id: v.id, name: v.name, sizes: v.sizes, colors: v.colors.map(c=>c.name), design: v.design, price: v.price, mrp: v.mrp, discount: v.discount, stock: v.stock }))));
+      variants.forEach((v, idx) => v.images.forEach(img => form.append(`variantImages-${idx}`, img)));
 
-      // --- Store category path globally ---
-      const categoryPath = [category?.name, subCategory?.name, subSubCategory?.name].filter(Boolean);
-      formData.append("categoryPath", JSON.stringify(categoryPath));
-
-      formData.append("price", price);
-      formData.append("mrp", mrp);
-      formData.append("discount", discount);
-      formData.append("stock", stock);
-      formData.append("sizes", JSON.stringify(sizes));
-      formData.append("colors", JSON.stringify(colors.map(c => c.name)));
-
-      productImages.forEach(img => formData.append("images", img));
-      formData.append("variants", JSON.stringify(variants.map(v => ({
-        sizes: v.sizes,
-        colors: v.colors.map(c => c.name),
-        design: v.design,
-        price: v.price,
-        mrp: v.mrp,
-        discount: v.discount,
-        stock: v.stock
-      }))));
-      variants.forEach((v, idx) => v.images.forEach(img => formData.append(`variantImages-${idx}`, img)));
-
-      const res = await fetch("/api/products", { method: "POST", body: formData });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success("✅ Product added!");
-        setName(""); setDescription(""); setCategory(categories[0] || null);
-        setSubCategory(null); setSubSubCategory(null);
-        setPrice(""); setMrp(""); setDiscount(""); setStock("");
-        setProductImages([]); setProductPreviews([]); setVariants([]);
-        setErrors({}); setSizes([]); setColors([]);
-      } else toast.error(data.message || "Failed to add product");
-    } catch (err) {
+      const res = await fetch('/api/products', { method: 'POST', body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || 'Failed');
+      toast.success('Product added');
+      // reset
+      setName(''); setDescription(''); setCategory(categories[0] || null); setSubCategory(null); setSubSubCategory(null);
+      setSizes([]); setColors([]); setPrice(''); setMrp(''); setDiscount(''); setStock('');
+      setProductFiles([]); setProductPreviews([]); setVariants([]);
+      setActiveTab(0);
+    } catch (err:any) {
       console.error(err);
-      toast.error("Something went wrong");
+      toast.error(err.message || 'Server error');
     } finally { setLoading(false); }
-  };
+  }
+
+  // UI pieces
+  const Tabs = ["Basic","Media","Pricing","Inventory","Variants","Review"];
 
   return (
-    <div className="max-w-5xl mx-auto p-4">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 bg-white p-6 rounded shadow">
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-semibold">Add Product</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setActiveTab(t => Math.max(0, t-1))} className="p-2 rounded border hover:bg-gray-50"><ChevronLeft size={16} /></button>
+          <button onClick={() => setActiveTab(t => Math.min(Tabs.length-1, t+1))} className="p-2 rounded border hover:bg-gray-50"><ChevronRight size={16} /></button>
+        </div>
+      </div>
 
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Product Name" className={`border p-2 rounded ${errors.name ? "border-red-500" : ""}`} />
-        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description" className="border p-2 rounded h-24 resize-none" />
-
-        {/* Category */}
-        <select value={category?.name} onChange={e => {
-          const cat = categories.find(c => c.name === e.target.value) || null;
-          setCategory(cat); setSubCategory(null); setSubSubCategory(null); setSizes([]);
-        }} className={`border p-2 rounded ${errors.category ? "border-red-500" : ""}`}>
-          {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-        </select>
-
-        {/* Subcategory */}
-        <select value={subCategory?.name || ""} onChange={e => {
-          const sub = category?.subCategories?.find(s => s.name === e.target.value) || null;
-          setSubCategory(sub); setSubSubCategory(null);
-        }} className="border p-2 rounded">
-          <option value="">Select Subcategory</option>
-          {category?.subCategories?.map(sub => <option key={sub.name} value={sub.name}>{sub.name}</option>)}
-        </select>
-
-        {/* Sub-Subcategory */}
-        {subCategory?.subCategories && subCategory.subCategories.length > 0 && (
-          <select value={subSubCategory?.name || ""} onChange={e => {
-            const subSub = subCategory.subCategories?.find(s => s.name === e.target.value) || null;
-            setSubSubCategory(subSub);
-          }} className="border p-2 rounded">
-            <option value="">Select Sub-Subcategory</option>
-            {subCategory.subCategories.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-          </select>
-        )}
-
-        {/* Sizes */}
-        <div>
-          <h3 className="font-semibold mb-1">Sizes</h3>
-          <div className="flex flex-wrap gap-2">
-            {currentSizes.map(s => (
-              <button key={s} type="button" onClick={() => setSizes(prev => prev.includes(s) ? prev.filter(size => size !== s) : [...prev, s])} className={`px-3 py-1 rounded-full border ${sizes.includes(s) ? "bg-green-600 text-white border-green-600" : "bg-white border-gray-300"}`}>{s}</button>
+      <div className="bg-white shadow rounded-lg">
+        {/* Tab list */}
+        <div className="border-b">
+          <nav className="-mb-px flex" aria-label="Tabs">
+            {Tabs.map((t, i) => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(i)}
+                className={`px-4 py-3 text-sm font-medium -mb-px ${activeTab===i ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-600 hover:text-gray-800'}`}
+              >
+                {t}
+              </button>
             ))}
-          </div>
+          </nav>
         </div>
 
-        {/* Colors */}
-        <div>
-          <h3 className="font-semibold mb-1">Colors</h3>
-          <div className="flex gap-2 flex-wrap">
-            {COLORS.map(c => (
-              <button type="button" key={c.name} title={c.name} style={{ backgroundColor: c.hex }} className={`w-8 h-8 rounded-full border-2 ${colors.find(col => col.name === c.name) ? "border-black" : "border-gray-300"}`} onClick={() => {
-                const exists = colors.find(col => col.name === c.name);
-                setColors(prev => exists ? prev.filter(col => col.name !== c.name) : [...prev, c]);
-              }} />
-            ))}
-          </div>
-        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Basic */}
+          {activeTab === 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 space-y-4">
+                <label className="block">
+                  <span className="text-sm font-medium">Product Name</span>
+                  <input value={name} onChange={e=>setName(e.target.value)} className={`mt-1 block w-full rounded border px-3 py-2 ${errors.name ? 'border-red-500' : 'border-gray-200'}`} />
+                  {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
+                </label>
 
-        {/* Price / MRP / Stock */}
-        <div className="grid grid-cols-4 gap-2">
-          <input type="number" value={mrp} onChange={e => setMrp(e.target.value)} placeholder="MRP" className={`border p-2 rounded ${errors.mrp ? "border-red-500" : ""}`} />
-          <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="Price" className={`border p-2 rounded ${errors.price ? "border-red-500" : ""}`} />
-          <input value={discount} readOnly placeholder="Discount %" className="border p-2 rounded bg-gray-100" />
-          <input type="number" value={stock} onChange={e => setStock(e.target.value)} placeholder="Stock" className={`border p-2 rounded ${errors.stock ? "border-red-500" : ""}`} />
-        </div>
+                <label className="block">
+                  <span className="text-sm font-medium">Description</span>
+                  <textarea value={description} onChange={e=>setDescription(e.target.value)} className="mt-1 block w-full rounded border px-3 py-2 h-36" />
+                </label>
 
-        {/* Product Images */}
-        <div className={`border border-dashed p-4 rounded cursor-pointer ${errors.images ? "border-red-500" : ""}`} onClick={() => productInputRef.current?.click()}>
-          Click or Drop Images
-          <input type="file" multiple hidden ref={productInputRef} onChange={handleProductImages} />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {productPreviews.map((src, i) => (
-            <div key={i} className="relative group">
-              <img src={src} className="w-full h-32 object-cover rounded" />
-              <button type="button" onClick={() => removeProductImage(i)} className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded opacity-0 group-hover:opacity-100"><X size={16} /></button>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Category</label>
+                    <select value={category?.name} onChange={e=>{ const c = categories.find(c=>c.name===e.target.value) || null; setCategory(c); setSubCategory(null); setSubSubCategory(null); }} className="mt-1 block w-full rounded border px-3 py-2">
+                      {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Subcategory</label>
+                    <select value={subCategory?.name||''} onChange={e=>{ const s = category?.subCategories?.find(s=>s.name===e.target.value) || null; setSubCategory(s); setSubSubCategory(null); }} className="mt-1 block w-full rounded border px-3 py-2">
+                      <option value="">Select</option>
+                      {category?.subCategories?.map(s=> <option key={s.name} value={s.name}>{s.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Sub-Sub</label>
+                    <select value={subSubCategory?.name||''} onChange={e=>{ const ss = subCategory?.subCategories?.find(s=>s.name===e.target.value)||null; setSubSubCategory(ss); }} className="mt-1 block w-full rounded border px-3 py-2">
+                      <option value="">Select</option>
+                      {subCategory?.subCategories?.map(s=> <option key={s.name} value={s.name}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+              </div>
+
+              <aside className="p-4 border rounded bg-gray-50">
+                <p className="text-sm text-gray-600">Quick help</p>
+                <ul className="mt-2 text-sm space-y-1">
+                  <li>- Use a descriptive name</li>
+                  <li>- Add main image in Media tab</li>
+                  <li>- Fill price & stock</li>
+                </ul>
+              </aside>
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* Variants */}
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Variants</h3>
-          {variants.map((v, idx) => (
-            <div key={idx} className="border p-3 rounded mb-4 relative">
-              <button type="button" onClick={() => removeVariant(idx)} className="absolute top-1 right-1 text-red-500">X</button>
-
-              <input value={v.design} onChange={e => {
-                const val = e.target.value;
-                setVariants(prev => { const copy = [...prev]; copy[idx].design = val; return copy; });
-              }} placeholder="Variant Design" className="border p-2 rounded mb-2 w-full" />
-
-              {/* Variant Sizes */}
-              <div className="flex flex-wrap gap-2 mb-2">
-                {currentSizes.map((size) => {
-                  const isSelected = variants[idx].sizes.includes(size);
-                  return (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() =>
-                        setVariants(prev => {
-                          const copy = [...prev];
-                          const variant = { ...copy[idx] };
-                          if (variant.sizes.includes(size)) {
-                            variant.sizes = variant.sizes.filter(s => s !== size);
-                          } else {
-                            variant.sizes = [...variant.sizes, size];
-                          }
-                          copy[idx] = variant;
-                          return copy;
-                        })
-                      }
-                      className={`px-3 py-1 rounded-full border ${isSelected ? "bg-green-600 text-white border-green-600" : "bg-white border-gray-300"}`}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
+          {/* Media */}
+          {activeTab === 1 && (
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="font-semibold">Upload Product Images</h3>
+                <div className="text-sm text-gray-500">Drag & drop or click</div>
               </div>
 
-              {/* Variant Colors */}
-              <div className="flex gap-2 flex-wrap mb-2">
-                {COLORS.map(c => (
-                  <button type="button" key={c.name} title={c.name} style={{ backgroundColor: c.hex }} className={`w-8 h-8 rounded-full border-2 ${v.colors.find(col => col.name === c.name) ? "border-black" : "border-gray-300"}`} onClick={() => {
-                    const exists = v.colors.find(col => col.name === c.name);
-                    setVariants(prev => { const copy = [...prev]; copy[idx].colors = exists ? copy[idx].colors.filter(col => col.name !== c.name) : [...copy[idx].colors, c]; return copy; });
-                  }} />
-                ))}
+              <div onClick={()=>fileRef.current?.click()} className={`relative border-2 border-dashed rounded p-6 text-center cursor-pointer ${errors.images ? 'border-red-400' : 'border-gray-200'}`}>
+                <input ref={fileRef} type="file" multiple className="hidden" onChange={e=>onFilesPicked(e.target.files)} />
+                <p className="text-sm text-gray-600">Click here to select images or drag files</p>
+                <p className="text-xs text-gray-400 mt-2">Recommended: 1000×1000px, JPG/PNG</p>
               </div>
 
-              {/* Variant Price / MRP / Stock */}
-              <div className="grid grid-cols-4 gap-2 mb-2">
-                <input type="number" value={v.mrp} onChange={e => {
-                  const val = e.target.value;
-                  setVariants(prev => { const copy = [...prev]; copy[idx].mrp = val; copy[idx].discount = calcDiscount(val, copy[idx].price); return copy; });
-                }} placeholder="MRP" className="border p-2 rounded" />
-                <input type="number" value={v.price} onChange={e => {
-                  const val = e.target.value;
-                  setVariants(prev => { const copy = [...prev]; copy[idx].price = val; copy[idx].discount = calcDiscount(copy[idx].mrp, val); return copy; });
-                }} placeholder="Price" className="border p-2 rounded" />
-                <input value={v.discount} readOnly placeholder="Discount %" className="border p-2 rounded bg-gray-100" />
-                <input type="number" value={v.stock} onChange={e => {
-                  const val = e.target.value;
-                  setVariants(prev => { const copy = [...prev]; copy[idx].stock = val; return copy; });
-                }} placeholder="Stock" className="border p-2 rounded" />
-              </div>
-
-              <input type="file" multiple onChange={e => { if (!e.target.files) return; handleVariantImage(Array.from(e.target.files), idx); }} className="mb-2" />
-              <div className="grid grid-cols-3 gap-2">
-                {v.previews.map((src, i) => (
-                  <div key={i} className="relative group">
-                    <img src={src} className="w-full h-24 object-cover rounded" />
-                    <button type="button" onClick={() => removeVariantImage(idx, i)} className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded opacity-0 group-hover:opacity-100"><X size={16} /></button>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                {productPreviews.map((src, i) => (
+                  <div key={i} className="relative group rounded overflow-hidden border">
+                    <img src={src} alt={`preview-${i}`} className="w-full h-40 object-cover" />
+                    <button type="button" onClick={()=>removeProductImage(i)} className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded opacity-0 group-hover:opacity-100"><X size={16} /></button>
                   </div>
                 ))}
+                {productPreviews.length === 0 && (<div className="col-span-full text-center text-gray-500 py-6">No images added</div>)}
+              </div>
+
+              {errors.images && <p className="text-sm text-red-600 mt-2">{errors.images}</p>}
+            </div>
+          )}
+
+          {/* Pricing */}
+          {activeTab === 2 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium">MRP</label>
+                <input type="number" value={mrp} onChange={e=>setMrp(e.target.value)} className={`mt-1 block w-full rounded border px-3 py-2 ${errors.mrp ? 'border-red-500' : 'border-gray-200'}`} />
+                {errors.mrp && <p className="text-sm text-red-600">{errors.mrp}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Price</label>
+                <input type="number" value={price} onChange={e=>setPrice(e.target.value)} className={`mt-1 block w-full rounded border px-3 py-2 ${errors.price ? 'border-red-500' : 'border-gray-200'}`} />
+                {errors.price && <p className="text-sm text-red-600">{errors.price}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium">Discount</label>
+                <input value={discount} readOnly className="mt-1 block w-full rounded border px-3 py-2 bg-gray-50" />
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="block text-sm font-medium">Colors</label>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {COLOR_PALETTE.map(c => (
+                    <button type="button" key={c.name} title={c.name} onClick={()=>{
+                      const exists = colors.find(x=>x.name===c.name);
+                      setColors(prev => exists ? prev.filter(x=>x.name!==c.name) : [...prev, c]);
+                    }} style={{ backgroundColor: c.hex }} className={`w-8 h-8 rounded-full border-2 ${colors.find(x=>x.name===c.name) ? 'border-black' : 'border-gray-200'}`} />
+                  ))}
+                </div>
               </div>
             </div>
-          ))}
-          <button type="button" onClick={addVariant} className="bg-green-600 text-white px-3 py-2 rounded">+ Add Variant</button>
-        </div>
+          )}
 
-        <button type="submit" disabled={loading} className="bg-green-600 text-white px-4 py-2 rounded mt-4 flex items-center justify-center gap-2">
-          {loading && <Loader2 className="animate-spin" size={16} />}
-          Add Product
-        </button>
-      </form>
+          {/* Inventory */}
+          {activeTab === 3 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium">Stock</label>
+                <input type="number" value={stock} onChange={e=>setStock(e.target.value)} className={`mt-1 block w-full rounded border px-3 py-2 ${errors.stock ? 'border-red-500' : 'border-gray-200'}`} />
+                {errors.stock && <p className="text-sm text-red-600">{errors.stock}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Sizes</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {currentSizes.map(s => (
+                    <button key={s} type="button" onClick={()=>setSizes(prev=> prev.includes(s) ? prev.filter(x=>x!==s) : [...prev, s])} className={`px-3 py-1 rounded-full border ${sizes.includes(s) ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200'}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Variants */}
+          {activeTab === 4 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Variants</h3>
+                <button type="button" onClick={addVariant} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-indigo-600 text-white">
+                  <Plus size={14}/> Add Variant
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {variants.map((v, idx) => (
+                  <div key={v.id} className="border rounded p-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <strong>Variant #{idx+1}</strong>
+                      <button type="button" onClick={()=>removeVariant(idx)} className="text-sm text-red-600">Remove</button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input value={v.name||''} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].name=val; return c; }); }} placeholder="Variant name (eg: Red - Large)" className="border rounded px-3 py-2 md:col-span-3" />
+
+                      <div>
+                        <label className="text-sm">Sizes</label>
+                        <div className="mt-2 flex gap-2 flex-wrap">
+                          {currentSizes.map(sz=> (
+                            <button key={sz} type="button" onClick={()=>{ setVariants(prev=>{ const c=[...prev]; const has=c[idx].sizes.includes(sz); c[idx].sizes = has ? c[idx].sizes.filter(x=>x!==sz) : [...c[idx].sizes, sz]; return c; }); }} className={`px-2 py-1 rounded-full border ${v.sizes.includes(sz) ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200'}`}>{sz}</button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm">Colors</label>
+                        <div className="mt-2 flex gap-2 flex-wrap">
+                          {COLOR_PALETTE.map(c => (
+                            <button key={c.name} type="button" title={c.name} onClick={()=>{ setVariants(prev=>{ const cpy=[...prev]; const exists = cpy[idx].colors.find(x=>x.name===c.name); cpy[idx].colors = exists ? cpy[idx].colors.filter(x=>x.name!==c.name) : [...cpy[idx].colors, c]; return cpy; }); }} style={{ backgroundColor: c.hex }} className={`w-8 h-8 rounded-full border-2 ${v.colors.find(x=>x.name===c.name) ? 'border-black' : 'border-gray-200'}`} />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-3 grid grid-cols-4 gap-2">
+                        <input value={v.mrp} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].mrp=val; c[idx].discount = calcDiscount(c[idx].mrp, c[idx].price); return c; }); }} placeholder="MRP" className="border rounded px-3 py-2" />
+                        <input value={v.price} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].price=val; c[idx].discount = calcDiscount(c[idx].mrp, val); return c; }); }} placeholder="Price" className="border rounded px-3 py-2" />
+                        <input value={v.discount} readOnly placeholder="Discount %" className="border rounded px-3 py-2 bg-gray-50" />
+                        <input value={v.stock} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].stock=val; return c; }); }} placeholder="Stock" className="border rounded px-3 py-2" />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <input type="file" multiple onChange={e=>handleVariantFiles(e.target.files, idx)} className="mt-2" />
+                        <div className="grid grid-cols-4 gap-2 mt-2">
+                          {v.previews.map((src, ii) => (
+                            <div key={ii} className="relative group rounded overflow-hidden border">
+                              <img src={src} className="w-full h-28 object-cover" />
+                              <button type="button" onClick={()=>removeVariantImage(idx, ii)} className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded opacity-0 group-hover:opacity-100"><X size={14} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                ))}
+
+                {variants.length === 0 && <div className="text-gray-500">No variants added yet. Use <strong>+ Add Variant</strong>.</div>}
+              </div>
+            </div>
+          )}
+
+          {/* Review */}
+          {activeTab === 5 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Review & Submit</h3>
+              <div className="border rounded p-4 bg-gray-50">
+                <p><strong>Name:</strong> {name || '—'}</p>
+                <p><strong>Category:</strong> {category?.name || '—'}</p>
+                <p><strong>Price:</strong> ₹{price || '—'}</p>
+                <p><strong>Stock:</strong> {stock || '—'}</p>
+                <p><strong>Images:</strong> {productPreviews.length} files</p>
+                <p><strong>Variants:</strong> {variants.length}</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button type="button" onClick={()=>setActiveTab( (t) => Math.max(0, t-1) )} className="px-4 py-2 rounded border">Back</button>
+                <button type="button" onClick={()=>handleSubmit()} disabled={loading} className="px-4 py-2 rounded bg-indigo-600 text-white flex items-center gap-2">
+                  {loading && <Loader2 className="animate-spin" size={16} />} Submit Product
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* footer nav */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-500">Step {activeTab+1} / {Tabs.length}</div>
+            <div className="flex items-center gap-2">
+              {activeTab > 0 && <button type="button" onClick={()=>setActiveTab(t=>t-1)} className="px-3 py-2 rounded border">Previous</button>}
+              {activeTab < Tabs.length-1 && <button type="button" onClick={()=>{
+                // try validate current tab before moving forward
+                let ok = true;
+                if (activeTab === 0) ok = validateBasic();
+                if (activeTab === 1) ok = validateMedia();
+                if (activeTab === 2) ok = validatePricing();
+                if (activeTab === 3) ok = validateInventory();
+                if (ok) setActiveTab(t=>t+1);
+                else toast.error('Fix errors before continuing');
+              }} className="px-3 py-2 rounded bg-indigo-600 text-white">Next</button>}
+            </div>
+          </div>
+
+        </form>
+      </div>
     </div>
   );
 }

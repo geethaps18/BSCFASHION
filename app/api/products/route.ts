@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { Buffer } from "buffer";
+
 
 // ----------------------
 // Upload helper
@@ -35,20 +37,20 @@ async function uploadToSupabase(file: File): Promise<string | null> {
 }
 
 // ----------------------
-// GET Products (with pagination + filters + home)
+// GET Products (Clean version)
 // ----------------------
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
 
     const page = Number(searchParams.get("page") || 1);
-    const pageSize = 1000000;
+    const pageSize = 20;
     const skip = (page - 1) * pageSize;
 
     const mainSlug = searchParams.get("main");
     const sub1Slug = searchParams.get("sub1");
     const sub2Slug = searchParams.get("sub2");
-    const home = searchParams.get("home"); // 👈 ADDED
+    const home = searchParams.get("home");
     const excludeId = searchParams.get("exclude");
 
     const slugToName = (slug: string | null) =>
@@ -60,12 +62,8 @@ export async function GET(req: Request) {
 
     const where: any = {};
 
-    // HOME PRODUCTS LOGIC -----------------------------
-    if (home === "true") {
-      // Show all products for home — newest first
-      // (You can later change this to trending / random)
-    } else {
-      // CATEGORY FILTER LOGIC ---------------------------
+    // CATEGORY FILTERS
+    if (home !== "true") {
       if (main && !sub1 && !sub2) {
         where.category = { equals: main, mode: "insensitive" };
       } else if (sub1 && !sub2) {
@@ -79,33 +77,22 @@ export async function GET(req: Request) {
       where.id = { not: excludeId };
     }
 
-    // Count total for pagination
     const total = await prisma.product.count({ where });
 
-    // Fetch products
     const products = await prisma.product.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip,
       take: pageSize,
-      include: { variants: true },
     });
 
-    const safeProducts = products.map((p) => ({
-      ...p,
-      images: Array.isArray(p.images) ? p.images : [],
-      variants:
-        p.variants?.map((v) => ({
-          ...v,
-          images: Array.isArray(v.images) ? v.images : [],
-        })) ?? [],
-    }));
+    // FIX IMAGE PARSING
+   const safeProducts = products;
 
-    const hasMore = total > page * pageSize;
 
     return NextResponse.json({
       products: safeProducts,
-      hasMore,
+      hasMore: total > page * pageSize,
       page,
     });
   } catch (err: any) {
@@ -118,42 +105,39 @@ export async function GET(req: Request) {
 }
 
 // ----------------------
-// POST — Add Product
+// POST — Add Product (NO VARIANTS)
 // ----------------------
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
-    const name = (formData.get("name") as string) || "";
-    const description = (formData.get("description") as string) || "";
+    const name = String(formData.get("name") || "");
+    const description = String(formData.get("description") || "");
 
     const categoryPath = formData.get("categoryPath")
-      ? JSON.parse(formData.get("categoryPath") as string)
+      ? JSON.parse(String(formData.get("categoryPath")))
       : [];
 
     const category = (categoryPath[0] || "").toLowerCase();
     const subCategory = (categoryPath[1] || "").toLowerCase();
     const subSubCategory = (categoryPath[2] || "").toLowerCase();
 
-    const price = Number(formData.get("price")) || 0;
-    const mrp =
-      Number(formData.get("mrp")) ||
-      price + Math.floor(Math.random() * 200 + 50);
+    const price = Number(formData.get("price") || 0);
+    const mrp = Number(formData.get("mrp") || price);
     const discount =
       Number(formData.get("discount")) ||
       (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
+    const stock = Number(formData.get("stock") || 0);
 
-    const stock = Number(formData.get("stock")) || 0;
-
-    const sizes: string[] = formData.get("sizes")
-      ? JSON.parse(formData.get("sizes") as string)
+    const sizes = formData.get("sizes")
+      ? JSON.parse(String(formData.get("sizes")))
       : [];
 
-    const colors: string[] = formData.get("colors")
-      ? JSON.parse(formData.get("colors") as string)
+    const colors = formData.get("colors")
+      ? JSON.parse(String(formData.get("colors")))
       : [];
 
-    // Main product images
+    // Upload single product images
     const productFiles = formData.getAll("images") as File[];
     const productImages: string[] = [];
 
@@ -161,33 +145,6 @@ export async function POST(req: Request) {
       const url = await uploadToSupabase(file);
       if (url) productImages.push(url);
     }
-
-    // Variants
-    const variantsRaw = formData.get("variants") as string;
-    const variantsParsed = variantsRaw ? JSON.parse(variantsRaw) : [];
-
-    const variantData = await Promise.all(
-      variantsParsed.map(async (v: any, i: number) => {
-        const variantFiles = formData.getAll(`variantImages-${i}`) as File[];
-        const uploadedVariantImages: string[] = [];
-
-        for (const file of variantFiles) {
-          const url = await uploadToSupabase(file);
-          if (url) uploadedVariantImages.push(url);
-        }
-
-        return {
-          sizes: v.sizes || [],
-          colors: v.colors || [],
-          design: v.design || "",
-          price: Number(v.price ?? price),
-          mrp: Number(v.mrp ?? mrp),
-          discount: Number(v.discount ?? discount),
-          stock: Number(v.stock ?? 0),
-          images: uploadedVariantImages,
-        };
-      })
-    );
 
     const product = await prisma.product.create({
       data: {
@@ -199,16 +156,11 @@ export async function POST(req: Request) {
         price,
         mrp,
         discount,
-        stock:
-          variantData.length > 0
-            ? variantData.reduce((sum, v) => sum + v.stock, 0)
-            : stock,
+        stock,
         sizes,
-        colors,
+        
         images: productImages,
-        variants: { create: variantData },
       },
-      include: { variants: true },
     });
 
     return NextResponse.json({

@@ -26,13 +26,13 @@ export async function GET(
       include: {
         items: {
           select: {
-            id: true,          // order item id
-            productId: true,   // REAL PRODUCT ID
+            id: true,
+            productId: true,
             name: true,
             price: true,
             quantity: true,
             size: true,
-            image: true,       // fallback image saved in order
+            image: true,
             product: {
               select: {
                 id: true,
@@ -52,26 +52,44 @@ export async function GET(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    let parsedAddress = null;
-    if (order.address) {
-      try {
-        parsedAddress = JSON.parse(order.address);
-      } catch {
-        parsedAddress = { raw: order.address };
-      }
-    }
+   let parsedAddress = null;
 
+if (order.address) {
+  if (typeof order.address === "string") {
+    try {
+      parsedAddress = JSON.parse(order.address);
+    } catch {
+      parsedAddress = { raw: order.address };
+    }
+  } else {
+    parsedAddress = order.address; // already JSON object
+  }
+}
+
+
+    // ⭐ VERY VERY IMPORTANT:
+    // Send all timestamps to frontend so timeline works
     return NextResponse.json({
       success: true,
-      order: { ...order, address: parsedAddress },
+      order: {
+        ...order,
+        address: parsedAddress,
+
+        confirmedAt: order.confirmedAt,
+        shippedAt: order.shippedAt,
+        outForDeliveryAt: order.outForDeliveryAt,
+        deliveredAt: order.deliveredAt,
+        updatedAt: order.updatedAt,
+      },
     });
   } catch (err) {
-    console.error(err);
+    console.error("ORDER DETAILS ERROR:", err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
 }
 
 
+// ----------------------- REVIEW SUBMIT -----------------------
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

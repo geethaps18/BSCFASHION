@@ -32,6 +32,8 @@ model User {
   name      String?
   createdAt DateTime @default(now())
 
+   blocked   Boolean  @default(false)
+
   addresses Address[]
   wishlists Wishlist[]
   bags      Bag[]
@@ -39,6 +41,18 @@ model User {
   orders    Order[]
   ratings   Rating[]
   reviews   Review[]
+}
+
+model Settings {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  storeName   String
+  email       String
+  phone       String
+  address     String
+  logoUrl     String?
+  razorpay    Boolean  @default(false)
+  cod         Boolean  @default(true)
+  darkMode    Boolean  @default(false)
 }
 
 /**
@@ -58,6 +72,7 @@ model Address {
   city       String
   state      String
   pincode    String
+  email      String?
   isDefault  Boolean   @default(false)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime? @updatedAt
@@ -103,8 +118,6 @@ model Product {
   sizes       String[]
   rating      Float?   @default(0)
   reviewCount Int?     @default(0)
-  colors      Json[]
-  colorNames  String[]
   price       Float
   mrp         Float?
   discount    Int?
@@ -115,39 +128,36 @@ model Product {
   categoryId   String?   @db.ObjectId
   categoryNode Category? @relation("ProductToCategory", fields: [categoryId], references: [id])
 
-  variants   ProductVariant[]
+ 
   wishlists  Wishlist[]
   bagItems   Bag[]
   orderItems OrderItem[]
   ratings    Rating[]
   reviews    Review[]
+ stockReminders  StockReminder[] @relation("StockReminderRelation")
 
   @@index([categoryId])
   @@index([category, subCategory, subSubCategory])
 }
+
+model StockReminder {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  productId String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+
+  product   Product  @relation("StockReminderRelation", fields: [productId], references: [id])
+
+}
+
 
 /**
  * =========================
  * PRODUCT VARIANTS
  * =========================
  */
-model ProductVariant {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  productId String   @db.ObjectId
-  sizes     String[]
-  colors    Json[]
-  design    String?
-  price     Float?
-  mrp       Float?
-  discount  Int?
-  stock     Int
-  images    String[]
-  createdAt DateTime @default(now())
 
-  product Product @relation(fields: [productId], references: [id])
-
-  @@index([productId])
-}
 
 model Rating {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -259,11 +269,11 @@ model Account {
  */
 model Order {
   id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId           String?    @db.ObjectId
+  userId           String?     @db.ObjectId // ❌ remove ?
   totalAmount      Float
   status           String    @default("PENDING")
   paymentMode      String    @default("COD")
-  address          String?
+  address          Json?       // 🔥 FIXED: JSON instead of string
   expectedDelivery DateTime?
   upiId            String?
   cardDetails      String?
@@ -272,21 +282,25 @@ model Order {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime? @updatedAt
 
-  // ⭐⭐⭐ Delivery OTP fields (Flipkart-style)
-  deliveryOtp    String? // stores OTP for delivery verification
-  otpGeneratedAt DateTime? // when OTP was created
-  otpVerified    Boolean      @default(false) // true when delivery boy verifies OTP
-  deliveredAt    DateTime? // time of successful delivery
+  deliveryOtp       String?
+  otpGeneratedAt    DateTime?
+  otpVerified       Boolean      @default(false)
+  confirmedAt       DateTime?
+  shippedAt         DateTime?
+  outForDeliveryAt  DateTime?
+  deliveredAt       DateTime?
+
   deliveryBoyId  String?      @db.ObjectId
   deliveryBoy    DeliveryBoy? @relation("DeliveryBoyOrders", fields: [deliveryBoyId], references: [id])
 
-  user    User?        @relation(fields: [userId], references: [id])
+  user    User?        @relation(fields: [userId], references: [id])  // ❌ Remove optional
   items   OrderItem[]
   ratings Rating[]
   reviews Review[]
 
   @@index([userId])
 }
+
 
 model DeliveryBoy {
   id            String        @id @default(auto()) @map("_id") @db.ObjectId

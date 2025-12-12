@@ -33,12 +33,18 @@ interface Order {
 
 const STATUS_TEXT: Record<string, { text: string; color: string }> = {
   PENDING: { text: "Order Placed", color: "bg-yellow-100 text-yellow-800" },
+  PACKED: { text: "Packed", color: "bg-indigo-100 text-indigo-800" },
   SHIPPED: { text: "Shipped", color: "bg-blue-100 text-blue-800" },
+  OUT_FOR_DELIVERY: {
+    text: "Out for Delivery",
+    color: "bg-orange-100 text-orange-800",
+  },
   DELIVERED: { text: "Delivered", color: "bg-green-100 text-green-800" },
   CANCELLED: { text: "Cancelled", color: "bg-red-100 text-red-800" },
-  RETURNED: { text: "Returned", color: "bg-orange-100 text-orange-800" },
-  REFUNDED: { text: "Refund Completed", color: "bg-gray-100 text-gray-800" },
+  RETURNED: { text: "Returned", color: "bg-gray-100 text-gray-800" },
+  REFUNDED: { text: "Refund Completed", color: "bg-gray-200 text-gray-700" },
 };
+
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);

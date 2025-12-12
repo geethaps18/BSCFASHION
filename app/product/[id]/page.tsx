@@ -87,6 +87,7 @@ type ProductWithReviews = ProductType & {
   reviews?: Review[];
   rating?: number;
   reviewCount?: number;
+  stock?:number;
 };
 
 export default function ProductDetailPage() {
@@ -117,6 +118,13 @@ export default function ProductDetailPage() {
 useEffect(() => {
   window.history.scrollRestoration = "manual";
 }, []);
+// Auto-select One Size if product has no sizes
+useEffect(() => {
+  if (product && (!product.sizes || product.sizes.length === 0)) {
+    setSelectedSize("One Size");
+  }
+}, [product]);
+
 
   useEffect(() => {
     if (!id) return;
@@ -344,30 +352,65 @@ const handleAddToBagWithLoginCheck = () => {
               )}
             </div>
           </div>
+          {/* OUT OF STOCK NOTICE */}
+{product.stock <= 0 && (
+  <p className="text-red-600 font-medium text-sm mt-2">
+    Currently Out of Stock
+  </p>
+)}
 
-          {/* Sizes */}
-          {product.sizes?.length > 0 && (
-            <div ref={sizesRef} className={`${sizeError ? "ring-2 ring-red-400 rounded-md p-2" : ""}`}>
-              <p className="text-gray-700 mb-2">Size</p>
-              <div className="grid grid-cols-10 gap-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => {
-                      setSelectedSize(size);
-                      setSizeError(false);
-                    }}
-                    className={`border py-2 rounded-md text-sm ${
-                      selectedSize === size ? "border-black bg-gray-200" : "border-gray-300"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-              {sizeError && <p className="text-red-500 text-xs mt-1">Please select your size</p>}
-            </div>
-          )}
+
+      {/* Sizes Section (supports One Size fallback) */}
+{/* Sizes Section (supports One Size + Out of Stock) */}
+<div
+  ref={sizesRef}
+  className={`${sizeError ? "ring-1 ring-red-400 rounded-md p-2" : ""}`}
+>
+  <p className="text-gray-700 mb-2">Size</p>
+
+  {product.sizes && product.sizes.length > 0 ? (
+    <div className="grid grid-cols-10 gap-2">
+      {product.sizes.map((size) => (
+        <button
+          key={size}
+          disabled={product.stock <= 0}
+          onClick={() => {
+            if (product.stock <= 0) return;
+            setSelectedSize(size);
+            setSizeError(false);
+          }}
+          className={`border py-2 rounded-md text-sm
+            ${selectedSize === size ? "border-black bg-gray-200" : "border-gray-300"}
+            ${product.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}
+          `}
+        >
+          {size}
+        </button>
+      ))}
+    </div>
+  ) : (
+    <button
+      disabled={product.stock <= 0}
+      onClick={() => {
+        if (product.stock <= 0) return;
+        setSelectedSize("One Size");
+        setSizeError(false);
+      }}
+      className={`border py-2 rounded-md text-sm
+        ${selectedSize === "One Size" ? "border-black bg-gray-200" : "border-gray-300"}
+        ${product.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}
+      `}
+    >
+      One Size
+    </button>
+  )}
+
+  {sizeError && (
+    <p className="text-red-500 text-xs mt-1">Please select your size</p>
+  )}
+</div>
+
+
 
           {/* Description */}
           {product.description && (
@@ -414,48 +457,118 @@ const handleAddToBagWithLoginCheck = () => {
 
          
 
-     {/* Desktop Buttons (Hidden on Mobile) */}
+{/* ----------------- OUT OF STOCK UI ----------------- */}
 <div className="hidden md:flex flex-col gap-3 mt-4">
+{product.stock !== undefined && product.stock <= 0 ? (
   <button
-    onClick={handleWishlistClick}
-    className="flex-1 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2"
-  >
-    <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
-    {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
-  </button>
+    onClick={async () => {
+      const token = getCookie("token");
+      if (!token) {
+        router.push("/login?redirect=product");
+        return;
+      }
 
-  <button
-    onClick={handleAddToBagWithLoginCheck}
-    disabled={addingToBag}
-    className={`flex-1 py-3 text-sm font-semibold bg-gradient-to-r from-yellow-300 to-yellow-500 ${
-      addingToBag ? "opacity-50" : ""
-    }`}
+      const res = await fetch("/api/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("We will notify you when it's back in stock!");
+      } else {
+        toast.error(data.error || "Something went wrong");
+      }
+    }}
+    className="w-full py-3 mt-4 font-semibold bg-black text-white rounded-md"
   >
-    <ShoppingBag className="inline w-5 h-5 mr-2" />
-    {addingToBag ? "Added!" : "Add to Bag"}
+    🔔 Remind Me
   </button>
-</div>
+) : (
+  <>
+    {/* NORMAL ADD TO BAG + WISHLIST UI */}
+    <div className="hidden md:flex flex-col gap-3 mt-4">
+    <button
+      onClick={handleWishlistClick}
+      className="flex-1 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2 rounded-md"
+    >
+      <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
+      {isWishlisted ? "Wishlisted" : "Wishlist"}
+    </button>
+
+    <button
+      onClick={handleAddToBagWithLoginCheck}
+      disabled={addingToBag}
+      className={`flex-1 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500 ${
+        addingToBag ? "opacity-50" : ""
+      }`}
+    >
+      <ShoppingBag className="inline w-5 h-5 mr-2" />
+      {addingToBag ? "Added!" : "Add to Bag"}
+    </button>
+    </div>
+    
+  </>
+  
+  
+)}</div>
+
+
 
 {/* MOBILE FIXED BUTTON BAR */}
-<div className="md:hidden fixed bottom-0 left-0 right-0 bg-white  flex gap-2 p-3 z-50">
-  <button
-    onClick={handleWishlistClick}
-    className="w-1/2 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2 rounded-md"
-  >
-    <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
-    {isWishlisted ? "Wishlisted" : "Wishlist"}
-  </button>
+<div className="md:hidden fixed bottom-0 left-0 right-0 bg-white flex gap-2 p-3 z-50">
+  {product.stock !== undefined && product.stock <= 0 ? (
+    /* ------------ OUT OF STOCK (SHOW REMIND ME ONLY) ------------ */
+    <button
+      onClick={async () => {
+        const token = getCookie("token");
+        if (!token) {
+          router.push("/login?redirect=product");
+          return;
+        }
 
-  <button
-    onClick={handleAddToBagWithLoginCheck}
-    disabled={addingToBag}
-    className={`w-1/2 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500 ${
-      addingToBag ? "opacity-50" : ""
-    }`}
-  >
-    <ShoppingBag className="inline w-5 h-5 mr-2" />
-    {addingToBag ? "Added!" : "Add to Bag"}
-  </button>
+        const res = await fetch("/api/reminders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productId: product.id }),
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          toast.success("We will notify you when it's back in stock!");
+        } else {
+          toast.error(data.error || "Something went wrong");
+        }
+      }}
+      className="w-full py-3 text-sm font-semibold bg-black text-white rounded-md"
+    >
+      🔔 Remind Me
+    </button>
+  ) : (
+    <>
+      {/* ------------ NORMAL WISHLIST BUTTON ------------ */}
+      <button
+        onClick={handleWishlistClick}
+        className="w-1/2 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2 rounded-md"
+      >
+        <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
+        {isWishlisted ? "Wishlisted" : "Wishlist"}
+      </button>
+
+      {/* ------------ ADD TO BAG BUTTON ------------ */}
+      <button
+        onClick={handleAddToBagWithLoginCheck}
+        disabled={addingToBag}
+        className={`w-1/2 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500 ${
+          addingToBag ? "opacity-50" : ""
+        }`}
+      >
+        <ShoppingBag className="inline w-5 h-5 mr-2" />
+        {addingToBag ? "Added!" : "Add to Bag"}
+      </button>
+    </>
+  )}
 </div>
 </div>
 </div>

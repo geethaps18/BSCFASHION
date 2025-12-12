@@ -10,6 +10,8 @@ import { useWishlist } from "@/app/context/WishlistContext";
 import { Product } from "@/types/product";
 import SearchBar from "./SearchBar";
 import { getCookie } from "cookies-next/client";
+import { LayoutDashboard } from "lucide-react";
+
 
 
 interface HeaderProps {
@@ -242,28 +244,14 @@ export default function Header({ productName }: HeaderProps) {
 
         {isAdmin && (
   <div className="relative">
-    <Menu
-      className="w-5 h-5 sm:w-6 sm:h-6 cursor-pointer p-1.5 sm:p-2 rounded-full hover:bg-gray-100 transition"
-      onClick={() => setIsMenuOpen(!isMenuOpen)}
+    <LayoutDashboard
+      className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 stroke-[1.2]" 
+      onClick={() => router.push("/admin")}
     />
-
-    {isMenuOpen && (
-      <div className="absolute right-0 mt-2 w-44 bg-white border rounded-lg shadow-lg z-50">
-        <ul className="flex flex-col text-sm">
-          <li className="px-4 py-2 hover:bg-gray-100" onClick={() => router.push("/additems")}>
-            Add Products
-          </li>
-          <li className="px-4 py-2 hover:bg-gray-100" onClick={() => router.push("/admin/orders")}>
-            Orders
-          </li>
-          <li className="px-4 py-2 hover:bg-gray-100" onClick={() => router.push("/profits")}>
-            Profits
-          </li>
-        </ul>
-      </div>
-    )}
   </div>
 )}
+
+
 
         </div>
       </div>

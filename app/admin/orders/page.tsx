@@ -1,315 +1,532 @@
+// app/(admin)/admin-orders/page.client.tsx
 "use client";
 
-import { useState } from "react";
-import useSWR from "swr";
-import Footer from "@/components/Footer";
-import { fetcher } from "@/lib/fetcher";
+import React, { useEffect, useMemo, useState } from "react";
 
-type OrderStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "SHIPPED"
-  | "OUT_FOR_DELIVERY"
-  | "DELIVERED";
+import {
+  ArrowRight,
+  FileDown,
+  Search as SearchIcon,
+  Filter as FilterIcon,
+  CheckCircle,
+  Truck,
+  Home,
+  Package,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
-interface Address {
-  type: "Home" | "Work" | "Other";
-  name: string;
-  phone: string;
-  doorNumber?: string;
-  street?: string;
-  landmark?: string;
-  city?: string;
-  state?: string;
-  pincode?: string;
-}
-
-interface Product {
+type OrderItem = {
   id: string;
   name: string;
-  images?: string[];
-  price: number;
-}
-
-interface OrderItem {
-  id: string;
-  product?: Product | null;
-  quantity: number;
-  price: number;
-  size?: string | null;
-}
-
-interface Order {
-  id: string;
-  user?: { name?: string; email?: string };
-  address?: Address;
-  items: OrderItem[];
-  status: OrderStatus;
-  totalAmount: number;
-  paymentMode: string;
-}
-
-// Status Colors
-const STATUS_TEXT: Record<OrderStatus, { text: string; color: string }> = {
-  PENDING: { text: "Order Placed", color: "bg-yellow-100 text-yellow-800" },
-  CONFIRMED: { text: "Confirmed", color: "bg-blue-100 text-blue-800" },
-  SHIPPED: { text: "Shipped", color: "bg-blue-300 text-white" },
-  OUT_FOR_DELIVERY: {
-    text: "Out for Delivery",
-    color: "bg-purple-100 text-purple-800",
-  },
-  DELIVERED: { text: "Delivered", color: "bg-green-100 text-green-800" },
+  quantity?: number;
+  price?: number;
+  size?: string;
+  image?: string;
+  product?: { images?: string[] };   // ⭐ ADD THIS
 };
 
-const statusStages: OrderStatus[] = [
-  "PENDING",
-  "CONFIRMED",
-  "SHIPPED",
-  "OUT_FOR_DELIVERY",
-  "DELIVERED",
-];
 
-// PDF download
-const downloadPDF = async (order: Order) => {
-  try {
-    const res = await fetch("/api/orders/pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orderId: order.id,
-        userName: order.user?.name || "Unknown",
-        email: order.user?.email || "-",
-        phone: order.address?.phone || "-",
-        address: `${order.address?.doorNumber ?? ""}, ${
-          order.address?.street ?? ""
-        }, ${order.address?.landmark ?? ""}, ${order.address?.city ?? ""} ${
-          order.address?.state ?? ""
-        } - ${order.address?.pincode ?? ""}`,
-        products: order.items.map((item) => ({
-          name: item.product?.name ?? "Deleted Product",
-          variant: item.size ?? "-",
-          qty: item.quantity,
-          price: item.price * item.quantity,
-        })),
-        total: order.totalAmount,
-        status: order.status,
-        paymentMode: order.paymentMode,
-      }),
-    });
-
-    if (!res.ok) return alert("Failed to generate PDF");
-
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `order-${order.id}.pdf`;
-    a.click();
-
-    window.URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("PDF Error:", err);
-  }
+type Order = {
+  id: string;
+  status: string;
+  totalAmount?: number;
+  paymentMode?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  confirmedAt?: string | null;
+  shippedAt?: string | null;
+  outForDeliveryAt?: string | null;
+  deliveredAt?: string | null;
+  user?: { name?: string; phone?: string; email?: string } | null;
+  address?: any;
+  items: OrderItem[];
 };
 
 export default function AdminOrdersPage() {
-  const { data: orders, mutate } = useSWR<Order[]>("/api/admin/order", fetcher);
-  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | string>("All");
+  const [limit, setLimit] = useState<number>(15);
+  const [refreshToggle, setRefreshToggle] = useState(false);
 
-  const updateStatus = async (orderId: string, status: OrderStatus) => {
+  const DB_TO_LABEL: Record<string, string> = {
+    PENDING: "Order Placed",
+    CONFIRMED: "Confirmed",
+    SHIPPED: "Shipped",
+    OUT_FOR_DELIVERY: "Out for Delivery",
+    DELIVERED: "Delivered",
+  };
+  const LABEL_TO_DB = Object.fromEntries(
+    Object.entries(DB_TO_LABEL).map(([k, v]) => [v, k])
+  );
+  const NEXT_STATUS_DB: Record<string, string | null> = {
+    PENDING: "CONFIRMED",
+    CONFIRMED: "SHIPPED",
+    SHIPPED: "OUT_FOR_DELIVERY",
+    OUT_FOR_DELIVERY: "DELIVERED",
+    DELIVERED: null,
+  };
+
+  const iconsByDB: Record<string, React.ReactElement> = {
+    PENDING: <Package size={16} className="text-blue-500" />,
+    CONFIRMED: <CheckCircle size={16} className="text-green-600" />,
+    SHIPPED: <Truck size={16} className="text-orange-500" />,
+    OUT_FOR_DELIVERY: <Home size={16} className="text-purple-600" />,
+    DELIVERED: <CheckCircle size={16} className="text-green-700" />,
+  };
+
+  const colorsByDB: Record<string, string> = {
+    PENDING: "bg-yellow-100 text-yellow-700",
+    CONFIRMED: "bg-blue-100 text-blue-700",
+    SHIPPED: "bg-orange-100 text-orange-700",
+    OUT_FOR_DELIVERY: "bg-purple-100 text-purple-700",
+    DELIVERED: "bg-green-100 text-green-700",
+  };
+
+  const fetchOrders = async () => {
+    setLoading(true);
     try {
-      setLoadingId(orderId);
+      const res = await fetch("/api/admin/orders");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      // Expecting data.orders as array; adapt if different
+      const arr = Array.isArray(data.orders) ? data.orders : data;
+      setOrders(
+  arr.map((o: any) => ({
+    ...o,
+    status: String(o.status || "PENDING"),
 
-      const res = await fetch("/api/admin/order", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, status }),
-      });
+    // ⭐ Ensure timestamps exist in UI
+    createdAt: o.createdAt ?? null,
+    confirmedAt: o.confirmedAt ?? null,
+    shippedAt: o.shippedAt ?? null,
+    outForDeliveryAt: o.outForDeliveryAt ?? null,
+    deliveredAt: o.deliveredAt ?? null,
+  }))
+);
 
-      const updated = await res.json();
-
-      if (res.ok) {
-        mutate(
-          (prev) => {
-            if (!prev) return [updated.order];
-            return prev.map((o) => (o.id === orderId ? updated.order : o));
-          },
-          false
-        );
-      }
     } catch (err) {
-      console.error("Status update error:", err);
+      console.error(err);
+      toast.error("Failed to load orders");
     } finally {
-      setLoadingId(null);
+      setLoading(false);
     }
   };
 
-  if (!orders) return <div className="p-5">Loading Orders...</div>;
+  useEffect(() => {
+    fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshToggle]);
+
+  const moveToNext = async (orderId: string, currentDbStatus: string) => {
+    const next = NEXT_STATUS_DB[currentDbStatus];
+    if (!next) return;
+    // optimistic update
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: next } : o))
+    );
+    const t = toast.loading("Updating...");
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || "Failed");
+      }
+      toast.success("Status updated", { id: t });
+      setRefreshToggle((v) => !v);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not update", { id: t });
+      setRefreshToggle((v) => !v);
+    }
+  };
+
+  // Generic blob downloader
+  const downloadBlob = async (res: Response, filename: string) => {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || "Download failed");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadLabel = async (orderId: string) => {
+    try {
+      const res = await fetch("/api/admin/orders/label", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, bw: true }),
+      });
+      await downloadBlob(res, `label-${orderId}.pdf`);
+      toast.success("Label downloaded");
+    } catch (err: any) {
+      toast.error(err.message || "Label download failed");
+    }
+  };
+
+  const downloadInvoice = async (order: Order) => {
+    try {
+      const address =
+        typeof order.address === "object"
+          ? `${order.address.doorNumber || ""}, ${order.address.street || ""}${
+              order.address.landmark ? ", " + order.address.landmark : ""
+            }, ${order.address.city || ""}, ${order.address.state || ""} - ${
+              order.address.pincode || ""
+            }`
+          : order.address || "";
+
+      const products = order.items.map((p) => ({
+        name: p.name,
+        qty: p.quantity,
+        price: p.price,
+      }));
+
+      const body = {
+        orderId: order.id,
+        userName: order.address?.name || order.user?.name || "Customer",
+        phone: order.address?.phone || order.user?.phone || "",
+        email: order.address?.email || order.user?.email || "",
+        address,
+        products,
+        total: order.totalAmount,
+        paymentMode: order.paymentMode,
+        bw: false,
+      };
+
+      const res = await fetch("/api/orders/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      await downloadBlob(res, `invoice-${order.id}.pdf`);
+      toast.success("Invoice downloaded");
+    } catch (err: any) {
+      toast.error(err.message || "Invoice download failed");
+    }
+  };
+
+  const filteredOrders = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return orders
+      .filter((o) => {
+        if (statusFilter === "All") return true;
+        const db = LABEL_TO_DB[statusFilter] ?? statusFilter;
+        return o.status === db;
+      })
+      .filter((o) => {
+        if (!s) return true;
+        if (o.id?.toLowerCase?.().includes(s)) return true;
+        if (o.user?.name?.toLowerCase?.().includes(s)) return true;
+        if (o.user?.phone?.toLowerCase?.().includes(s)) return true;
+        if (Array.isArray(o.items) && o.items.some((it) => (it.name ?? "").toLowerCase().includes(s)))
+          return true;
+        return false;
+      })
+      .slice(0, limit);
+  }, [orders, search, statusFilter, limit]);
+
+  const formatTS = (ts?: string | null) => {
+    if (!ts) return "";
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  };
+
+  const steps = [
+    { key: "PENDING", label: "Order Placed", tsKey: "createdAt" },
+    { key: "CONFIRMED", label: "Confirmed", tsKey: "confirmedAt" },
+    { key: "SHIPPED", label: "Shipped", tsKey: "shippedAt" },
+    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery", tsKey: "outForDeliveryAt" },
+    { key: "DELIVERED", label: "Delivered", tsKey: "deliveredAt" },
+  ];
+
+ if (loading) {
+  return (
+    <div className="flex justify-center items-center py-20">
+      <div className="h-12 w-12 border-4 border-gray-300 border-t-gray-900 rounded-full animate-spin"></div>
+    </div>
+  );
+}
+
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Admin Order Management</h1>
+    <div className="p-6 space-y-6">
+      <h1 className="text-3xl font-semibold">Orders</h1>
 
-      {orders.map((order) => {
-        const currentIndex = statusStages.indexOf(order.status);
+      <div className="flex gap-3 items-center">
+        <div className="flex items-center bg-white shadow border px-3 py-2 rounded-lg flex-1">
+          <SearchIcon size={18} className="text-gray-500" />
+          <input
+            placeholder="Search by Order ID, Name, Phone, Product..."
+            className="ml-3 w-full outline-none"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
-        return (
+        <div className="flex items-center bg-white shadow border px-3 py-2 rounded-lg">
+          <FilterIcon size={18} className="text-gray-500 mr-2" />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option>All</option>
+            {Object.values(DB_TO_LABEL).map((label) => (
+              <option key={label}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {filteredOrders.map((order) => {
+          const dbStatus = order.status;
+          const label = DB_TO_LABEL[dbStatus] ?? dbStatus;
+          const statusColor = colorsByDB[dbStatus] ?? "bg-gray-100";
+          const nextDb = NEXT_STATUS_DB[dbStatus];
+
+          // Determine completed index for timeline highlight
+          const completedIndex = steps.findIndex((s) => {
+            if (s.key === "PENDING") return true; // always
+            // map tsKey -> actual value
+            const val = (s.tsKey === "createdAt" ? order.createdAt : (order as any)[s.tsKey]);
+            return Boolean(val);
+          });
+
+          return (
+            <div key={order.id} className="bg-white p-4 rounded-xl shadow border space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Order ID: <span className="text-gray-600">{order.id}</span>
+                  </h2>
+                  <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
+                    {label}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      downloadLabel(order.id);
+                    }}
+                    className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm"
+                  >
+                    <FileDown size={16} /> Label
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      downloadInvoice(order);
+                    }}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                  >
+                    <FileDown size={16} /> Invoice
+                  </button>
+                </div>
+              </div>
+
+              {/* compact timeline */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  {steps.map((s, idx) => {
+  const timestampValue =
+    s.tsKey === "createdAt"
+      ? order.createdAt
+      : (order as any)[s.tsKey];
+
+  const isDone = timestampValue ? true : idx === 0;
+  const isActive = dbStatus === s.key;
+
+  return (
+    <div key={s.key} className="flex-1 min-w-0">
+      <div className="flex items-center gap-2">
+        <div
+          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${
+            isDone ? "bg-green-600 text-white" : "bg-gray-200 text-gray-600"
+          }`}
+        >
+          {iconsByDB[s.key] || <span className="text-xs">•</span>}
+        </div>
+
+        <div className="min-w-0">
           <div
-            key={order.id}
-            className="border rounded-lg shadow mb-6 p-4 bg-white"
+            className={`text-xs ${
+              isActive ? "font-semibold text-gray-800" : "text-gray-500"
+            }`}
           >
-            {/* HEADER */}
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <p className="font-semibold">Order ID: {order.id}</p>
-                <p>
-                  User: {order.user?.name ?? "Unknown"} (
-                  {order.user?.email ?? "-"})
-                </p>
-                <p>
-                  Payment Mode:{" "}
-                  {["PhonePe", "GPay", "Google Pay", "Paytm", "Card"].includes(
-                    order.paymentMode
-                  )
-                    ? "Prepaid"
-                    : order.paymentMode === "COD"
-                    ? "Cash on Delivery"
-                    : order.paymentMode}
-                </p>
-              </div>
-
-              <p
-                className={`px-2 py-1 rounded text-sm ${STATUS_TEXT[order.status].color}`}
-              >
-                {STATUS_TEXT[order.status].text}
-              </p>
-            </div>
-
-            {/* ADDRESS */}
-            {order.address && (
-              <div className="border p-3 rounded mb-4 bg-gray-50">
-                <p className="font-semibold mb-1">Delivery Address</p>
-                <p>
-                  {order.address.name} ({order.address.phone})
-                </p>
-                <p>
-                  {order.address.doorNumber}, {order.address.street},{" "}
-                  {order.address.landmark}, {order.address.city},{" "}
-                  {order.address.state} - {order.address.pincode}
-                </p>
-                <p>Type: {order.address.type}</p>
-              </div>
-            )}
-
-            {/* TIMELINE */}
-            <div className="flex items-center mb-4">
-              {statusStages.map((stage, idx) => {
-                const isCompleted = idx <= currentIndex;
-                return (
-                  <div key={stage} className="flex items-center">
-                    <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
-                        isCompleted
-                          ? "bg-green-500 border-green-500 text-white"
-                          : "bg-white border-gray-300 text-gray-500"
-                      }`}
-                    >
-                      {isCompleted ? "✔" : idx + 1}
-                    </div>
-                    {idx < statusStages.length - 1 && (
-                      <div
-                        className={`flex-1 h-1 ${
-                          isCompleted ? "bg-green-500" : "bg-gray-300"
-                        }`}
-                      ></div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* ACTION BUTTONS */}
-            <div className="flex gap-2 mb-4">
-              {currentIndex < statusStages.length - 1 && (
-                <button
-                  onClick={() =>
-                    updateStatus(order.id, statusStages[currentIndex + 1])
-                  }
-                  className={`bg-blue-500 text-white px-3 py-1 rounded ${
-                    loadingId === order.id &&
-                    "opacity-50 cursor-not-allowed"
-                  }`}
-                  disabled={loadingId === order.id}
-                >
-                  {loadingId === order.id
-                    ? "Updating..."
-                    : `Move to ${
-                        STATUS_TEXT[statusStages[currentIndex + 1]].text
-                      }`}
-                </button>
-              )}
-
-              <button
-                onClick={() => downloadPDF(order)}
-                className="bg-green-600 text-white px-3 py-1 rounded"
-              >
-                Download PDF
-              </button>
-            </div>
-
-            {/* PRODUCT LIST */}
-            <div className="mb-4">
-              <h3 className="font-semibold mb-2">Products</h3>
-
-              {order.items.length ? (
-                order.items.map((item) => {
-                  const img =
-                    item.product?.images?.[0] ??
-                    item.product?.images?.[1] ??
-                    "/placeholder.png";
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex justify-between items-center border-b py-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={img}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-
-                        <div>
-                          <p>
-                            {item.product?.name ?? "Deleted Product"}{" "}
-                            {item.size ? ` - ${item.size}` : ""}
-                          </p>
-                          <p className="text-gray-500 text-sm">
-                            Qty: {item.quantity}
-                          </p>
-                        </div>
-                      </div>
-
-                      <p className="font-semibold">
-                        ₹{item.price * item.quantity}
-                      </p>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-gray-500">No items found</p>
-              )}
-            </div>
-
-            <p className="font-semibold text-right text-lg">
-              Total: ₹{order.totalAmount}
-            </p>
+            {s.label}
           </div>
-        );
-      })}
 
-      <Footer />
+          {/* ⭐ NOW WE USE timestampValue HERE */}
+          <div className="text-[11px] text-gray-400">
+            {formatTS(timestampValue)}
+          </div>
+        </div>
+      </div>
+
+      {/* connector */}
+      {idx < steps.length - 1 && (
+        <div
+          className={`h-[2px] mt-2 ${
+            isDone ? "bg-green-500" : "bg-gray-200"
+          }`}
+          style={{ width: "100%" }}
+        />
+      )}
+    </div>
+  );
+})}
+
+                </div>
+              </div>
+<div className="bg-gray-50 p-3 rounded-lg border text-sm text-gray-700">
+  <div className="flex justify-between">
+    <div>
+      <div className="font-medium">
+        {order.address?.name ?? order.user?.name ?? "Customer"}
+      </div>
+
+      <div className="text-xs text-gray-500">
+        {order.address?.phone ?? order.user?.phone ?? "-"}
+      </div>
+
+      <div className="text-xs text-gray-500 mt-1">
+        Payment: <b>{order.paymentMode ?? "-"}</b>
+      </div>
+
+      {/* ⭐ ADD THIS */}
+ <div className="text-xs text-gray-600 mt-1 leading-5">
+  <b>Address:</b><br />
+
+  {/* Name */}
+  {order.address?.name}
+
+  {/* Type Badge */}
+  {order.address?.type && (
+    <span className="inline-block ml-2 text-[11px] bg-yellow-200 text-gray-800 px-2 py-0.5 rounded">
+      {order.address.type}
+    </span>
+  )}
+  <br />
+
+  {/* Phone */}
+  Phone: {order.address?.phone}<br />
+
+  {/* Email */}
+  {order.address?.email && (
+    <>
+      Email: {order.address.email}<br />
+    </>
+  )}
+
+  {/* Address Line 1 */}
+  {order.address?.doorNumber && `${order.address.doorNumber}, `}
+  {order.address?.street && `${order.address.street}`}<br />
+
+  {/* Address Line 2 */}
+  {order.address?.landmark && `${order.address.landmark}, `}
+
+  {/* City, State, Pin */}
+  {order.address?.city}, {order.address?.state} - {order.address?.pincode}
+</div>
+
+</div>
+
+    <div className="text-right text-sm">
+      <div className="text-gray-500">Placed</div>
+      <div className="font-medium">{formatTS(order.createdAt)}</div>
+    </div>
+  </div>
+</div>
+
+
+              {/* Items */}
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Products</h3>
+                <div className="space-y-2">
+                 {order.items?.map((it) => (
+  <div
+    key={it.id}
+    className="flex justify-between border p-2 rounded-lg bg-gray-50 text-sm"
+  >
+    <div className="flex items-center gap-3">
+      {/* Product Image with fallback */}
+      <img
+        src={
+          it.image ||
+          it.product?.images?.[0] ||
+          "/no-image.png"
+        }
+        alt={it.name}
+        className="w-14 h-14 object-cover rounded border bg-gray-100"
+      />
+
+      <div>
+        <div className="font-medium truncate" style={{ maxWidth: 200 }}>
+          {it.name}
+        </div>
+        <div className="text-xs text-gray-500">
+          Qty: {it.quantity ?? 1}
+        </div>
+
+        {it.size && (
+          <div className="text-xs text-gray-500">
+            Size: {it.size}
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div className="font-semibold text-gray-700">₹{it.price ?? "-"}</div>
+  </div>
+))}
+
+
+                </div>
+                <p className="text-right text-sm font-semibold mt-2">Total: ₹{order.totalAmount ?? 0}</p>
+              </div>
+
+              {/* Move to next */}
+              {nextDb && (
+                <div className="mt-2 flex justify-end">
+                  <button onClick={() => moveToNext(order.id, order.status)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm">
+                    Move to {DB_TO_LABEL[nextDb]}
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {limit < orders.length && (
+          <div className="text-center">
+            <button onClick={() => setLimit((l) => l + 15)} className="mx-auto block mt-4 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-black">
+              Load More Orders
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

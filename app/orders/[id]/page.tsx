@@ -212,8 +212,17 @@ if (loading)
   );
 
 
-  const steps = ["Order Placed", "Shipped", "Out for Delivery", "Delivered"];
-  const currentStepIndex = steps.findIndex((s) => s === STATUS_TEXT[order.status]?.text);
+  const steps = [
+  { key: "PENDING", label: "Order Placed", ts: order.createdAt },
+  { key: "CONFIRMED", label: "Confirmed", ts: (order as any).confirmedAt },
+  { key: "SHIPPED", label: "Shipped", ts: (order as any).shippedAt },
+  { key: "OUT_FOR_DELIVERY", label: "Out for Delivery", ts: (order as any).outForDeliveryAt },
+  { key: "DELIVERED", label: "Delivered", ts: order.deliveredAt },
+];
+
+const currentIndex = steps.findIndex(s => s.key === order.status);
+
+
 
   const calculateEstimatedDelivery = () => {
   if (!order) return "";
@@ -284,31 +293,43 @@ if (loading)
           </div>
         </div>
 
-        {/* Timeline */}
         <div className="flex justify-between items-center text-center mb-4 relative">
-          {steps.map((step, idx) => {
-            const isCompleted = idx <= currentStepIndex;
-            return (
-              <div key={idx} className="flex flex-col items-center w-1/4 relative">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    isCompleted ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"
-                  }`}
-                >
-                  {idx === 1 ? <Truck size={16} /> : idx === 3 ? <Home size={16} /> : "✓"}
-                </div>
-                {idx !== steps.length - 1 && (
-                  <div
-                    className={`absolute top-3 left-1/2 w-full h-[2px] -z-10 ${
-                      idx < currentStepIndex ? "bg-green-500" : "bg-gray-200"
-                    }`}
-                  />
-                )}
-                <span className="text-xs mt-1">{step}</span>
-              </div>
-            );
-          })}
+  {steps.map((step, idx) => {
+    const isCompleted = idx <= currentIndex;
+
+    return (
+      <div key={idx} className="flex flex-col items-center w-1/5 relative">
+        <div
+          className={`w-8 h-8 rounded-full flex items-center justify-center
+            ${isCompleted ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"}`}
+        >
+          {idx === 2 ? <Truck size={16} /> : idx === 4 ? <Home size={16} /> : "✓"}
         </div>
+
+        {idx !== steps.length - 1 && (
+          <div
+            className={`absolute top-3 left-1/2 w-full h-[2px] -z-10
+              ${idx < currentIndex ? "bg-green-500" : "bg-gray-200"}`}
+          />
+        )}
+
+        <span className="text-xs mt-1">{step.label}</span>
+
+        {step.ts && (
+          <span className="text-[10px] text-gray-500">
+            {new Date(step.ts).toLocaleString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        )}
+      </div>
+    );
+  })}
+</div>
+
 
         {/* Estimated Delivery */}
         <div className="bg-white p-4 border border-gray-200 rounded">

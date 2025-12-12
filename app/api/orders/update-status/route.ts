@@ -3,11 +3,10 @@ import { prisma } from "@/lib/db";
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { orderId, action } = await req.json(); // action = "CANCEL" | "RETURN"
+    const { orderId, action, reason } = await req.json();
 
-    if (!orderId || !action) {
+    if (!orderId || !action)
       return NextResponse.json({ success: false, error: "Invalid request" }, { status: 400 });
-    }
 
     let newStatus = "";
     if (action === "CANCEL") newStatus = "CANCELLED";
@@ -16,12 +15,19 @@ export async function PATCH(req: NextRequest) {
 
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
-      data: { status: newStatus },
+      data: {
+        status: newStatus,
+          // store reason
+       
+      },
     });
 
     return NextResponse.json({ success: true, order: updatedOrder });
   } catch (err) {
     console.error("Failed to update order:", err);
-    return NextResponse.json({ success: false, error: "Failed to update order" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Failed to update order" },
+      { status: 500 }
+    );
   }
 }

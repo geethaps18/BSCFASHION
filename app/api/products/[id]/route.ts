@@ -85,8 +85,9 @@ const normalized = {
   price: product.price ?? 0,
   mrp: product.mrp ?? null,
   sizes: product.sizes ?? [],
-  rating: averageRating,                  // ⭐ average rating
-  reviewCount: product.reviews.length,    // ⭐ total rating count
+  rating: averageRating,                 
+  reviewCount: product.reviews.length, 
+  stock: product.stock ?? 0,  
 
   reviews: product.reviews.map((r) => ({
     id: r.id,
@@ -173,7 +174,7 @@ export async function PUT(
         ...(stock !== undefined && { stock }),
         ...(category && { category }),
       },
-      include: { variants: true },
+     
     });
 
     return NextResponse.json(

@@ -373,18 +373,7 @@ export default function AccountPage() {
     description: "",
     category: "Wishlist",
     images: item.images.length ? item.images : ["/placeholder.png"],
-    variants: [
-      {
-        sizes: ["Free"],
-        colors: [{ name: "Default", hex: "#111827" }], // <-- must match ProductVariant type
-        price: item.price,
-        mrp: item.price,
-        discount: 0,
-        images: item.images.length ? item.images : ["/placeholder.png"],
-        stock: 10,
-        design: "",
-      },
-    ],
+  
     colors: [{ name: "Default", hex: "#111827" }], // <-- required
     reviewCount: 0, // <-- required
     createdAt: new Date().toISOString(),

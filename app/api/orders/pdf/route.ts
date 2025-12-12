@@ -6,123 +6,125 @@ import QRCode from "qrcode";
 
 export const runtime = "nodejs";
 
+(PDFDocument as any).defaultFont = undefined;
+(PDFDocument.prototype as any).defaultFont = undefined;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Map payment modes
-    const paymentModeMap: Record<string, string> = {
-      PhonePe: "Prepaid",
-      GPay: "Prepaid",
-      "Google Pay": "Prepaid",
-      Paytm: "Prepaid",
-      Card: "Prepaid",
-      COD: "Cash on Delivery",
-    };
-    const displayPaymentMode = paymentModeMap[body.paymentMode] || body.paymentMode;
+    const gold = "#CBA135";
+    const maroon = "#800000";
+    const useBW = Boolean(body.bw);
 
-    // OTP should be generated server-side and stored in DB for this order
-    const otp = body.otp || Math.floor(1000 + Math.random() * 9000); // 4-digit fallback
+    const accent = useBW ? "#000000" : gold;
+    const title = useBW ? "#000000" : maroon;
+
+    const otp = body.otp ?? Math.floor(1000 + Math.random() * 9000);
+
+    const regularPath = path.join(process.cwd(), "public/fonts/Roboto-Regular.ttf");
+    const boldPath = path.join(process.cwd(), "public/fonts/Roboto-Bold.ttf");
 
     const pdfBuffer: Buffer = await new Promise(async (resolve, reject) => {
-     const doc = new PDFDocument({
-  margin: 50,
-  font: path.join(process.cwd(), "public/fonts/Roboto-Regular.ttf")
-});
+      // FIX: Force default font on creation
+      const doc = new PDFDocument({
+        size: "A4",
+        margins: { top: 48, left: 48, right: 48, bottom: 48 },
+        font: regularPath,
+      });
 
-
-      // ---------- REGISTER FONTS ----------
-      const regularFont = path.join(process.cwd(), "public/fonts/Roboto-Regular.ttf");
-      const boldFont = path.join(process.cwd(), "public/fonts/Roboto-Bold.ttf");
-      if (fs.existsSync(regularFont)) doc.registerFont("regular", regularFont);
-      if (fs.existsSync(boldFont)) doc.registerFont("bold", boldFont);
-      doc.font("regular");
+      if (fs.existsSync(regularPath)) doc.registerFont("regular", regularPath);
+      if (fs.existsSync(boldPath)) doc.registerFont("bold", boldPath);
 
       const chunks: Buffer[] = [];
       doc.on("data", (c) => chunks.push(c));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      // ---------- LOGO ----------
-      const logoPath = path.join(process.cwd(), "public/images/logo1.png");
-     if (fs.existsSync(logoPath)) {
+      // Header
+      if (fs.existsSync(boldPath)) doc.font("bold");
+      doc.fillColor(title).fontSize(20).text("BSCFASHION", { align: "center" });
 
-        doc.image(logoPath, doc.page.width / 2 - 50, 20, { width: 100 });
-      }
-      doc.moveDown(3);
-
-      // ---------- BRAND ----------
-      doc.font("bold").fontSize(20).text("BSCFASHION — Since 1938", { align: "center" });
-      doc.font("regular").fontSize(12).text(
-        "B.S. Channabasappa & Sons — Karnataka’s Trusted Clothing Brand",
-        { align: "center" }
-      );
-      doc.moveDown(2);
-
-      // ---------- QR CODE FOR OTP ----------
-      const qrData = JSON.stringify({
-        orderId: body.orderId,
-        otp,
-        customer: body.userName,
-        phone: body.phone,
-        total: body.total
-      });
-      const qrImage = await QRCode.toDataURL(qrData);
-      const qrBase64 = qrImage.replace(/^data:image\/png;base64,/, "");
-      const qrBuffer = Buffer.from(qrBase64, "base64");
-      const qrSize = 100;
-
-      const startY = doc.y;
-      const leftX = doc.x;
-      const rightX = doc.page.width - doc.page.margins.right - qrSize;
-
-      // ---------- ORDER INFO & ADDRESS (Left) ----------
-      doc.font("regular").fontSize(12);
-      doc.text(`Order ID: ${body.orderId}`, leftX, startY);
-      doc.text(`Payment Mode: ${displayPaymentMode}`);
-      doc.text(`Customer: ${body.userName}`);
-      doc.text(`Phone: ${body.phone}`);
-      doc.text(`Email: ${body.email}`);
-      doc.moveDown();
-
-      doc.font("bold").text("Delivery Address:");
-      doc.font("regular").text(body.address);
-
-      // ---------- QR CODE (Right, side by side) ----------
-      doc.image(qrBuffer, rightX, startY, { width: qrSize, height: qrSize });
-
-      doc.moveDown(6);
-
-      // ---------- PRODUCTS ----------
-      doc.font("bold").text("Products:");
-      doc.moveDown(0.5);
-      body.products.forEach((p: any, i: number) => {
-        doc.font("regular").text(`${i + 1}. ${p.name} (Qty: ${p.qty}) - ₹${p.price}`);
+      if (fs.existsSync(regularPath)) doc.font("regular");
+      doc.fillColor(accent).fontSize(10).text("Since 1938 — B.S. Channabasappa & Sons", {
+        align: "center",
       });
 
       doc.moveDown(1);
-      doc.font("bold").fontSize(14).text(`Total Amount: ₹${body.total}`);
 
-      // ---------- THANK YOU NOTE ----------
-      doc.moveDown(2);
-      doc.font("regular").fontSize(12).fillColor("black").text(
-        "Thank you for shopping with BSCFASHION 💚\nWe truly appreciate your trust in our heritage brand.",
-        { align: "center" }
+      // QR
+      const qrData = await QRCode.toDataURL(
+        JSON.stringify({
+          orderId: body.orderId,
+          otp,
+          customer: body.userName,
+        })
       );
+      const qr = Buffer.from(qrData.split(",")[1], "base64");
 
-      // ---------- FOOTER ----------
-      doc.moveDown(2);
-      doc.font("regular").fontSize(10).text(
-        "Address: B.S Channabasappa & Sons, Textile Super Market, Kalikadevi Road, Davangere, Karnataka – 577001",
-        { align: "center" }
-      );
-      doc.text("Phone Number : 9770808020", { align: "center" });
-      doc.text("Email : hello@bscfashion.com", { align: "center" });
-      doc.text(
-        "Follow us on Instagram: @bschannabasappaandsons",
-        { align: "center", link: "https://instagram.com/bschannabasappaandsons", underline: true }
-      );
-      doc.text("Powered by TBITS INDIA Davanagere", { align: "center" });
+      const y = doc.y;
+
+      doc.fontSize(11).fillColor("black");
+      doc.text(`Order ID: ${body.orderId}`);
+      doc.text(`Payment: ${body.paymentMode}`);
+      doc.moveDown(0.5);
+
+      if (fs.existsSync(boldPath)) doc.font("bold");
+      doc.fillColor(title).fontSize(12).text(body.userName || "Customer");
+
+      if (fs.existsSync(regularPath)) doc.font("regular");
+      doc.fillColor("black").fontSize(10);
+      doc.text(`Phone: ${body.phone || "-"}`);
+      doc.text(`Email: ${body.email || "-"}`);
+      doc.moveDown(0.4);
+
+      doc.fillColor(accent).text("Delivery Address:");
+      doc.fillColor("black").text(body.address);
+
+      doc.image(qr, doc.page.width - 150, y, {
+        width: 110,
+        height: 110,
+      });
+
+      doc.moveDown(1);
+
+      // Products
+      if (fs.existsSync(boldPath)) doc.font("bold");
+      doc.fillColor(accent).fontSize(13).text("Products");
+      doc.moveDown(0.5);
+
+      if (fs.existsSync(regularPath)) doc.font("regular");
+
+      (body.products || []).forEach((p: any, i: number) => {
+        doc.fontSize(11).fillColor("black").text(`${i + 1}. ${p.name}`);
+        doc.text(`Qty: ${p.qty} | Price: ₹${p.price}`, { indent: 10 });
+        doc.moveDown(0.3);
+      });
+
+      doc.moveDown(1);
+
+      // Total
+      if (fs.existsSync(boldPath)) doc.font("bold");
+      doc.fillColor(title).fontSize(16).text(`Total: ₹${body.total}`);
+
+      doc.moveDown(1.5);
+
+      // Footer
+      if (fs.existsSync(regularPath)) doc.font("regular");
+      doc.fillColor("black")
+        .fontSize(10)
+        .text("Thank you for shopping with BSCFASHION 💛", { align: "center" });
+
+      doc.text("B.S Channabasappa & Sons, Textile Super Market, Davangere — 577001", {
+        align: "center",
+      });
+
+      doc.text("Phone: 9770808020 | Email: hello@bscfashion.com", {
+        align: "center",
+      });
+      doc.fillColor(accent).text("Powered by TBITS INDIA Davanagere", {
+        align: "center",
+      });
 
       doc.end();
     });
@@ -131,11 +133,11 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=order-${body.orderId}.pdf`,
+        "Content-Disposition": `attachment; filename=invoice-${body.orderId}.pdf`,
       },
     });
   } catch (err) {
-    console.error("PDF generation error:", err);
-    return new Response("Error generating PDF", { status: 500 });
+    console.error("Invoice PDF Error:", err);
+    return new Response("Error generating invoice", { status: 500 });
   }
 }

@@ -63,7 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                
                 <Toaster position="top-center" reverseOrder={false} />
                 <main className="min-h-screen">{children}
-                 
+                 <PolicyFooter/>
                 </main>
               </SearchProvider>
             </WishlistProvider>

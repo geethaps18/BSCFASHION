@@ -1,15 +1,11 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-import { WishlistProvider } from "./context/WishlistContext";
-import { BagProvider } from "./context/BagContext";
-import { AuthProvider } from "./context/AuthContext";
-import { SearchProvider } from "./context/SearchContext";
 import Script from "next/script";
-
-import { Toaster } from "react-hot-toast";
 import PolicyFooter from "@/components/PolicyFooter";
+import Providers from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,9 +19,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "B.S. Channabasappa & Sons — Trusted since 1938.",
-  description: "B.S. Channabasappa & Sons — Est. 1938 | Sarees, Men’s Wear, Kids, and Home.",
+  description:
+    "B.S. Channabasappa & Sons — Est. 1938 | Sarees, Men’s Wear, Kids, and Home.",
   icons: {
-    icon: "/images/logo.png", // ✅ this is your favicon/logo path
+    icon: "/images/logo.png",
   },
   openGraph: {
     title: "BSCFASHION",
@@ -34,7 +31,7 @@ export const metadata: Metadata = {
     siteName: "BSCFASHION",
     images: [
       {
-        url: "/images/logo.png", // ✅ same logo for social sharing (OG image)
+        url: "/images/logo.png",
         width: 800,
         height: 800,
         alt: "BSCFASHION Logo",
@@ -45,31 +42,33 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
+     
     <html lang="en">
-  
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white`}>
-        <AuthProvider>
-          <BagProvider>
-            <WishlistProvider>
-              <SearchProvider>
-  
-<Script
-  src="https://checkout.razorpay.com/v1/checkout.js"
-  strategy="afterInteractive"
-/>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white`}
+      >
+        {/* ✅ ALL CLIENT CONTEXTS GO INSIDE Providers */}
+      
+        <Providers>
+          <Script
+            src="https://checkout.razorpay.com/v1/checkout.js"
+            strategy="afterInteractive"
+          />
 
-               
-                <Toaster position="top-center" reverseOrder={false} />
-                <main className="min-h-screen">{children}
-                 <PolicyFooter/>
-                </main>
-              </SearchProvider>
-            </WishlistProvider>
-          </BagProvider>
-        </AuthProvider>
+          <main className="min-h-screen">
+            {children}
+            <PolicyFooter />
+          </main>
+        </Providers>
+       
       </body>
     </html>
+
   );
 }

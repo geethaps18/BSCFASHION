@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 
 export type OrderItem = {
   name: string;
+  brandName?:String;
   qty: number;
   price: number;
   size?: string;

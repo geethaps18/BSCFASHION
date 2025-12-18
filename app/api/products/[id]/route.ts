@@ -80,6 +80,7 @@ export async function GET(
 const normalized = {
   id: product.id,
   name: product.name ?? "",
+   brandName: product.brandName ?? "BSCFASHION", 
   description: product.description ?? "",
   images: product.images ?? [],
   price: product.price ?? 0,

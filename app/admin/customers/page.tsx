@@ -22,7 +22,7 @@ export default function CustomersPage() {
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
   const [loadingId, setLoadingId] = useState<string | null>(null); // per-row loading
-
+  const [loading, setLoading] = useState(true);
   const limit = 20; // 20 customers/page
 
   // Load customers from API
@@ -80,6 +80,13 @@ export default function CustomersPage() {
       setLoadingId(null);
     }
   };
+   if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <div className="h-12 w-12 border-4 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+      </div>
+    );
+  }
   
 
   return (

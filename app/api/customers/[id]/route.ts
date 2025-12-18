@@ -12,20 +12,20 @@ export async function GET(
       where: { id },
       include: {
         orders: true,
-        accounts: true,
+        account: true, // ✅ FIXED
         addresses: {
           where: { isDefault: true },
           take: 1,
-        }
-      }
+        },
+      },
     });
 
     if (!user) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    const account = user.accounts?.[0] || null;
-    const address = user.addresses?.[0] || null;
+    const account = user.account ?? null;
+    const address = user.addresses?.[0] ?? null;
 
     return NextResponse.json({
       id: user.id,
@@ -38,7 +38,10 @@ export async function GET(
 
       orders: user.orders,
       totalOrders: user.orders.length,
-      totalSpent: user.orders.reduce((sum, o) => sum + o.totalAmount, 0),
+      totalSpent: user.orders.reduce(
+        (sum, o) => sum + o.totalAmount,
+        0
+      ),
 
       bankName: account?.bankName || null,
       accountNumber: account?.accountNumber

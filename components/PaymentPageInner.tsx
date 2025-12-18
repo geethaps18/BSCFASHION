@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
+import LoadingRing from "./LoadingRing";
 import CheckoutStepper from "@/components/CheckoutStepper";
 import { getCookie } from "cookies-next";
-import Razorpay from "razorpay";
 
 interface BagItem {
   id: string;
@@ -206,15 +206,19 @@ export default function PaymentPageInner() {
       setLoading(false);
     }
   };
-
-  if (loading) return <div className="p-6 text-center">Loading...</div>;
+if (loading)
+  return (
+    <div className="flex justify-center items-center py-20">
+      <LoadingRing />
+    </div>
+  );
   if (!userId) return <p className="mt-20 text-center">Please login to proceed with payment.</p>;
 
   return (
     <div className="flex flex-col min-h-screen pt-0">
       <CheckoutStepper />
       <div className="max-w-2xl mx-auto p-4 flex-grow w-full">
-        <Toaster position="top-right" />
+  
 
         {/* --- Address Card --- */}
         {selectedAddress && (
@@ -270,7 +274,7 @@ export default function PaymentPageInner() {
                 onChange={() => setPaymentMode("COD")}
                 className="accent-green-600"
               />
-              <img src="/images/icons/COD.png" alt="COD" className="w-8 h-8 rounded-3xl" />
+              <img src="/images/COD.png" alt="COD" className="w-8 h-8 rounded-3xl" />
               <span className="font-medium">Cash on Delivery</span>
             </div>
           </label>
@@ -299,7 +303,7 @@ export default function PaymentPageInner() {
                     className="accent-blue-600"
                   />
                   <img
-                    src={`/images/icons/${method.toLowerCase()}.png`}
+                    src={`/images/${method.toLowerCase()}.png`}
                     alt={method}
                     className="w-8 h-8 rounded-3xl"
                   />
@@ -325,7 +329,7 @@ export default function PaymentPageInner() {
                 onChange={() => setPaymentMode("Card")}
                 className="accent-red-600"
               />
-              <img src="/images/icons/CARD.png" alt="Card" className="w-8 h-8 rounded-3xl" />
+              <img src="/images/CARD.png" alt="Card" className="w-8 h-8 rounded-3xl" />
               <span className="font-medium">Credit/Debit Card</span>
             </div>
 

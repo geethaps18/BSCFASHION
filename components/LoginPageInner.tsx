@@ -5,13 +5,25 @@ import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setCookie, getCookie } from "cookies-next";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+
 
 export default function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/";
+ const rawRedirect = searchParams.get("redirect") || "/";
+const redirectTo = rawRedirect.startsWith("/")
+  ? rawRedirect
+  : `/${rawRedirect}`;
+
 
   // 🔥 If already logged in → redirect
+  useEffect(() => {
+  if (redirectTo) {
+    sessionStorage.setItem("auth_redirect", redirectTo);
+  }
+}, [redirectTo]);
+
   useEffect(() => {
     const token = String(getCookie("token") || "");
 
@@ -33,6 +45,7 @@ export default function LoginPageInner() {
         "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     }
   }, []);
+  
 
   // ------------------------
   // EMAIL ONLY LOGIN
@@ -90,16 +103,19 @@ export default function LoginPageInner() {
       });
 
       const data = await res.json();
+if (res.ok && data.token) {
+  setCookie("token", data.token, {
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+  });
 
-      if (res.ok && data.token) {
-        setCookie("token", data.token, {
-          maxAge: 60 * 60 * 24 * 365,
-          path: "/",
-        });
+  // ✅ CLEAR LOGIN TOAST FLAG (IMPORTANT)
+  sessionStorage.removeItem("loginToastShown");
 
-        toast.success("Login successful");
-        setVerified(true);
-      } else {
+  toast.success("Login successful");
+  setVerified(true);
+}
+       else {
         toast.error(data.message || "Invalid OTP");
       }
     } catch {
@@ -152,7 +168,21 @@ export default function LoginPageInner() {
                 {loading ? "Sending OTP..." : "Send OTP"}
               </button>
             </>
+            
           )}
+          <button
+  type="button"
+  onClick={() => signIn("google")}
+  className="w-full flex items-center justify-center gap-2 border py-2 rounded-md hover:bg-gray-100 mb-4"
+>
+  <img src="/google.svg" alt="Google" className="w-5 h-5" />
+  Continue with Google
+</button>
+
+<div className="text-center text-sm text-gray-400 mb-4">
+  OR
+</div>
+
 
           {otpSent && !verified && (
             <>

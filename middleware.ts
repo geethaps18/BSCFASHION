@@ -1,3 +1,4 @@
+// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import jwt from "jsonwebtoken";
@@ -8,45 +9,68 @@ export const config = {
     "/bag/:path*",
     "/account/:path*",
     "/admin/:path*",
-    "/additems/:path*"
-
+    "/additems/:path*",
+    "/builder/:path*",
   ],
-  runtime: "nodejs", // 👈 FIX: allow jwt.verify()
+  runtime: "nodejs",
 };
 
-const ADMIN_CONTACT = process.env.NEXT_PUBLIC_ADMIN_CONTACT!;
 const JWT_SECRET = process.env.JWT_SECRET!;
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_CONTACT!;
 
 export function middleware(req: NextRequest) {
-  const url = req.nextUrl.clone();
+  const url = req.nextUrl;
   const token = req.cookies.get("token")?.value;
 
-  console.log("🔵 [MIDDLEWARE] ADMIN_CONTACT =", ADMIN_CONTACT);
-  console.log("🔵 [MIDDLEWARE] Token Exists =", !!token);
+  /* ---------- User protected ---------- */
+  const userRoutes = ["/wishlist", "/bag", "/account"];
 
-  // USER ROUTES
-  const protectedUserRoutes = ["/wishlist", "/bag", "/account"];
-  if (protectedUserRoutes.some(p => url.pathname.startsWith(p)) && !token) {
+  if (userRoutes.some((r) => url.pathname.startsWith(r)) && !token) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // ADMIN ROUTES
-  if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/additems")) {
- {
+  /* ---------- Admin ---------- */
+  if (
+    url.pathname.startsWith("/admin") ||
+    url.pathname.startsWith("/additems")
+  ) {
     if (!token) return NextResponse.redirect(new URL("/login", req.url));
 
     try {
       const decoded: any = jwt.verify(token, JWT_SECRET);
-      console.log("🟡 Comparing:", decoded.contact, "vs", ADMIN_CONTACT);
 
-      if (decoded.contact !== ADMIN_CONTACT) {
+      if (decoded.contact !== ADMIN_EMAIL) {
         return NextResponse.redirect(new URL("/", req.url));
       }
-    } catch (err) {
-      console.log("❌ JWT ERROR:", err);
+    } catch {
       return NextResponse.redirect(new URL("/login", req.url));
     }
   }
 
-  return NextResponse.next();
-}}
+/* ---------- Seller / Builder ---------- */
+/* ---------- Seller / Builder ---------- */
+if (url.pathname.startsWith("/builder")) {
+  if (!token) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  try {
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+
+    // ✅ MUST BE SELLER
+    if (decoded.role !== "SELLER") {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
+    // ✅ MUST HAVE USER ID
+    if (!decoded.userId) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+  } catch {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+}
+
+
+
+}

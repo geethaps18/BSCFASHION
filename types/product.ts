@@ -17,6 +17,8 @@ export interface ColorOption {
 export interface Product {
   id: string;
   name: string;
+  brandName?:string;
+  siteId: string;  
   description?: string;
   category?: string;
   subCategory?: string;
@@ -24,15 +26,16 @@ export interface Product {
   price: number;
   mrp?: number;
   discount?: number;
+  
   images: string[];
-  colors: ColorOption[];
+
   sizes?: string[];
   //variants?: ProductVariant[];
   createdAt: string;   // API
   rating?: number;
   reviewCount: number; 
   reviews?: Review[];
-  updatedAt: string;
+ 
 }
 export interface Review {
   id?: string;           // Review ID

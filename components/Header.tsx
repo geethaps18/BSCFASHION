@@ -4,13 +4,15 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, Heart, ShoppingBag, Menu, X, ArrowLeft, Layout } from "lucide-react";
+import { Search, Heart, ShoppingBag, Menu, X, ArrowLeft,Store, Layout } from "lucide-react";
 import { useCart } from "@/app/context/BagContext";
 import { useWishlist } from "@/app/context/WishlistContext";
 import { Product } from "@/types/product";
-import SearchBar from "./SearchBar";
+import SearchBarClient from "./SearchBarClient";
 import { getCookie } from "cookies-next/client";
 import { LayoutDashboard } from "lucide-react";
+import { Suspense } from "react";
+
 
 
 
@@ -31,31 +33,47 @@ export default function Header({ productName }: HeaderProps) {
   const [popularProducts, setPopularProducts] = useState<Product[]>([]);
   const [productCount, setProductCount] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSeller, setIsSeller] = useState(false);
 
 
- useEffect(() => {
-  const checkAdmin = async () => {
+useEffect(() => {
+  const checkRoles = async () => {
     const token = getCookie("token");
     if (!token) return;
 
     const res = await fetch("/api/me", {
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     const data = await res.json();
-    const contact = data.user?.contact;
+    const user = data.user;
 
-    if (contact === process.env.NEXT_PUBLIC_ADMIN_CONTACT) {
+    if (!user) return;
+
+    // ADMIN check (unchanged logic)
+    if (user.contact === process.env.NEXT_PUBLIC_ADMIN_CONTACT) {
       setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
+      setIsSeller(false);
+      return;
     }
+
+    // SELLER check
+    if (user.role === "SELLER") {
+      setIsSeller(true);
+      setIsAdmin(false);
+      return;
+    }
+
+    // CUSTOMER fallback
+    setIsAdmin(false);
+    setIsSeller(false);
   };
 
-  checkAdmin();
+  checkRoles();
 }, []);
+
 
 
 
@@ -173,18 +191,15 @@ export default function Header({ productName }: HeaderProps) {
           )}
 
           {pathname === "/" && (
-            <div
-              className="bg-yellow-300 shadow-lg rounded-2xl p-1.5 sm:p-2 cursor-pointer hover:scale-105 transition-transform flex items-center gap-2"
-              onClick={() => router.push("/")}
-            >
-              <Image
-                src="/images/logo.png"
-                alt="BSC Logo"
-                width={40}
-                height={40}
-                className="object-contain w-8 h-8 sm:w-10 sm:h-10"
-              />
-            </div>
+          
+               <div className="w-12 h-12 bg-yellow-300 border rounded-lg flex items-center justify-center overflow-hidden p-1 shadow-sm "onClick={() => router.push("/")}>
+          <img
+            src="/images/logo.png"
+            alt="BSCFASHION Logo"
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
+            
           )}
 
           {isBackArrowPage && (
@@ -201,14 +216,16 @@ export default function Header({ productName }: HeaderProps) {
           )}
         </div>
 
-        <div className="hidden lg:flex flex-1 max-w-md">
- <SearchBar
-  placeholder="Search for sarees, men, kids, bedsheets…"
-  disableOutsideClose={true}   // ⭐ prevents hiding when clicking empty area
-  autoOpen={true}              // ⭐ open dropdown immediately
-/>
-
+ <div className="hidden lg:flex flex-1 max-w-md">
+  <Suspense fallback={null}>
+    <SearchBarClient
+      placeholder="Search for sarees, men, kids, bedsheets…"
+      disableOutsideClose={true}
+      autoOpen={true}
+    />
+  </Suspense>
 </div>
+
 {/* Right Icons */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -251,6 +268,15 @@ export default function Header({ productName }: HeaderProps) {
   </div>
 )}
 
+{isSeller && (
+  <button
+    onClick={() => router.push("/builder")}
+    title="Seller Panel"
+    className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 transition"
+  >
+    <Store className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 stroke-[1.2]" />
+  </button>
+)}
 
 
         </div>
@@ -268,11 +294,14 @@ export default function Header({ productName }: HeaderProps) {
       </button>
 
       <div className="flex-1">
-        <SearchBar
-          placeholder="Search for sarees, men, kids, bedsheets…"
-          autoOpen={true}
-        />
-      </div>
+  <Suspense fallback={null}>
+    <SearchBarClient
+      placeholder="Search for sarees, men, kids, bedsheets…"
+      autoOpen={true}
+    />
+  </Suspense>
+</div>
+
     
                   </div>
                 </div>

@@ -1,10 +1,11 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 /**
@@ -26,33 +27,46 @@ model OTP {
  * =========================
  */
 model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  phone     String? 
-  email     String?
-  name      String?
+  id    String  @id @default(auto()) @map("_id") @db.ObjectId
+  phone String?
+  email String?
+  name  String?
+
+  role String @default("CUSTOMER")
+  // ADMIN | SELLER | CUSTOMER
+
   createdAt DateTime @default(now())
+  blocked   Boolean  @default(false)
 
-   blocked   Boolean  @default(false)
-
+  // 🔥 RELATIONS (THIS IS WHAT WAS MISSING)
   addresses Address[]
-  wishlists Wishlist[]
-  bags      Bag[]
-  accounts  Account[]
-  orders    Order[]
   ratings   Rating[]
   reviews   Review[]
+  wishlists Wishlist[]
+  bags      Bag[]
+  account   Account?
+
+  // business relations
+  sites    Site[]
+  products Product[]
+  orders   Order[]
 }
 
 model Settings {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  storeName   String
-  email       String
-  phone       String
-  address     String
-  logoUrl     String?
-  razorpay    Boolean  @default(false)
-  cod         Boolean  @default(true)
-  darkMode    Boolean  @default(false)
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId String @unique
+
+  storeName String
+  email     String?
+  phone     String?
+  address   String?
+  logoUrl   String?
+  gstNumber String?
+  razorpay  Boolean @default(false)
+  cod       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /**
@@ -107,35 +121,42 @@ model Category {
  * =========================
  */
 model Product {
-  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
   name           String?
   description    String?
   category       String?
   subCategory    String?
   subSubCategory String?
-
-  images      String[]
-  sizes       String[]
-  rating      Float?   @default(0)
-  reviewCount Int?     @default(0)
-  price       Float
-  mrp         Float?
-  discount    Int?
-  stock       Int      @default(0)
-  purchases   Int      @default(0)
-  createdAt   DateTime @default(now())
+  brandName      String?
+  images         String[]
+  sizes          String[]
+  rating         Float?   @default(0)
+  reviewCount    Int?     @default(0)
+  price          Float
+  mrp            Float?
+  discount       Int?
+  stock          Int      @default(0)
+  siteId         String?  @db.ObjectId
+  sellerId       String?  @db.ObjectId
+  isPlatform     Boolean  @default(false) // admin vs seller
+  status         String   @default("PENDING")
+  purchases      Int      @default(0)
+  createdAt      DateTime @default(now())
 
   categoryId   String?   @db.ObjectId
+  seller       User?     @relation(fields: [sellerId], references: [id])
+  site         Site?     @relation(fields: [siteId], references: [id])
   categoryNode Category? @relation("ProductToCategory", fields: [categoryId], references: [id])
 
- 
-  wishlists  Wishlist[]
-  bagItems   Bag[]
-  orderItems OrderItem[]
-  ratings    Rating[]
-  reviews    Review[]
- stockReminders  StockReminder[] @relation("StockReminderRelation")
+  wishlists      Wishlist[]
+  bagItems       Bag[]
+  orderItems     OrderItem[]
+  ratings        Rating[]
+  reviews        Review[]
+  stockReminders StockReminder[] @relation("StockReminderRelation")
 
+  @@index([sellerId])
+  @@index([siteId])
   @@index([categoryId])
   @@index([category, subCategory, subSubCategory])
 }
@@ -146,18 +167,14 @@ model StockReminder {
   productId String   @db.ObjectId
   createdAt DateTime @default(now())
 
-
-  product   Product  @relation("StockReminderRelation", fields: [productId], references: [id])
-
+  product Product @relation("StockReminderRelation", fields: [productId], references: [id])
 }
-
 
 /**
  * =========================
  * PRODUCT VARIANTS
  * =========================
  */
-
 
 model Rating {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -188,7 +205,7 @@ model Review {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user    User?    @relation(fields: [userId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
   order   Order?  @relation(fields: [orderId], references: [id])
 
@@ -269,11 +286,11 @@ model Account {
  */
 model Order {
   id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId           String?     @db.ObjectId // ❌ remove ?
+  userId           String?   @db.ObjectId // ❌ remove ?
   totalAmount      Float
   status           String    @default("PENDING")
   paymentMode      String    @default("COD")
-  address          Json?       // 🔥 FIXED: JSON instead of string
+  address          Json? // 🔥 FIXED: JSON instead of string
   expectedDelivery DateTime?
   upiId            String?
   cardDetails      String?
@@ -282,18 +299,15 @@ model Order {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime? @updatedAt
 
-  deliveryOtp       String?
-  otpGeneratedAt    DateTime?
-  otpVerified       Boolean      @default(false)
-  confirmedAt       DateTime?
-  shippedAt         DateTime?
-  outForDeliveryAt  DateTime?
-  deliveredAt       DateTime?
+  deliveryOtp      String?
+  otpGeneratedAt   DateTime?
+  otpVerified      Boolean   @default(false)
+  confirmedAt      DateTime?
+  shippedAt        DateTime?
+  outForDeliveryAt DateTime?
+  deliveredAt      DateTime?
 
-  deliveryBoyId  String?      @db.ObjectId
-  deliveryBoy    DeliveryBoy? @relation("DeliveryBoyOrders", fields: [deliveryBoyId], references: [id])
-
-  user    User?        @relation(fields: [userId], references: [id])  // ❌ Remove optional
+  user    User?       @relation(fields: [userId], references: [id]) // ❌ Remove optional
   items   OrderItem[]
   ratings Rating[]
   reviews Review[]
@@ -301,56 +315,56 @@ model Order {
   @@index([userId])
 }
 
-
-model DeliveryBoy {
-  id            String        @id @default(auto()) @map("_id") @db.ObjectId
-  name          String
-  deliveryBoyId String        @unique @default(uuid())  // <-- Auto-generate
-  phone         String        @unique
-  email         String?        @unique
-  city          String?
-  pincode       String?
-  otp           String?       // For OTP verification
-  otpExpiresAt  DateTime?
-  orders        Order[]       @relation("DeliveryBoyOrders")
-  orderItems    OrderItem[]   @relation("DeliveryAssignment")
-  deliverOTPs   DeliveryOTP[] // relation to DeliveryOTP
-}
-
-
 /**
  * =========================
  * ORDER ITEMS
  * =========================
  */
 model OrderItem {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  orderId       String       @db.ObjectId
-  order         Order        @relation(fields: [orderId], references: [id])
-  productId     String?       @db.ObjectId
-  product       Product?      @relation(fields: [productId], references: [id])
-  name          String?       // <-- new field for product name
-  quantity      Int
-  price         Float
-  size          String?
-  image         String?
-  deliveryOtp   String?
-  delivered     Boolean      @default(false)
-  deliveryBoyId String?      @db.ObjectId
-  deliveryBoy   DeliveryBoy? @relation("DeliveryAssignment", fields: [deliveryBoyId], references: [id])
-  createdAt     DateTime     @default(now())
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String  @db.ObjectId
+  productId String? @db.ObjectId
+
+  name      String?
+  brandName String?
+  quantity  Int
+  price     Float
+  size      String?
+  image     String?
+  packed    Boolean   @default(false)
+  packedAt  DateTime?
+
+  confirmedAt DateTime?
+
+  sellerId String? // ✅ MUST BE OPTIONAL
+  siteId   String? // ✅ MUST BE OPTIONAL
+
+  deliveryOtp String?
+  delivered   Boolean @default(false)
+
+  deliveryBoyId String? @db.ObjectId
+
+  order   Order    @relation(fields: [orderId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
+model Site {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  ownerId   String  @db.ObjectId
+  brandName String?
+  slug      String  @unique
+  template  String
+  name      String
+  tagline   String?
+  color     String?
+  section   Json?
 
-model DeliveryOTP {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  deliveryBoyId String   @db.ObjectId
-  otp           String
-  expiresAt     DateTime
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  deliveryBoy DeliveryBoy @relation(fields: [deliveryBoyId], references: [id])
+  // 🔥 ADD THIS
+  owner User @relation(fields: [ownerId], references: [id])
 
-  @@index([deliveryBoyId]) // non-unique index
+  products Product[]
 }
-

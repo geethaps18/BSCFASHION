@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
         const product = item.product;
         return {
           itemId: item.id,
+          siteId: product!.siteId, 
           name: product?.name ?? "Unknown Item",
           quantity: item.quantity,
           price: item.price,

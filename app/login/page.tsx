@@ -1,16 +1,12 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-export const runtime = "nodejs";     // <-- important
-export const fetchCache = "force-no-store"; // <-- important
-
-import { Suspense } from "react";
+// app/login/page.tsx
+import GoogleTokenBridge from "@/components/GoogleTokenBridge";
 import LoginPageInner from "@/components/LoginPageInner";
-
 
 export default function Page() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <>
+      <GoogleTokenBridge />
       <LoginPageInner />
-    </Suspense>
+    </>
   );
 }

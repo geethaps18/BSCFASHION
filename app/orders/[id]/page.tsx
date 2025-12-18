@@ -24,13 +24,22 @@ interface Product {
 }
 
 interface Address {
+  type: "Home" | "Work" | "Other";
   name: string;
-  street: string;
-  city: string;
-  state: string;
-  zip: string;
   phone: string;
+  email: string;
+  doorNumber?: string;
+  street?: string;
+  landmark?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  isDefault?: boolean;
+  zip?:string ;
 }
+
+
+
 
 interface Review {
   id: string;
@@ -99,14 +108,19 @@ const STATUS_TEXT: Record<string, { text: string; color: string }> = {
 export default function OrderDetailsPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
+
   const params = useParams();
   const orderId = params?.id;
+  const [editingAddress, setEditingAddress] = useState(false);
+const [addressForm, setAddressForm] = useState<Address | null>(null);
+const [savingAddress, setSavingAddress] = useState(false);
+
 
   // Replace with actual user ID from auth
   const currentUserId = "me";
 
   const { data: adminOrders } = useSWR<Order[]>( "/api/admin/order", fetcher, { refreshInterval: 5000 });
+  const canEditAddress = order?.status === "PENDING";
 
   // Fetch order
   useEffect(() => {
@@ -130,6 +144,75 @@ export default function OrderDetailsPage() {
     };
     fetchOrder();
   }, [orderId]);
+
+const startEditAddress = () => {
+  if (!order?.address) return;
+
+  if (order.status !== "PENDING") {
+    toast.error("Address cannot be edited after order is shipped");
+    return;
+  }
+
+  setAddressForm(order.address);
+  setEditingAddress(true);
+};
+
+
+const cancelEditAddress = () => {
+  setEditingAddress(false);
+  setAddressForm(null);
+};
+
+const saveOrderAddress = async () => {
+  if (!order || !addressForm) return;
+
+  setSavingAddress(true);
+ const normalizedAddress: Address = {
+  type: addressForm.type,
+  name: addressForm.name,
+  phone: addressForm.phone,
+  email: addressForm.email,
+  doorNumber: addressForm.doorNumber,
+  street: addressForm.street,
+  landmark: addressForm.landmark,
+  city: addressForm.city,
+  state: addressForm.state,
+  pincode: addressForm.pincode,
+  isDefault: addressForm.isDefault,
+};
+
+
+  try {
+    const res = await fetch(`/api/orders/${order.id}/address`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+     body: JSON.stringify(normalizedAddress),
+
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Failed to update address");
+
+    toast.success("Address updated successfully");
+
+    // 🔥 Update UI instantly
+   setOrder((prev) =>
+  prev ? { ...prev, address: normalizedAddress } : prev
+);
+
+
+    setEditingAddress(false);
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to update address");
+  } finally {
+    setSavingAddress(false);
+  }
+};
+
+
 
   // Live order status update
   useEffect(() => {
@@ -351,19 +434,176 @@ const currentIndex = steps.findIndex(s => s.key === order.status);
             />
           ))}
         </div>
+{/* Delivery Address */}
 
-        {/* Delivery Address */}
-        {order.address && (
-          <div className="bg-white p-4 border border-gray-200 rounded">
-            <h3 className="font-semibold mb-2">Delivery Address</h3>
-            <p>{order.address.name}</p>
-            <p>
-              {order.address.street}, {order.address.city}, {order.address.state},{" "}
-              {order.address.zip}
-            </p>
-            <p>Phone: {order.address.phone}</p>
-          </div>
+{order.address && (
+  <div className="bg-white p-4 border border-gray-200 rounded space-y-2">
+    <div className="flex justify-between items-center">
+      <h3 className="font-semibold">Delivery Address</h3>
+      {canEditAddress && !editingAddress && (
+  <button
+    onClick={startEditAddress}
+    className="text-sm text-yellow-600 hover:underline"
+  >
+    Edit
+  </button>
+)}
+
+
+      
+    </div>
+
+    {!editingAddress ? (
+      <>
+        <p className="font-medium">{order.address.name}</p>
+
+        <p className="text-sm text-gray-700">
+          {order.address.doorNumber && `${order.address.doorNumber}, `}
+          {order.address.street}, {order.address.city}, {order.address.state} -{" "}
+          {order.address.zip}
+        </p>
+
+        <p className="text-sm">Phone: {order.address.phone}</p>
+
+        {order.address.email && (
+          <p className="text-sm">Email: {order.address.email}</p>
         )}
+
+        {order.address.type && (
+          <p className="text-xs text-gray-500">
+            Address Type: {order.address.type}
+          </p>
+        )}
+      </>
+
+      
+    ) : (
+
+      
+      <div className="space-y-2">
+        {/* TYPE */}
+        <div className="flex gap-2">
+          {(["Home", "Work", "Other"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() =>
+                setAddressForm({ ...addressForm!, type: t })
+              }
+              className={`flex-1 py-2 rounded border ${
+                addressForm?.type === t
+                  ? "bg-yellow-400 border-yellow-500"
+                  : "border-gray-300"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="Full Name"
+          value={addressForm?.name || ""}
+          onChange={(e) =>
+            setAddressForm({ ...addressForm!, name: e.target.value })
+          }
+        />
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="Email"
+          value={addressForm?.email || ""}
+          onChange={(e) =>
+            setAddressForm({ ...addressForm!, email: e.target.value })
+          }
+        />
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="Phone"
+          value={addressForm?.phone || ""}
+          onChange={(e) =>
+            setAddressForm({ ...addressForm!, phone: e.target.value })
+          }
+        />
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="Door Number"
+          value={addressForm?.doorNumber || ""}
+          onChange={(e) =>
+            setAddressForm({
+              ...addressForm!,
+              doorNumber: e.target.value,
+            })
+          }
+        />
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="Street"
+          value={addressForm?.street || ""}
+          onChange={(e) =>
+            setAddressForm({ ...addressForm!, street: e.target.value })
+          }
+        />
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="City"
+          value={addressForm?.city || ""}
+          onChange={(e) =>
+            setAddressForm({ ...addressForm!, city: e.target.value })
+          }
+        />
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="State"
+          value={addressForm?.state || ""}
+          onChange={(e) =>
+            setAddressForm({ ...addressForm!, state: e.target.value })
+          }
+        />
+
+        <input
+          className="border p-2 rounded w-full"
+          placeholder="Pincode"
+          value={addressForm?.zip || ""}
+          onChange={(e) =>
+            setAddressForm({ ...addressForm!, zip: e.target.value })
+          }
+        />
+
+        <div className="flex gap-2 pt-2">
+          <button
+            onClick={saveOrderAddress}
+            disabled={savingAddress}
+            className="bg-yellow-500 text-black px-4 py-2 rounded"
+          >
+            {savingAddress ? "Saving..." : "Save"}
+          </button>
+
+          <button
+            onClick={cancelEditAddress}
+            className="bg-gray-400 text-white px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
+
+{!canEditAddress && (
+  <p className="text-xs text-gray-500">
+    Address cannot be edited after the order is shipped.
+  </p>
+)}
 
         {/* Price Summary */}
         <div className="bg-white p-4 border border-gray-200 rounded">

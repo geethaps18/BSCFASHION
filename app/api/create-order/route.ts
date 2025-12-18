@@ -114,16 +114,25 @@ export async function POST(req: Request) {
     }
 
     // ✅ Build order items
-    const orderItems = items.map((item: any) => {
-      const product = dbProducts.find((p) => p.id === item.productId)!;
-      return {
-        productId: product.id,
-        name: product.name ?? "Product",
-        quantity: Number(item.quantity),
-        price: Number(item.price), // use price from payment page
-        size: item.size ?? null,
-      };
-    });
+   const orderItems = items.map((item: any) => {
+  const product = dbProducts.find((p) => p.id === item.productId)!;
+
+  return {
+    productId: product.id,
+
+    // 🔥🔥🔥 THIS IS THE KEY LINE
+    siteId: product.siteId,
+
+    name: product.name ?? "Product",
+    brandName: product.brandName ?? "BSCFASHION",
+    quantity: Number(item.quantity),
+    price: Number(item.price),
+    size: item.size ?? null,
+    image: product.images?.[0] ?? null,
+    
+  };
+});
+
 
     // ✅ Calculate total amount
     const totalAmount = orderItems.reduce(
@@ -148,41 +157,76 @@ export async function POST(req: Request) {
     }
 
     // ✅ Create order in DB
-    const order = await prisma.order.create({
-      data: {
-        userId,
-        totalAmount,
-        paymentMode: paymentMode || "COD",
-        address: JSON.stringify(address),
-        upiId: paymentMode === "UPI" ? upiId ?? null : null,
-        cardDetails:
-          paymentMode === "Card" ? JSON.stringify(cardDetails) : null,
-        razorpayOrderId: razorpayOrder?.id ?? null,
-      },
-      include: { user: true }, // we will attach items separately
+   // ✅ CREATE ORDER + ITEMS + REDUCE STOCK (TRANSACTION)
+const result = await prisma.$transaction(async (tx) => {
+  // 1️⃣ Create order
+  const order = await tx.order.create({
+    data: {
+      userId,
+      totalAmount,
+      paymentMode: paymentMode || "COD",
+      address,
+      upiId: paymentMode === "UPI" ? upiId ?? null : null,
+      cardDetails:
+        paymentMode === "Card" ? JSON.stringify(cardDetails) : null,
+      razorpayOrderId: razorpayOrder?.id ?? null,
+    },
+    include: { user: true },
+  });
+
+  // 2️⃣ Create order items + reduce stock
+  for (const item of orderItems) {
+    const product = await tx.product.findUnique({
+      where: { id: item.productId },
     });
 
-    // ✅ Create OrderItems using createMany (allows 'name')
-    await prisma.orderItem.createMany({
-      data: orderItems.map((item) => ({
+    if (!product || product.stock < item.quantity) {
+      throw new Error(`${product?.name || "Product"} is out of stock`);
+    }
+
+    // create order item
+    await tx.orderItem.create({
+      data: {
         orderId: order.id,
         productId: item.productId,
+        siteId: item.siteId,
+        brandName: item.brandName,
         name: item.name,
         quantity: item.quantity,
         price: item.price,
         size: item.size,
-      })),
+        image: item.image,
+      },
     });
 
-    // ✅ Send email & WhatsApp notifications
-    if (user.email) await sendOrderEmail(user.email, order, orderItems);
-    if (address.phone)
-      await sendWhatsAppMessage(address.phone, order, orderItems);
+    // 🔥🔥🔥 REDUCE STOCK + INCREASE PURCHASES
+    await tx.product.update({
+      where: { id: item.productId },
+      data: {
+        stock: {
+          decrement: item.quantity,
+        },
+        purchases: {
+          increment: item.quantity,
+        },
+      },
+    });
+  }
 
-    return NextResponse.json(
-      { success: true, order, rzpOrder: razorpayOrder ?? null },
-      { status: 201 }
-    );
+  return order;
+});
+
+
+
+ if (user.email) await sendOrderEmail(user.email, result, orderItems);
+if (address.phone)
+  await sendWhatsAppMessage(address.phone, result, orderItems);
+
+return NextResponse.json(
+  { success: true, order: result, rzpOrder: razorpayOrder ?? null },
+  { status: 201 }
+);
+
   } catch (err: any) {
     console.error("🔥 Order Error:", err);
     return NextResponse.json(

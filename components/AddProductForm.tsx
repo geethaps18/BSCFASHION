@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { X, Loader2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { categories, SubCategory } from "@/data/categories";
+import { useSite } from "@/components/SiteContext";
+
 
 /*
   Tailwind-UI style, tabbed Add Product form
@@ -55,13 +57,8 @@ export default function AddProductFormTabbed() {
   const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","FREE"];
   const KIDS_SIZES = ["0-3M","3-6M","6-9M","9-12M","1-2Y","2-3Y","3-4Y"];
   const currentSizes = category?.name === "Kids" ? KIDS_SIZES : STANDARD_SIZES;
-
-  const COLOR_PALETTE: ColorOption[] = [
-    { name: "Red", hex: "#EF4444" }, { name: "Pink", hex: "#EC4899" },
-    { name: "Orange", hex: "#F97316" }, { name: "Yellow", hex: "#F59E0B" },
-    { name: "Green", hex: "#10B981" }, { name: "Blue", hex: "#3B82F6" },
-    { name: "Black", hex: "#111827" }, { name: "White", hex: "#F9FAFB" }
-  ];
+     const { siteId } = useSite();
+ 
 
   useEffect(() => {
     const d = calcDiscount(mrp, price);
@@ -156,8 +153,10 @@ export default function AddProductFormTabbed() {
       form.append("sizes", JSON.stringify(sizes));
       form.append("colors", JSON.stringify(colors.map(c => c.name)));
       productFiles.forEach(f => form.append("images", f));
-      form.append("variants", JSON.stringify(variants.map(v => ({ id: v.id, name: v.name, sizes: v.sizes, colors: v.colors.map(c=>c.name), design: v.design, price: v.price, mrp: v.mrp, discount: v.discount, stock: v.stock }))));
-      variants.forEach((v, idx) => v.images.forEach(img => form.append(`variantImages-${idx}`, img)));
+   
+
+form.append("siteId", siteId!);
+
 
       const res = await fetch('/api/products', { method: 'POST', body: form });
       const json = await res.json();
@@ -175,7 +174,7 @@ export default function AddProductFormTabbed() {
   }
 
   // UI pieces
-  const Tabs = ["Basic","Media","Pricing","Inventory","Variants","Review"];
+  const Tabs = ["Basic","Media","Pricing","Inventory","Review"];
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -303,17 +302,7 @@ export default function AddProductFormTabbed() {
                 <input value={discount} readOnly className="mt-1 block w-full rounded border px-3 py-2 bg-gray-50" />
               </div>
 
-              <div className="md:col-span-3">
-                <label className="block text-sm font-medium">Colors</label>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {COLOR_PALETTE.map(c => (
-                    <button type="button" key={c.name} title={c.name} onClick={()=>{
-                      const exists = colors.find(x=>x.name===c.name);
-                      setColors(prev => exists ? prev.filter(x=>x.name!==c.name) : [...prev, c]);
-                    }} style={{ backgroundColor: c.hex }} className={`w-8 h-8 rounded-full border-2 ${colors.find(x=>x.name===c.name) ? 'border-black' : 'border-gray-200'}`} />
-                  ))}
-                </div>
-              </div>
+              
             </div>
           )}
 
@@ -338,7 +327,7 @@ export default function AddProductFormTabbed() {
           )}
 
           {/* Variants */}
-          {activeTab === 4 && (
+          {false && activeTab === 4 && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">Variants</h3>
@@ -367,14 +356,6 @@ export default function AddProductFormTabbed() {
                         </div>
                       </div>
 
-                      <div>
-                        <label className="text-sm">Colors</label>
-                        <div className="mt-2 flex gap-2 flex-wrap">
-                          {COLOR_PALETTE.map(c => (
-                            <button key={c.name} type="button" title={c.name} onClick={()=>{ setVariants(prev=>{ const cpy=[...prev]; const exists = cpy[idx].colors.find(x=>x.name===c.name); cpy[idx].colors = exists ? cpy[idx].colors.filter(x=>x.name!==c.name) : [...cpy[idx].colors, c]; return cpy; }); }} style={{ backgroundColor: c.hex }} className={`w-8 h-8 rounded-full border-2 ${v.colors.find(x=>x.name===c.name) ? 'border-black' : 'border-gray-200'}`} />
-                          ))}
-                        </div>
-                      </div>
 
                       <div className="md:col-span-3 grid grid-cols-4 gap-2">
                         <input value={v.mrp} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].mrp=val; c[idx].discount = calcDiscount(c[idx].mrp, c[idx].price); return c; }); }} placeholder="MRP" className="border rounded px-3 py-2" />
@@ -405,7 +386,7 @@ export default function AddProductFormTabbed() {
           )}
 
           {/* Review */}
-          {activeTab === 5 && (
+          {activeTab === 4 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Review & Submit</h3>
               <div className="border rounded p-4 bg-gray-50">
@@ -414,7 +395,6 @@ export default function AddProductFormTabbed() {
                 <p><strong>Price:</strong> ₹{price || '—'}</p>
                 <p><strong>Stock:</strong> {stock || '—'}</p>
                 <p><strong>Images:</strong> {productPreviews.length} files</p>
-                <p><strong>Variants:</strong> {variants.length}</p>
               </div>
 
               <div className="flex gap-3">

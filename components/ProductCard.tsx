@@ -6,15 +6,18 @@ import { toast } from "react-hot-toast";
 import { useWishlist } from "@/app/context/WishlistContext";
 import { useCart } from "@/app/context/BagContext";
 import Link from "next/link";
-import { Product } from "@/types/product";
+import { ProductCardProduct } from "@/types/product-card";
+
 import { getCookie } from "cookies-next";
 import { useRouter } from "next/navigation";
 
+
 interface ProductCardProps {
-  product: Product;
+  product: ProductCardProduct;
   wishlist?: boolean;
   onWishlistToggle?: () => void;
 }
+
 
 export default function ProductCard({
   product,
@@ -175,6 +178,14 @@ export default function ProductCard({
         <h3 className="line-clamp-1 text-[#111111] text-sm md:text-base font-light tracking-tight">
           {product.name}
         </h3>
+
+
+        <div className="space-y-1 p-1">
+  <p className="text-xs uppercase tracking-wide text-gray-500">
+    {product.brandName ?? "BSCFASHION"}
+  </p>
+</div>
+
 
         {/* PRICE */}
         <div className="flex items-center gap-2 mt-2">

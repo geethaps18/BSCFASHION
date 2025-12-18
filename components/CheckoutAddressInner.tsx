@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
+
 import Link from "next/link";
 import { getCookie } from "cookies-next";
 import {
@@ -58,6 +59,8 @@ interface PincodeSuggestion {
 export default function CheckoutAddressInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [addressLoading, setAddressLoading] = useState(true);
+
 
   // --- totals passed from BagPage ---
   const subtotal = Number(searchParams?.get("subtotal") ?? "0");
@@ -319,7 +322,7 @@ return (
     <div className="flex flex-col  pt-0">
       <CheckoutStepper />
       <div className="max-w-5xl mx-auto p-4 sm:p-6 relative grid md:grid-cols-3 gap-6">
-        <Toaster position="top-right" />
+
       <div className="md:col-span-40 space-y-6">
 {/* LEFT: Selected Address */}
 <div className="md:col-span-2">
@@ -345,7 +348,12 @@ return (
           </p>
           <p className="text-sm font-medium text-gray-80">
           Phone : {selectedAddress.phone}
-        </p>
+       
+              <p className="text-sm font-medium text-gray-80">
+          Email : {selectedAddress.email}
+          </p>
+             </p>
+        
 
         {/* Full Address */}
         <p className="text-sm text-gray-700">

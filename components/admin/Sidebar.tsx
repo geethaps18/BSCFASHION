@@ -9,6 +9,7 @@ import {
   Users2,
   BarChart3,
   Settings,
+  Store,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -18,7 +19,9 @@ const menu = [
   { name: "Products", href: "/admin/products", icon: PackageSearch },
   { name: "Customers", href: "/admin/customers", icon: Users2 },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+   { name: "Sellers", href: "/admin/sellers", icon: Store },
   { name: "Settings", href: "/admin/settings", icon: Settings },
+  
 ];
 
 export default function Sidebar() {

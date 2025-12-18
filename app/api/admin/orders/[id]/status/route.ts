@@ -1,12 +1,12 @@
 import { NextResponse, NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
+import { updateOrderStatus } from "@/utils/updateOrderStatus";
 
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ Next.js requires awaiting params
+    // ✅ Next.js params must be awaited
     const { id } = await context.params;
 
     const { status } = await req.json();
@@ -18,34 +18,27 @@ export async function PUT(
       );
     }
 
-    // Track timestamps for status updates
-    const timestampFields: any = {};
-
-    if (status === "CONFIRMED") timestampFields.confirmedAt = new Date();
-    if (status === "SHIPPED") timestampFields.shippedAt = new Date();
-    if (status === "OUT_FOR_DELIVERY") timestampFields.outForDeliveryAt = new Date();
-    if (status === "DELIVERED") timestampFields.deliveredAt = new Date();
-
-    const updated = await prisma.order.update({
-      where: { id },
-      data: { status, ...timestampFields },
-      include: { items: true, user: true },
-    });
+    // 🔥 SINGLE SOURCE OF TRUTH
+    // This updates DB + timestamps + sends EMAIL + WhatsApp
+    const result = await updateOrderStatus(id, status);
 
     return NextResponse.json({
       success: true,
       order: {
-        ...updated,
-        createdAt: updated.createdAt?.toISOString() ?? null,
-        confirmedAt: updated.confirmedAt?.toISOString() ?? null,
-        shippedAt: updated.shippedAt?.toISOString() ?? null,
-        outForDeliveryAt: updated.outForDeliveryAt?.toISOString() ?? null,
-        deliveredAt: updated.deliveredAt?.toISOString() ?? null,
-        address: updated.address ? JSON.parse(String(updated.address)) : null,
+        ...result.order,
+        createdAt: result.order.createdAt?.toISOString() ?? null,
+        confirmedAt: result.order.confirmedAt?.toISOString() ?? null,
+        shippedAt: result.order.shippedAt?.toISOString() ?? null,
+        outForDeliveryAt: result.order.outForDeliveryAt?.toISOString() ?? null,
+        deliveredAt: result.order.deliveredAt?.toISOString() ?? null,
+        address:
+          result.order.address && typeof result.order.address === "object"
+            ? result.order.address
+            : null,
       },
     });
 
-  } catch (err: any) {
+  } catch (err) {
     console.error("STATUS UPDATE ERROR:", err);
     return NextResponse.json(
       { error: "Update failed" },

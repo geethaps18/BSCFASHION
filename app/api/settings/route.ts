@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { identcode } from "bwip-js";
 
 export async function GET() {
   try {
@@ -9,6 +10,7 @@ export async function GET() {
     if (!settings) {
       settings = await prisma.settings.create({
         data: {
+          ownerId:"identcode",
           storeName: "BSCFASHION",
           email: "hello@bschfashion.com",
           phone: "9770808020",
@@ -37,7 +39,6 @@ export async function POST(req: Request) {
         address: body.address,
         razorpay: body.razorpay,
         cod: body.cod,
-        darkMode: body.darkMode,
         logoUrl: body.logoUrl ?? null,
       }
     });

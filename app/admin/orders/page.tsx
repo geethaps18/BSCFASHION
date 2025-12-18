@@ -1,4 +1,4 @@
-// app/(admin)/admin-orders/page.client.tsx
+// app/admin/orders/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -18,6 +18,7 @@ import toast from "react-hot-toast";
 type OrderItem = {
   id: string;
   name: string;
+  brandName?:string;
   quantity?: number;
   price?: number;
   size?: string;
@@ -49,6 +50,7 @@ export default function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<"All" | string>("All");
   const [limit, setLimit] = useState<number>(15);
   const [refreshToggle, setRefreshToggle] = useState(false);
+  
 
   const DB_TO_LABEL: Record<string, string> = {
     PENDING: "Order Placed",
@@ -188,6 +190,7 @@ export default function AdminOrdersPage() {
 
       const products = order.items.map((p) => ({
         name: p.name,
+        brandName: p.brandName ?? "BSCFASHION",
         qty: p.quantity,
         price: p.price,
       }));
@@ -256,6 +259,7 @@ export default function AdminOrdersPage() {
     { key: "DELIVERED", label: "Delivered", tsKey: "deliveredAt" },
   ];
 
+  
  if (loading) {
   return (
     <div className="flex justify-center items-center py-20">
@@ -267,7 +271,19 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-semibold">Orders</h1>
+   <div className="flex items-center justify-between">
+  <h1 className="text-3xl font-semibold">Orders</h1>
+
+  {/* ✅ EXPORT CSV BUTTON */}
+  <button
+    onClick={() => window.open("/api/admin/orders/export")}
+    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
+  >
+    <FileDown size={16} />
+    Export CSV
+  </button>
+</div>
+
 
       <div className="flex gap-3 items-center">
         <div className="flex items-center bg-white shadow border px-3 py-2 rounded-lg flex-1">
@@ -297,6 +313,19 @@ export default function AdminOrdersPage() {
           const label = DB_TO_LABEL[dbStatus] ?? dbStatus;
           const statusColor = colorsByDB[dbStatus] ?? "bg-gray-100";
           const nextDb = NEXT_STATUS_DB[dbStatus];
+const allPacked =
+  Array.isArray(order.items) &&
+  order.items.length > 0 &&
+  order.items.every((it: any) => {
+    // ✅ Our own products are considered packed by default
+    if ((it.brandName ?? "").toUpperCase() === "BSCFASHION") {
+      return true;
+    }
+
+    // ❗ Marketplace sellers must explicitly pack
+    return it.packed === true;
+  });
+
 
           // Determine completed index for timeline highlight
           const completedIndex = steps.findIndex((s) => {
@@ -344,6 +373,8 @@ export default function AdminOrdersPage() {
                   </button>
                 </div>
               </div>
+
+              
 
               {/* compact timeline */}
               <div className="flex flex-col gap-2">
@@ -459,6 +490,18 @@ export default function AdminOrdersPage() {
   </div>
 </div>
 
+{/* Seller Packing Status */}
+<div className="mt-2">
+  {allPacked ? (
+    <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+      Packed by Seller
+    </span>
+  ) : (
+    <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700">
+      Waiting for Seller to Pack
+    </span>
+  )}
+</div>
 
               {/* Items */}
               <div>
@@ -480,11 +523,15 @@ export default function AdminOrdersPage() {
         alt={it.name}
         className="w-14 h-14 object-cover rounded border bg-gray-100"
       />
-
+        
       <div>
+        <div className="text-xs text-gray-500 uppercase tracking-wide">
+  {it.brandName ?? "BSCFASHION"}
+</div>
         <div className="font-medium truncate" style={{ maxWidth: 200 }}>
           {it.name}
         </div>
+        
         <div className="text-xs text-gray-500">
           Qty: {it.quantity ?? 1}
         </div>
@@ -507,12 +554,25 @@ export default function AdminOrdersPage() {
               </div>
 
               {/* Move to next */}
-              {nextDb && (
+              {nextDb && allPacked && (
+
                 <div className="mt-2 flex justify-end">
-                  <button onClick={() => moveToNext(order.id, order.status)} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm">
-                    Move to {DB_TO_LABEL[nextDb]}
-                    <ArrowRight size={14} />
-                  </button>
+                 {nextDb && (
+  <button
+    disabled={!allPacked}
+    onClick={() => moveToNext(order.id, order.status)}
+    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm
+      ${
+        allPacked
+          ? "bg-blue-600 text-white hover:bg-blue-700"
+          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+      }`}
+  >
+    Move to {DB_TO_LABEL[nextDb]}
+    <ArrowRight size={14} />
+  </button>
+)}
+
                 </div>
               )}
             </div>

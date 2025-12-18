@@ -11,6 +11,7 @@ interface Product {
 
 interface ProductCardProps {
   product: Product;
+  description?: string; 
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {

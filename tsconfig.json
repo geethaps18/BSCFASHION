@@ -41,12 +41,12 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "types/**/*.d.ts",         // 👈 added
-    "utils/db.ts",
+    "types/**/*.d.ts",
+    "lib/**/*.ts",         // 👈 added
     "models/User.ts",
     "middleware.ts",
     "app/api/**/*"
-  ],
+, "app/website/pagetsx", "app/admin/sellers/create"  ],
 
   "exclude": ["node_modules"]
 }

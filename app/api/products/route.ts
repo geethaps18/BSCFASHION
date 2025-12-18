@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Buffer } from "buffer";
 
-
 // ----------------------
 // Upload helper
 // ----------------------
@@ -37,11 +36,12 @@ async function uploadToSupabase(file: File): Promise<string | null> {
 }
 
 // ----------------------
-// GET Products (Clean version)
+// GET Products
 // ----------------------
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const siteId = searchParams.get("siteId");
 
     const page = Number(searchParams.get("page") || 1);
     const pageSize = 20;
@@ -62,7 +62,22 @@ export async function GET(req: Request) {
 
     const where: any = {};
 
-    // CATEGORY FILTERS
+    // ✅ validate site only if siteId exists
+    if (siteId) {
+      const site = await prisma.site.findUnique({
+        where: { id: siteId },
+      });
+
+      if (!site) {
+        return NextResponse.json(
+          { message: "Invalid site" },
+          { status: 400 }
+        );
+      }
+
+      where.siteId = siteId;
+    }
+
     if (home !== "true") {
       if (main && !sub1 && !sub2) {
         where.category = { equals: main, mode: "insensitive" };
@@ -86,12 +101,8 @@ export async function GET(req: Request) {
       take: pageSize,
     });
 
-    // FIX IMAGE PARSING
-   const safeProducts = products;
-
-
     return NextResponse.json({
-      products: safeProducts,
+      products,
       hasMore: total > page * pageSize,
       page,
     });
@@ -105,11 +116,31 @@ export async function GET(req: Request) {
 }
 
 // ----------------------
-// POST — Add Product (NO VARIANTS)
+// POST — Add Product
 // ----------------------
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
+
+    const siteId = String(formData.get("siteId") || "");
+    if (!siteId) {
+      return NextResponse.json(
+        { message: "siteId is required" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ FETCH SITE OBJECT (THIS FIXES YOUR ERROR)
+    const site = await prisma.site.findUnique({
+      where: { id: siteId },
+    });
+
+    if (!site) {
+      return NextResponse.json(
+        { message: "Invalid site" },
+        { status: 400 }
+      );
+    }
 
     const name = String(formData.get("name") || "");
     const description = String(formData.get("description") || "");
@@ -137,7 +168,6 @@ export async function POST(req: Request) {
       ? JSON.parse(String(formData.get("colors")))
       : [];
 
-    // Upload single product images
     const productFiles = formData.getAll("images") as File[];
     const productImages: string[] = [];
 
@@ -148,6 +178,8 @@ export async function POST(req: Request) {
 
     const product = await prisma.product.create({
       data: {
+        siteId,
+        brandName: site.name, // ✅ FIXED (THIS WAS THE BUG)
         name,
         description,
         category,
@@ -158,7 +190,6 @@ export async function POST(req: Request) {
         discount,
         stock,
         sizes,
-        
         images: productImages,
       },
     });

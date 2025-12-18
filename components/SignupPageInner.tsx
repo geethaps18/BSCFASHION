@@ -5,6 +5,8 @@ import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setCookie } from "cookies-next";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+
 
 export default function SignupPageInner() {
   const router = useRouter();
@@ -143,6 +145,14 @@ export default function SignupPageInner() {
               />
             </div>
           )}
+           <button
+   type="button"
+   onClick={() => signIn("google")}
+   className="w-full flex items-center justify-center gap-2 border py-2 rounded-md hover:bg-gray-100 mb-4"
+ >
+   <img src="/google.svg" alt="Google" className="w-5 h-5" />
+   Continue with Google
+ </button>
 
           {/* Send OTP */}
           {!otpSent && (

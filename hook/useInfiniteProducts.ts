@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useInfiniteStore } from "@/store/infiniteStore";
-import { usePathname } from "next/navigation";
+import { useInfiniteStore } from "@/store/useInfiniteStore";
 
 export function useInfiniteProducts(key: string, apiUrl: string) {
   const {
     key: currentKey,
     products,
     page,
+    lastLoadedPage,
     scrollY,
     hasMore,
     reset,
@@ -17,122 +17,98 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
     setPage,
     setScrollY,
     setHasMore,
+    setLastLoadedPage,
   } = useInfiniteStore();
 
-  const pathname = usePathname();
-
-  // 🔥 Correct back navigation detection
-  const previousPath = useRef(pathname);
-  const isBackNav = pathname === previousPath.current;
+  const loadingRef = useRef(false);
+  const restoredRef = useRef(false);
+  const pageRef = useRef(page);
 
   useEffect(() => {
-    previousPath.current = pathname;
-  }, [pathname]);
+    pageRef.current = page;
+  }, [page]);
 
-  const restoredRef = useRef(false);
-  const isLoadingRef = useRef(false);
-  const abortRef = useRef<AbortController | null>(null);
-
-  /** RESET only when key changes (not on back) */
+  // 🔄 Reset ONLY when feed key changes
   useEffect(() => {
     if (currentKey !== key) {
-      restoredRef.current = false;
-
-      if (isBackNav) {
-        console.log("🔙 Back navigation → keeping list");
-        return;
-      }
-
-      console.log("🔄 New category → resetting");
       reset(key);
-      setPage(1);
     }
-  }, [key, currentKey, isBackNav, reset, setPage]);
+  }, [key, currentKey, reset]);
 
-  function buildUrl(p: number) {
+  const buildUrl = (p: number) => {
     const sep = apiUrl.includes("?") ? "&" : "?";
     return `${apiUrl}${sep}page=${p}`;
-  }
+  };
 
-  async function loadPage(p: number) {
-    if (isLoadingRef.current) return;
-    if (!hasMore && p !== 1) return;
+  const loadPage = async (p: number) => {
+    if (loadingRef.current || !hasMore) return;
 
-    isLoadingRef.current = true;
-
-    if (abortRef.current) abortRef.current.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
+    loadingRef.current = true;
 
     try {
-      const res = await fetch(buildUrl(p), { signal: ac.signal });
-      if (!res.ok) {
-        setHasMore(false);
-        return;
+      const res = await fetch(buildUrl(p));
+      const data = await res.json();
+      const incoming = data.products ?? [];
+
+      if (p === 1 && products.length === 0) {
+        setProducts(incoming);
+      } else {
+        addProducts(incoming);
       }
 
-      const data = await res.json();
-      const incoming = Array.isArray(data.products) ? data.products : [];
-
-      if (p === 1) setProducts(incoming);
-      else addProducts(incoming);
-
-      setHasMore(Boolean(data.hasMore ?? incoming.length > 0));
-    } catch (err: any) {
-      if (err.name !== "AbortError") console.error("Load error:", err);
+      setLastLoadedPage(p);
+      setHasMore(Boolean(data.hasMore));
+      
     } finally {
-      isLoadingRef.current = false;
+      loadingRef.current = false;
     }
-  }
+  };
 
+  // 🚀 Fetch when page changes
   useEffect(() => {
     loadPage(page);
   }, [page]);
 
-  /** Infinite Scroll */
+  // ♾ Infinite scroll
   useEffect(() => {
     const onScroll = () => {
-      const nearBottom =
-        window.innerHeight + window.scrollY >= document.body.offsetHeight - 350;
+      if (loadingRef.current || !hasMore) return;
 
-      if (nearBottom && hasMore && !isLoadingRef.current) {
-        setPage(page)
+      if (
+        window.innerHeight + window.scrollY >=
+        document.body.offsetHeight - 300
+      ) {
+        const next = pageRef.current + 1;
+        pageRef.current = next;
+        setPage(next);
       }
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [hasMore]);
+  }, [hasMore, setPage]);
 
-  /** Save scroll */
+  // 💾 Save scroll
   useEffect(() => {
-    const save = () => setScrollY(window.scrollY || 0);
+    const save = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", save, { passive: true });
     return () => window.removeEventListener("scroll", save);
-  }, []);
+  }, [setScrollY]);
 
-  /** Restore scroll */
+  // 🔁 Restore page FIRST
   useEffect(() => {
-    if (restoredRef.current) return;
-    if (products.length === 0) return;
-
-    const target = scrollY;
-
-    function tryRestore() {
-      if (document.body.scrollHeight < target + 200) {
-        requestAnimationFrame(tryRestore);
-        return;
-      }
-      restoredRef.current = true;
-      window.scrollTo(0, target);
+    if (lastLoadedPage > 1) {
+      setPage(lastLoadedPage);
+      pageRef.current = lastLoadedPage;
     }
-
-    requestAnimationFrame(tryRestore);
-  }, [products, scrollY]);
-
-  useEffect(() => {
-    return () => abortRef.current?.abort();
   }, []);
+
+  // 🔁 Restore scroll AFTER products exist
+  useEffect(() => {
+    if (restoredRef.current || !products.length) return;
+    restoredRef.current = true;
+    window.scrollTo(0, scrollY);
+  }, [products, scrollY]);
 
   return { products };
 }

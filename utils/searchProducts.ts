@@ -32,11 +32,8 @@ export async function searchProducts(query: string): Promise<Product[]> {
     // 3️⃣ Prepare product strings for OpenAI
     const productStrings = products.map((p) => {
       const sizes = Array.isArray(p.sizes) ? p.sizes.join(", ") : "";
-      const colors =
-        Array.isArray(p.colors) && p.colors.length
-          ? p.colors.map((c: any) => c.name || c.hex).join(", ")
-          : "";
-      return `${p.id}: ${p.name}, category: ${p.category || "N/A"}, colors: ${colors}, sizes: ${sizes}, price: ${p.price}`;
+      
+      return `${p.id}: ${p.name}, category: ${p.category || "N/A"}, sizes: ${sizes}, price: ${p.price}`;
     });
 
     // 4️⃣ Prompt OpenAI to rank products

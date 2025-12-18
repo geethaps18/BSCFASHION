@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/db";
 
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_CONTACT!;
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
+
 export async function POST(req: Request) {
   try {
     const { contact, otp, name, signup } = await req.json();
@@ -14,20 +17,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1️⃣ Fetch OTP record
+    /* ---------------- 1️⃣ Validate OTP ---------------- */
     const record = await prisma.oTP.findFirst({
       where: { contact },
       orderBy: { createdAt: "desc" },
     });
 
-    console.log("[OTP VERIFY] Stored OTP:", record?.otp);
-    console.log("[OTP VERIFY] User input OTP:", otp);
-
     if (!record) {
-      return NextResponse.json(
-        { message: "No OTP found for this contact ❌" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "No OTP found ❌" }, { status: 400 });
     }
 
     if (record.otp !== otp) {
@@ -39,53 +36,80 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "OTP expired ❌" }, { status: 400 });
     }
 
-    // 2️⃣ OTP correct → delete all OTPs for this contact
     await prisma.oTP.deleteMany({ where: { contact } });
 
-    // 3️⃣ Check if contact is email or phone
+    /* ---------------- 2️⃣ Find / Create User ---------------- */
     const isEmail = contact.includes("@");
+    let user = isEmail
+      ? await prisma.user.findFirst({ where: { email: contact } })
+      : await prisma.user.findFirst({ where: { phone: contact } });
 
-    // 4️⃣ Find or create user
-    let user;
-    if (isEmail) {
-      user = await prisma.user.findFirst({ where: { email: contact } });
-      if (!user && signup) {
-        user = await prisma.user.create({
-          data: { email: contact, name: name || "New User" },
-        });
-      }
-    } else {
-      user = await prisma.user.findFirst({ where: { phone: contact } });
-      if (!user && signup) {
-        user = await prisma.user.create({
-          data: { phone: contact, name: name || "New User" },
-        });
-      }
+    if (!user && signup) {
+      user = await prisma.user.create({
+        data: {
+          email: isEmail ? contact : undefined,
+          phone: !isEmail ? contact : undefined,
+          name: name || "New User",
+          role: "CUSTOMER",
+        },
+      });
     }
 
     if (!user) {
       return NextResponse.json(
-        { message: "User not found ❌. Please sign up first." },
+        { message: "User not found ❌" },
         { status: 404 }
       );
     }
 
-   // 5️⃣ Generate JWT
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey123";
+    /* ---------------- 3️⃣ Blocked check ---------------- */
+    if (user.blocked) {
+      return NextResponse.json(
+        { message: "Your account is blocked ❌" },
+        { status: 403 }
+      );
+    }
 
-const token = jwt.sign(
-  {
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    contact: user.email || user.phone, // IMPORTANT for admin
-  },
-  JWT_SECRET,
-  { expiresIn: "365d" }
-);
+    /* ---------------- 4️⃣ ADMIN auto-detection ---------------- */
+    let finalRole = user.role;
 
-    // 6️⃣ Success response
+    if (user.email && user.email === ADMIN_EMAIL) {
+      finalRole = "ADMIN";
+
+      if (user.role !== "ADMIN") {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { role: "ADMIN" },
+        });
+      }
+    }
+
+    /* ---------------- 5️⃣ Seller site lookup ---------------- */
+    let siteId: string | null = null;
+
+    if (finalRole === "SELLER") {
+      const site = await prisma.site.findFirst({
+        where: { ownerId: user.id },
+        select: { id: true },
+      });
+      siteId = site?.id || null;
+    }
+
+    /* ---------------- 6️⃣ JWT ---------------- */
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        role: finalRole,
+        siteId,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        contact: user.email || user.phone,
+      },
+      JWT_SECRET,
+      { expiresIn: "365d" }
+    );
+
     return NextResponse.json({
       message: "OTP verified ✅",
       token,
@@ -94,12 +118,14 @@ const token = jwt.sign(
         name: user.name,
         email: user.email,
         phone: user.phone,
+        role: finalRole,
+        siteId,
       },
     });
   } catch (err: any) {
-    console.error("Verify OTP Error:", err);
+    console.error("OTP VERIFY ERROR:", err);
     return NextResponse.json(
-      { message: "Something went wrong ❌", error: err.message },
+      { message: "Something went wrong ❌" },
       { status: 500 }
     );
   }

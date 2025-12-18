@@ -14,6 +14,8 @@ function getUserId(req: NextRequest): string | null {
   }
 }
 
+
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,6 +31,7 @@ export async function GET(
             id: true,
             productId: true,
             name: true,
+            brandName:true,
             price: true,
             quantity: true,
             size: true,
@@ -65,6 +68,8 @@ if (order.address) {
     parsedAddress = order.address; // already JSON object
   }
 }
+
+
 
 
     // ⭐ VERY VERY IMPORTANT:

@@ -11,10 +11,14 @@ export async function GET() {
           select: {
             id: true,
             name: true,
+            brandName: true,
             quantity: true,
             price: true,
             size: true,
             image: true, // ⭐ IMPORTANT
+            packed: true,
+            packedAt: true,
+           confirmedAt:true,
             product: {
               select: {
                 images: true, // ⭐ fallback if image is null
@@ -82,6 +86,9 @@ export async function PUT(req: Request) {
             price: true,
             size: true,
             image: true,
+            packed: true,
+            packedAt: true,
+            brandName:true,
             product: {
               select: { images: true },
             },

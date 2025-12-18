@@ -19,6 +19,7 @@ import { Product as ProductType } from "@/types/product";
 import { getCookie } from "cookies-next";
 import { useRouter } from "next/navigation";
 import LoadingRing from "@/components/LoadingRing";
+import Link from "next/link";
 
 
 
@@ -264,6 +265,7 @@ const handleAddToBagWithLoginCheck = () => {
       {
         id: product.id,
         name: product.name,
+        
         price,
         images: product.images,
         availableSizes: product.sizes,
@@ -358,6 +360,12 @@ const handleAddToBagWithLoginCheck = () => {
     Currently Out of Stock
   </p>
 )}
+
+      <div className="space-y-1 p-1">
+  <p className="text-xs uppercase tracking-wide text-gray-500">
+    {product.brandName ?? "BSCFASHION"}
+  </p>
+</div>
 
 
       {/* Sizes Section (supports One Size fallback) */}

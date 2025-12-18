@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 export default function PolicyFooter() {
   return (
     <div className="w-full bg-white text-center pt-6 pb-20 border-t border-gray-200">

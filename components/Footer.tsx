@@ -27,7 +27,8 @@ export default function Footer() {
     "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)";
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-sm z-50">
+   <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-sm z-50 lg:hidden">
+
       <div className="relative flex justify-around items-center h-14 sm:h-16">
         {tabs.map((tab, index) => {
           const isActive = index === activeIndex;

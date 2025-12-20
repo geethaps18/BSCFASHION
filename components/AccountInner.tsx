@@ -265,7 +265,7 @@ export default function AccountInner() {
   <>
     <Header />
 
-    <main className="max-w-5xl mx-auto mt-12 px-4 sm:px-6 lg:px-8 space-y-6">
+    <main className="max-w-5xl mx-auto mt-20 px-4 sm:px-6 lg:px-8 space-y-6">
       
       {/* Tabs */}
       <div className="flex border-b mb-6">

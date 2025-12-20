@@ -210,7 +210,7 @@ return (
     {/* Header always visible */}
     <Header />
 
-    <div className="pt-18">
+    <div className="pt-20">
 
       {/* 🔹 Loader under header */}
       {loading && userId && wishlist.length === 0 ? (
@@ -245,7 +245,7 @@ return (
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0.5">
+         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
           {wishlist.map((product) => {
             const isPendingRemove = pendingRemovals.includes(product.id);
 

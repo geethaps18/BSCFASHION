@@ -332,7 +332,8 @@ useEffect(() => {
 
           {/* footer quick-actions when open and empty query */}
           {!query && (
-            <div className="grid grid-cols-2 gap-2 p-3 border-t">
+  <div className="lg:hidden grid grid-cols-2 gap-2 p-3 border-t">
+
               <div>
                 <div className="text-xs text-gray-500 mb-2">Trending</div>
                 <div className="flex flex-wrap gap-2">

@@ -8,11 +8,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 import LoadingRing from "@/components/LoadingRing";
-
-
-
-
-
+import FilterSidebar from "@/components/FilterSidebar";
 
 const categories = [
   { name: "Men", image: "/images/men.png" },
@@ -40,7 +36,8 @@ export default function HomeInner() {
       <div className="mt-8">
 
         {/* Ticker */}
-        <div className="mt-6 md:mt-8 lg:mt-10 xl:mt-12 relative overflow-hidden z-50">
+        <div className="lg:hidden mt-6 relative overflow-hidden z-50">
+
           <div className="bg-gradient-to-r shadow-2xl py-1 px-4 flex items-center">
             <div className="flex animate-marquee whitespace-nowrap text-yellow-900 font-semibold text-l md:text-xl tracking-wider drop-shadow-lg ribbon-text">
               <span className="mx-8">🪔🎇 ದೀಪಾವಳಿ ಡಬಲ್ ಡಿಸ್ಕೌಂಟ್! ತಪ್ಪಿಸಿಕೊಳ್ಳಬೇಡಿ!</span>
@@ -65,7 +62,8 @@ export default function HomeInner() {
         <Header />
 
         {/* Categories Scroll */}
-        <div className="overflow-x-auto scrollbar-hide py-1 bg-white shadow-md w-full">
+        <div className="lg:hidden overflow-x-auto scrollbar-hide py-1 bg-white shadow-md w-full">
+
           <div className="flex gap-3 px-3 sm:gap-4 sm:px-4">
             {categories.map((cat) => (
               <Link
@@ -85,9 +83,12 @@ export default function HomeInner() {
         </div>
 
         {/* Hero Section */}
-        <div className="w-full h-60 sm:h-72 md:h-96 my-4 relative overflow-hidden">
+        <div className="w-full h-60 sm:h-72 md:h-96 lg:h-[520px] mt-2 relative overflow-hidden">
+
           <Hero />
         </div>
+        
+ 
 
         {/* Products */}
         <main className="flex-grow sm:p-6 pb-2">
@@ -96,7 +97,9 @@ export default function HomeInner() {
               <LoadingRing />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-0.5 sm:gap-3">
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
+              
               {products.map((product: any) => (
                 <ProductCard key={product.id} product={product} />
               ))}

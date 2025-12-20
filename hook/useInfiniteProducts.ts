@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInfiniteStore } from "@/store/useInfiniteStore";
 
 export function useInfiniteProducts(key: string, apiUrl: string) {
@@ -24,11 +24,13 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
   const restoredRef = useRef(false);
   const pageRef = useRef(page);
 
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
 
-  // 🔄 Reset ONLY when feed key changes
+  // 🔄 Reset when key changes
   useEffect(() => {
     if (currentKey !== key) {
       reset(key);
@@ -41,16 +43,21 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
   };
 
   const loadPage = async (p: number) => {
-    if (loadingRef.current || !hasMore) return;
+    if (loadingRef.current) return;
+    if (p !== 1 && !hasMore) return;
 
     loadingRef.current = true;
+    setLoading(true);
 
     try {
-      const res = await fetch(buildUrl(p));
+      const res = await fetch(buildUrl(p), {
+        cache: "no-store",
+      });
+
       const data = await res.json();
       const incoming = data.products ?? [];
 
-      if (p === 1 && products.length === 0) {
+      if (p === 1) {
         setProducts(incoming);
       } else {
         addProducts(incoming);
@@ -58,13 +65,13 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
 
       setLastLoadedPage(p);
       setHasMore(Boolean(data.hasMore));
-      
     } finally {
       loadingRef.current = false;
+      setLoading(false);
     }
   };
 
-  // 🚀 Fetch when page changes
+  // 🚀 Load when page changes
   useEffect(() => {
     loadPage(page);
   }, [page]);
@@ -95,7 +102,7 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
     return () => window.removeEventListener("scroll", save);
   }, [setScrollY]);
 
-  // 🔁 Restore page FIRST
+  // 🔁 Restore page
   useEffect(() => {
     if (lastLoadedPage > 1) {
       setPage(lastLoadedPage);
@@ -103,12 +110,12 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
     }
   }, []);
 
-  // 🔁 Restore scroll AFTER products exist
+  // 🔁 Restore scroll
   useEffect(() => {
     if (restoredRef.current || !products.length) return;
     restoredRef.current = true;
     window.scrollTo(0, scrollY);
   }, [products, scrollY]);
 
-  return { products };
+  return { products, loading };
 }

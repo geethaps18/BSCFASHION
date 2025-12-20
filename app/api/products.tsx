@@ -14,6 +14,8 @@ export default function AddProductForm() {
   const [images, setImages] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
 
+
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     setImages(Array.from(e.target.files));

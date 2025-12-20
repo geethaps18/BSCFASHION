@@ -1,4 +1,7 @@
 // app/api/products/route.ts
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -52,6 +55,7 @@ export async function GET(req: Request) {
     const sub2Slug = searchParams.get("sub2");
     const home = searchParams.get("home");
     const excludeId = searchParams.get("exclude");
+    
 
     const slugToName = (slug: string | null) =>
       slug ? slug.replace(/-/g, " ").toLowerCase() : undefined;
@@ -60,7 +64,8 @@ export async function GET(req: Request) {
     const sub1 = slugToName(sub1Slug);
     const sub2 = slugToName(sub2Slug);
 
-    const where: any = {};
+    const where: Record<string, any> = {};
+
 
     // ✅ validate site only if siteId exists
     if (siteId) {

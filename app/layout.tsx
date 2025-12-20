@@ -6,6 +6,7 @@ import "./globals.css";
 import Script from "next/script";
 import PolicyFooter from "@/components/PolicyFooter";
 import Providers from "./providers";
+import DesktopFooter from "@/components/DesktopFooter";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,7 +67,7 @@ export default function RootLayout({
             <PolicyFooter />
           </main>
         </Providers>
-       
+       <DesktopFooter/>
       </body>
     </html>
 

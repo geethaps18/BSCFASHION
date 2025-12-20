@@ -105,7 +105,7 @@ export default function StoresPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <div className="max-w-6xl mx-auto flex-1 py-16 px-4">
+      <div className="max-w-6xl mx-auto flex-1 py-20 px-4">
         {/* Page Title */}
         <h1 className="text-3xl sm:text-4xl font-serif text-center mb-10 text-gray-900 flex items-center justify-center gap-2">
           <MdStoreMallDirectory className="w-8 h-8 text-gray-900" />

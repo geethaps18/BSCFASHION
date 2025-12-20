@@ -19,6 +19,7 @@ export default function MainCategoryPage() {
   const key = `main-${mainSlug || "none"}`;
   const apiUrl = `/api/products?main=${mainSlug || ""}`;
   const { products } = useInfiniteProducts(key, apiUrl);
+  
 
   // Now safe to check conditions
   if (!mainSlug) {
@@ -34,7 +35,7 @@ export default function MainCategoryPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white pt-16 pb- px-0.5">
+   <div className="min-h-screen bg-white pt-16 bg-white pt-[80px] px-0.5">
 
       {/* Subcategories */}
       {mainCat?.subCategories.length ? (
@@ -53,18 +54,34 @@ export default function MainCategoryPage() {
                   alt={sub.name}
                   width={400}
                   height={300}
-                  className="w-full h-40 object-cover group-hover:scale-105 transition-transform"
+                  className="w-full h-40 lg:hidden object-cover group-hover:scale-105 transition-transform"
                 />
 
                 <div className="absolute bottom-0 w-full bg-black/35 text-white text-center py-20 text-sm font-semibold">
                   {sub.name}
+                  
                 </div>
               </Link>
             );
           })}
         </div>
       ) : null}
+<div className="hidden lg:block max-w-7xl mx-auto px-6 pb-4">
+  <h1 className="text-lg font-semibold text-gray-900">
+    {mainCat?.name}
+    <span className="text-sm font-normal text-gray-500 ml-2">
+      – {products.length}{" "}
+      {products.length === 1 ? "Product" : "Products"}
+    </span>
+  </h1>
+</div>
 
+    {/* SUBCATEGORIES */}
+    {mainCat?.subCategories.length ? (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-2 mb-4">
+        
+      </div>
+    ) : null}
       {/* Products */}
       <main className="flex-grow sm:p-6 pb-2">
         {products.length === 0 ? (
@@ -72,7 +89,7 @@ export default function MainCategoryPage() {
             No products available in this category.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-[2px] sm:grid-cols-4 lg:grid-cols-6 sm:gap-3 px-0.5">
+           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
             {products.map((product: any) => (
               <ProductCard key={product.id} product={product} />
             ))}

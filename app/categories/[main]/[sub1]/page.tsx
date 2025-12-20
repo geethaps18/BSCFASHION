@@ -4,9 +4,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Footer from "@/components/Footer";
+import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import { categories, SubCategory } from "@/data/categories";
-import Header from "@/components/Header";
 import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 
 export default function Sub1Page() {
@@ -14,18 +14,12 @@ export default function Sub1Page() {
   const mainSlug = Array.isArray(main) ? main[0] : main;
   const sub1Slug = Array.isArray(sub1) ? sub1[0] : sub1;
 
-  // 🔥 HOOK MUST RUN BEFORE ANY RETURN
   const key = `sub1-${mainSlug}-${sub1Slug}`;
   const apiURL = `/api/products?main=${mainSlug}&sub1=${sub1Slug}`;
   const { products } = useInfiniteProducts(key, apiURL);
 
-  // Now safe to validate slugs
   if (!mainSlug || !sub1Slug) {
-    return (
-      <div className="p-8 text-center text-red-600">
-        Category not found
-      </div>
-    );
+    return <div className="p-8 text-center text-red-600">Category not found</div>;
   }
 
   const mainCat: SubCategory | undefined = categories.find(
@@ -37,28 +31,50 @@ export default function Sub1Page() {
   );
 
   return (
-    <div className="min-h-screen bg-white pt-16 pb-2 px-0.5">
+    <div className="min-h-screen bg-white pt-16 bg-white pt-[100px] px-0.5">
 
-      {/* Sub-subcategories */}
+      {/* ✅ HEADER ALWAYS FIRST */}
+      <Header />
+
+    {/* ✅ DESKTOP BREADCRUMB + TITLE (Myntra style) */}
+<div className="hidden lg:block max-w-7xl mx-auto px-6 py-4">
+  {/* Breadcrumb */}
+  <div className="text-sm text-gray-500 mb-1">
+    <Link href="/" className="hover:text-gray-700">Home</Link>
+    {mainCat && <> / <span>{mainCat.name}</span></>}
+    {sub1Cat && <> / <span>{sub1Cat.name}</span></>}
+    
+  </div>
+
+  {/* Title + Count (ONE line) */}
+  <h1 className="text-lg font-semibold text-gray-900">
+    {sub1Cat?.name}{" "}
+    <span className="font-normal text-gray-500">
+      – {products.length} items
+    </span>
+  </h1>
+</div>
+
+
+      {/* ✅ MOBILE SUB-SUB CATEGORIES */}
       {sub1Cat?.subCategories.length ? (
-        <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-0.5 px-0">
+        <div className="lg:hidden mb-2 grid grid-cols-2 gap-0.5 px-0">
           {sub1Cat.subCategories.map((sub2) => {
             const sub2Slug = sub2.name.toLowerCase().replace(/\s+/g, "-");
             return (
               <Link
                 key={sub2.name}
                 href={`/categories/${mainSlug}/${sub1Slug}/${sub2Slug}`}
-                className="relative group block w-full h-40 sm:h-48 md:h-56 rounded-lg overflow-hidden"
+                className="relative block w-full h-40 rounded-lg overflow-hidden"
               >
                 <Image
                   src={sub2.image}
                   alt={sub2.name}
                   fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="object-cover"
                 />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-white text-sm sm:text-base font-medium drop-shadow-md">
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
                     {sub2.name}
                   </span>
                 </div>
@@ -68,12 +84,12 @@ export default function Sub1Page() {
         </div>
       ) : null}
 
-      {/* Products list */}
-      <main className="flex-grow p-0 pb-2">
+      {/* ✅ PRODUCTS */}
+      <main className="px-1 pb-4">
         {products.length === 0 ? (
           <p className="text-gray-500 text-center py-16">No products found.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-[2px] w-full px-0.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
             {products.map((product: any) => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -81,7 +97,6 @@ export default function Sub1Page() {
         )}
       </main>
 
-      <Header />
       <Footer />
     </div>
   );

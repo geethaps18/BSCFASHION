@@ -89,41 +89,49 @@ const redirectTo = rawRedirect.startsWith("/")
   };
 
   // Verify OTP
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otp) return toast.error("Enter OTP");
+ const handleVerifyOtp = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!otp) return toast.error("Enter OTP");
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      const res = await fetch("/api/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact: email, otp }),
+  try {
+    const res = await fetch("/api/otp/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contact: email, otp }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.token) {
+      setCookie("token", data.token, {
+        maxAge: 60 * 60 * 24 * 365,
+        path: "/",
       });
 
-      const data = await res.json();
-if (res.ok && data.token) {
-  setCookie("token", data.token, {
-    maxAge: 60 * 60 * 24 * 365,
-    path: "/",
-  });
-
-  // ✅ CLEAR LOGIN TOAST FLAG (IMPORTANT)
-  sessionStorage.removeItem("loginToastShown");
-
-  toast.success("Login successful");
-  setVerified(true);
-}
-       else {
+      sessionStorage.removeItem("loginToastShown");
+      toast.success("Login successful");
+      setVerified(true);
+    } else {
+      if (res.status === 404) {
+        toast.error("Account not found. Please sign up first.");
+        setTimeout(() => {
+          router.push(`/signup?redirect=${encodeURIComponent(redirectTo)}`);
+        }, 1500);
+      } else if (res.status === 403) {
+        toast.error("Your account is blocked. Please contact support.");
+      } else {
         toast.error(data.message || "Invalid OTP");
       }
-    } catch {
-      toast.error("Something went wrong");
     }
-
+  } catch (error) {
+    toast.error("Something went wrong");
+  } finally {
     setLoading(false);
-  };
+  }
+};
+
 
   // Redirect after success
   useEffect(() => {

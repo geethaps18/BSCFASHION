@@ -111,6 +111,8 @@ export default function ProductDetailPage() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
   const [showStickyBar, setShowStickyBar] = useState(true);
+  const visibleSimilarProducts = similarProducts.slice(0, 8);
+
 
 
   // ---------------- FETCH PRODUCT ----------------
@@ -125,6 +127,11 @@ useEffect(() => {
     setSelectedSize("One Size");
   }
 }, [product]);
+
+useEffect(() => {
+  window.scrollTo({ top: 0, behavior: "instant" });
+}, [id]);
+
 
 
   useEffect(() => {
@@ -252,30 +259,31 @@ const handleAddToBagWithLoginCheck = () => {
 
 
 
-  // ---------------- Actions ----------------
-  const handleAddToBag = () => {
-    if (!selectedSize && product.sizes?.length) {
-     
-      setSizeError(true);
-      return;
-    }
+ const handleAddToBag = () => {
+  if (!selectedSize && product.sizes?.length) {
+    setSizeError(true);
+    return;
+  }
 
-    setAddingToBag(true);
-    addToCart(
-      {
-        id: product.id,
-        name: product.name,
-        
-        price,
-        images: product.images,
-        availableSizes: product.sizes,
-      },
-      selectedSize ?? undefined
-    );
+  setAddingToBag(true);
 
-    
-    setTimeout(() => setAddingToBag(false), 1000);
-  };
+  addToCart(
+    {
+      id: product.id,
+      name: product.name,
+      price,
+      images: product.images,
+      availableSizes: product.sizes,
+    },
+    selectedSize ?? undefined
+  );
+
+  // ✅ Redirect to Bag page (UX fix)
+  router.push("/bag");
+
+  setTimeout(() => setAddingToBag(false), 1000);
+};
+
 
   const openGalleryAt = (index: number) => {
     setGalleryStartIndex(index);
@@ -585,13 +593,26 @@ const handleAddToBagWithLoginCheck = () => {
       {similarProducts.length > 0 && (
         <div className="mt-10 max-w-6xl mx-auto">
           <h2 className="text-lg font-medium mb-4">You May Also Like</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
             {similarProducts.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </div>
       )}
+<div className="flex justify-center mt-6">
+<Link
+  href={`/categories/${product.category}`}
+  className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-700 transition-colors"
+>
+  View more similar products
+  <span className="text-base">→</span>
+</Link>
+
+</div>
+
+
+
 
       {/* Fullscreen gallery modal (Swiper) for real images */}
       {isGalleryOpen && (

@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 import LoadingRing from "@/components/LoadingRing";
-import FilterSidebar from "@/components/FilterSidebar";
+
 
 const categories = [
   { name: "Men", image: "/images/men.png" },

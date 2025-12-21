@@ -7,6 +7,7 @@ import Script from "next/script";
 import PolicyFooter from "@/components/PolicyFooter";
 import Providers from "./providers";
 import DesktopFooter from "@/components/DesktopFooter";
+import OfflineBanner from "@/components/OfflineBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,6 +64,7 @@ export default function RootLayout({
           />
 
           <main className="min-h-screen">
+            <OfflineBanner/>
             {children}
             <PolicyFooter />
           </main>

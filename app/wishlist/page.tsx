@@ -20,11 +20,14 @@ export default function WishlistPage() {
   const { products: infiniteWishlist } = useWishlistInfinite();
 const [wishlist, setWishlist] = useState<Product[]>([]);
 
+
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [pendingRemovals, setPendingRemovals] = useState<string[]>([]);
   const pathname = usePathname();
-  
+  const isWishlistReady =
+  !loading && userId !== null && infiniteWishlist !== undefined;
+
 useEffect(() => {
   if (infiniteWishlist.length === 0) return;
 
@@ -212,54 +215,54 @@ return (
 
     <div className="pt-20">
 
-      {/* 🔹 Loader under header */}
-      {loading && userId && wishlist.length === 0 ? (
-        <div className="flex justify-center items-center py-20">
-          <LoadingRing />
-        </div>
-      ) : !userId ? (
-        <p className="mt-20 text-center">
-          Please login to see your wishlist.
-          <Link
-            href={`/login?redirect=${encodeURIComponent(pathname)}`}
-            className="text-yellow-500 ml-2"
-          >
-            Login
-          </Link>
-        </p>
-      ) : wishlist.length === 0 ? (
-        <div className="flex flex-col items-center justify-center mt-20 text-center">
-          <img
-            src="/images/empty-wishlist.png"
-            className="w-80 h-80 mb-6"
-            alt="Empty wishlist"
-          />
-          <h2 className="text-2xl font-semibold mb-4">
-            Your wishlist is empty
-          </h2>
-          <Link
-            href="/"
-            className="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600"
-          >
-            Add Products You Love
-          </Link>
-        </div>
-      ) : (
-         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
-          {wishlist.map((product) => {
-            const isPendingRemove = pendingRemovals.includes(product.id);
+    {loading && userId && wishlist.length === 0 ? (
+  <div className="flex justify-center items-center py-20">
+    <LoadingRing />
+  </div>
+) : !userId ? (
+  <p className="mt-20 text-center">
+    Please login to see your wishlist.
+    <Link
+      href={`/login?redirect=${encodeURIComponent(pathname)}`}
+      className="text-yellow-500 ml-2"
+    >
+      Login
+    </Link>
+  </p>
+) : isWishlistReady && wishlist.length === 0 ? (
+  <div className="flex flex-col items-center justify-center mt-20 text-center">
+    <img
+      src="/images/empty-wishlist.png"
+      className="w-80 h-80 mb-6"
+      alt="Empty wishlist"
+    />
+    <h2 className="text-2xl font-semibold mb-4">
+      Your wishlist is empty
+    </h2>
+    <Link
+      href="/"
+      className="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600"
+    >
+      Add Products You Love
+    </Link>
+  </div>
+) : (
+  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
+    {wishlist.map((product) => {
+      const isPendingRemove = pendingRemovals.includes(product.id);
 
-            return (
-              <ProductCard
-                key={product.id}
-                product={product}
-                wishlist={!isPendingRemove}
-                onWishlistToggle={() => handleHeartClick(product)}
-              />
-            );
-          })}
-        </div>
-      )}
+      return (
+        <ProductCard
+          key={product.id}
+          product={product}
+          wishlist={!isPendingRemove}
+          onWishlistToggle={() => handleHeartClick(product)}
+        />
+      );
+    })}
+  </div>
+)}
+
 
     </div>
   </main>

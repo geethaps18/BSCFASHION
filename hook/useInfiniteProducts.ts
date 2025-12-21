@@ -81,15 +81,16 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
     const onScroll = () => {
       if (loadingRef.current || !hasMore) return;
 
-      if (
-        window.innerHeight + window.scrollY >=
-        document.body.offsetHeight - 300
-      ) {
-        const next = pageRef.current + 1;
-        pageRef.current = next;
-        setPage(next);
-      }
+     if (
+  window.innerHeight + window.scrollY >=
+  document.documentElement.scrollHeight - 500
+) {
+  const next = pageRef.current + 1;
+  pageRef.current = next;
+  setPage(next);
+}
     };
+    
 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);

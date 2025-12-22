@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Buffer } from "buffer";
 
+    const PLATFORM_SITE_ID = "6943c4bb004c59f5ec1326a5";
+const PLATFORM_BRAND_NAME = "BSCFASHION";
 // ----------------------
 // Upload helper
 // ----------------------
@@ -65,6 +67,8 @@ export async function GET(req: Request) {
     const sub2 = slugToName(sub2Slug);
 
     const where: Record<string, any> = {};
+
+
 
 
     // ✅ validate site only if siteId exists
@@ -127,15 +131,15 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
-    const siteId = String(formData.get("siteId") || "");
+    // 1️⃣ Get siteId from form (seller flow)
+    let siteId = formData.get("siteId")?.toString();
+
+    // 2️⃣ ADMIN FLOW → auto assign BSCFASHION
     if (!siteId) {
-      return NextResponse.json(
-        { message: "siteId is required" },
-        { status: 400 }
-      );
+      siteId = PLATFORM_SITE_ID;
     }
 
-    // ✅ FETCH SITE OBJECT (THIS FIXES YOUR ERROR)
+    // 3️⃣ Validate site
     const site = await prisma.site.findUnique({
       where: { id: siteId },
     });
@@ -147,6 +151,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 4️⃣ Read rest of data
     const name = String(formData.get("name") || "");
     const description = String(formData.get("description") || "");
 
@@ -163,14 +168,11 @@ export async function POST(req: Request) {
     const discount =
       Number(formData.get("discount")) ||
       (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
+
     const stock = Number(formData.get("stock") || 0);
 
     const sizes = formData.get("sizes")
       ? JSON.parse(String(formData.get("sizes")))
-      : [];
-
-    const colors = formData.get("colors")
-      ? JSON.parse(String(formData.get("colors")))
       : [];
 
     const productFiles = formData.getAll("images") as File[];
@@ -181,10 +183,11 @@ export async function POST(req: Request) {
       if (url) productImages.push(url);
     }
 
+    // 5️⃣ CREATE PRODUCT (ADMIN = BSCFASHION)
     const product = await prisma.product.create({
       data: {
         siteId,
-        brandName: site.name, // ✅ FIXED (THIS WAS THE BUG)
+        brandName: siteId === PLATFORM_SITE_ID ? PLATFORM_BRAND_NAME : site.name,
         name,
         description,
         category,

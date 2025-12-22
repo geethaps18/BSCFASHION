@@ -253,23 +253,44 @@ export async function PUT(
 // ---------------------------------------------------
 // DELETE product (admin)
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  req: Request,
+  { params }: { params: { id: string } }
 ) {
+  const { id } = params;
+
   try {
-    const adminId = verifyAdmin(req);
-    if (!adminId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // 1️⃣ Clean Wishlist FIRST
+    await prisma.wishlist.deleteMany({
+      where: { productId: id },
+    });
 
-    const { id } = await params;
+    // 2️⃣ Clean Stock Reminders
+    await prisma.stockReminder.deleteMany({
+      where: { productId: id },
+    });
 
-    await prisma.product.delete({ where: { id } });
+    // 3️⃣ Clean Reviews
+    await prisma.review.deleteMany({
+      where: { productId: id },
+    });
 
-    // remove reminders for that product too (cleanup)
-    await prisma.stockReminder.deleteMany({ where: { productId: id } });
+    // 4️⃣ Clean Ratings
+    await prisma.rating.deleteMany({
+      where: { productId: id },
+    });
 
-    return NextResponse.json({ message: "Product deleted!" });
-  } catch (err) {
-    console.error("DELETE PRODUCT ERROR:", err);
-    return NextResponse.json({ error: "Delete failed", details: String(err) }, { status: 500 });
+    // 5️⃣ NOW delete Product (ONLY place)
+    await prisma.product.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE PRODUCT ERROR:", error);
+    return NextResponse.json(
+      { error: "Failed to delete product" },
+      { status: 500 }
+    );
   }
 }
+

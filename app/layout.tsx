@@ -8,6 +8,7 @@ import PolicyFooter from "@/components/PolicyFooter";
 import Providers from "./providers";
 import DesktopFooter from "@/components/DesktopFooter";
 import OfflineBanner from "@/components/OfflineBanner";
+import AppLayoutWrapper from "@/components/AppLayoutWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -64,12 +65,13 @@ export default function RootLayout({
           />
 
           <main className="min-h-screen">
-            <OfflineBanner/>
+            <AppLayoutWrapper>
             {children}
-            <PolicyFooter />
+            </AppLayoutWrapper>
+          
           </main>
         </Providers>
-       <DesktopFooter/>
+      
       </body>
     </html>
 

@@ -18,7 +18,8 @@ export async function GET() {
       outOfStock,
       todaySales,
       monthlyRevenue,
-      topSelling
+      topSelling,
+      wishlistCount, 
     ] = await Promise.all([
       prisma.order.count(),
       prisma.product.count(),
@@ -45,6 +46,7 @@ export async function GET() {
       prisma.orderItem.findMany({
         include: { product: true },
       }),
+      prisma.wishlist.count(), 
     ]);
 
     // Calculate top category manually
@@ -68,7 +70,8 @@ export async function GET() {
       outOfStock,
       todaySales: todaySales._sum.totalAmount || 0,
       monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
-      topCategory
+      topCategory,
+      wishlistCount, 
     });
   } catch (error) {
     console.error("DASHBOARD ERROR:", error);

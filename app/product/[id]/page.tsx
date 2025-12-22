@@ -55,14 +55,15 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
         setPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
 
         }
-        className={`w-full h-[400px] md:h-[360px] bg-gray-50 select-none ${
+        className={`w-full aspect-square md:aspect-[3/4] bg-white select-none ${
+
           zoom === MIN ? "cursor-zoom-in" : "cursor-move"
         }`}
         style={{
           backgroundImage: `url(${src})`,
           backgroundRepeat: "no-repeat",
           backgroundPosition: zoom === MIN ? "center" : bgPos,
-          backgroundSize: zoom === MIN ? "contain" : `${zoom * 100}%`,
+          backgroundSize: zoom === MIN ? "contain" : `${zoom * 120}%`,
         }}
       >
         {/* Invisible Image keeps layout/resolution stable for Next/Image optimization */}
@@ -317,24 +318,22 @@ const handleAddToBagWithLoginCheck = () => {
           </div>
 
           {/* Mobile: Swiper slides (swipe only) */}
-          <div className="md:hidden mb-4">
-            <Swiper
-              slidesPerView={1.2}
-              spaceBetween={10}
-              centeredSlides
-              modules={[Pagination, Scrollbar]}
-              scrollbar={{ draggable: true }}
-            >
-              {images.map((img) => (
-                <SwiperSlide key={img}>
-                  <div className="w-full h-[360px] bg-gray-50 rounded overflow-hidden">
-                    {/* mobile still uses zoom on tap inside ZoomImage */}
-                    <ZoomImage src={img} alt={product.name} />
-                  </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          </div>
+          {/* Mobile: Swiper */}
+<div className="md:hidden mb-4">
+  <Swiper
+    slidesPerView={1}
+    spaceBetween={10}
+    modules={[Pagination, Scrollbar]}
+    scrollbar={{ draggable: true }}
+  >
+    {images.map((img) => (
+      <SwiperSlide key={img}>
+        <ZoomImage src={img} alt={product.name} />
+      </SwiperSlide>
+    ))}
+  </Swiper>
+</div>
+
 
           {/* Desktop: two-column zoom grid (same as your original UI) */}
           <div className="hidden md:grid grid-cols-2 gap-1 max-h-[700px] overflow-y-auto pr-2">
@@ -412,8 +411,8 @@ const handleAddToBagWithLoginCheck = () => {
         setSelectedSize("One Size");
         setSizeError(false);
       }}
-      className={`border py-2 rounded-md text-sm
-        ${selectedSize === "One Size" ? "border-black bg-gray-200" : "border-gray-300"}
+      className={`border py-2 px-2 rounded-md text-sm
+        ${selectedSize === "One Size" ? "border-black " : "border-gray-300"}
         ${product.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}
       `}
     >
@@ -429,9 +428,12 @@ const handleAddToBagWithLoginCheck = () => {
 
 
           {/* Description */}
-          {product.description && (
-            <p className="text-gray-600 leading-relaxed text-sm">{product.description}</p>
-          )}
+         {product.description && (
+  <p className="text-gray-600 leading-relaxed text-sm whitespace-pre-line">
+    {product.description}
+  </p>
+)}
+
 
           {/* ⭐ RATING SUMMARY — show only when reviews exist */}
           {totalReviews > 0 && (

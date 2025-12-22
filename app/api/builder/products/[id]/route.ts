@@ -96,20 +96,47 @@ export async function PUT(req: Request, context: Context) {
 /**
  * DELETE /api/builder/products/:id
  */
-export async function DELETE(_req: Request, context: Context) {
-  try {
-    const { id } = await context.params;
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
 
-    await prisma.product.delete({
-      where: { id },
-    });
+  try {
+    await prisma.$transaction([
+      prisma.stockReminder.deleteMany({
+        where: { productId: id },
+      }),
+
+      prisma.wishlist.deleteMany({
+        where: { productId: id },
+      }),
+
+      prisma.bag.deleteMany({
+        where: { productId: id },
+      }),
+
+      prisma.review.deleteMany({
+        where: { productId: id },
+      }),
+
+      prisma.rating.deleteMany({
+        where: { productId: id },
+      }),
+
+      prisma.product.delete({
+        where: { id },
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("BUILDER DELETE ERROR", err);
+  } catch (error) {
+    console.error("BUILDER DELETE ERROR", error);
     return NextResponse.json(
       { error: "Failed to delete product" },
       { status: 500 }
     );
   }
 }
+
+

@@ -106,12 +106,12 @@ export default function AdminDashboard() {
       icon: <Flame className="w-6 h-6 text-orange-600" />,
       color: "bg-orange-50 border-orange-200",
     },
-    {
-      title: "Wishlist Count",
-      value: "—", // You can add real later
-      icon: <Heart className="w-6 h-6 text-pink-600" />,
-      color: "bg-pink-50 border-pink-200",
-    },
+   {
+  title: "Wishlist Count",
+  value: stats.wishlistCount ?? 0,
+  icon: <Heart className="w-6 h-6 text-pink-600" />,
+  color: "bg-pink-50 border-pink-200",
+},
   ];
 
   return (

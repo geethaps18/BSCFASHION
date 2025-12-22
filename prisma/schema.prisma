@@ -142,6 +142,7 @@ model Product {
   status         String   @default("PENDING")
   purchases      Int      @default(0)
   createdAt      DateTime @default(now())
+ 
 
   categoryId   String?   @db.ObjectId
   seller       User?     @relation(fields: [sellerId], references: [id])
@@ -154,6 +155,7 @@ model Product {
   ratings        Rating[]
   reviews        Review[]
   stockReminders StockReminder[] @relation("StockReminderRelation")
+
 
   @@index([sellerId])
   @@index([siteId])

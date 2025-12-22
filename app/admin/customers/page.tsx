@@ -26,22 +26,26 @@ export default function CustomersPage() {
   const limit = 20; // 20 customers/page
 
   // Load customers from API
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const res = await fetch(
-          `/api/customers?page=${page}&limit=${limit}&sort=${sort}`,
-          { cache: "no-store" }
-        );
-        const data = await res.json();
-        setCustomers(data);
-      } catch (error) {
-        console.error("CUSTOMER FETCH ERROR:", error);
-      }
-    };
+useEffect(() => {
+  const fetchCustomers = async () => {
+    setLoading(true); // ✅ start loading
+    try {
+      const res = await fetch(
+        `/api/customers?page=${page}&limit=${limit}&sort=${sort}`,
+        { cache: "no-store" }
+      );
+      const data = await res.json();
+      setCustomers(data);
+    } catch (error) {
+      console.error("CUSTOMER FETCH ERROR:", error);
+    } finally {
+      setLoading(false); // ✅ STOP loading (THIS WAS MISSING)
+    }
+  };
 
-    fetchCustomers();
-  }, [page, sort]);
+  fetchCustomers();
+}, [page, sort]);
+
 
   const filtered = customers.filter((c) =>
     c.name?.toLowerCase().includes(search.toLowerCase())

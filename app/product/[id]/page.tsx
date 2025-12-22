@@ -55,8 +55,7 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
         setPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
 
         }
-        className={`w-full aspect-square md:aspect-[3/4] bg-white select-none ${
-
+        className={`w-full h-[400px] md:h-[360px] bg-gray-50 select-none ${
           zoom === MIN ? "cursor-zoom-in" : "cursor-move"
         }`}
         style={{

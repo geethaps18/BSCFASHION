@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Search, Plus, Pencil, Trash2, Bell } from "lucide-react";
 import Link from "next/link";
+import { useSite } from "@/components/SiteContext";
+
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([]);
@@ -10,6 +12,7 @@ export default function AdminProductsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  
 
   const fetchProducts = async () => {
     setLoading(true);

@@ -1,27 +1,26 @@
 // app/api/products/route.ts
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const runtime = "nodejs";
-
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { Buffer } from "buffer";
 
-    const PLATFORM_SITE_ID = "6943c4bb004c59f5ec1326a5";
-const PLATFORM_BRAND_NAME = "BSCFASHION";
 // ----------------------
 // Upload helper
 // ----------------------
 async function uploadToSupabase(file: File): Promise<string | null> {
   try {
-    const fileName = `${Date.now()}_${file.name}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+   const safeName = file.name.replace(/\s+/g, "-");
+const fileName = `${Date.now()}_${safeName}`;
+
 
     const { error } = await supabase.storage
       .from("products")
-      .upload(`images/${fileName}`, file, {
-        contentType: file.type,
+      .upload(`images/${fileName}`, buffer, {
+        contentType: file.type || "application/octet-stream",
         upsert: true,
       });
 
@@ -34,13 +33,12 @@ async function uploadToSupabase(file: File): Promise<string | null> {
       .from("products")
       .getPublicUrl(`images/${fileName}`);
 
-    return data.publicUrl;
+    return data?.publicUrl ?? null;
   } catch (err) {
-    console.error("Upload failed:", err);
+    console.error("Upload error:", err);
     return null;
   }
 }
-
 
 // ----------------------
 // GET Products
@@ -69,8 +67,6 @@ export async function GET(req: Request) {
     const sub2 = slugToName(sub2Slug);
 
     const where: Record<string, any> = {};
-
-
 
 
     // ✅ validate site only if siteId exists
@@ -133,27 +129,30 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
-    // 1️⃣ Get siteId from form (seller flow)
-    let siteId = formData.get("siteId")?.toString();
+const siteIdRaw = formData.get("siteId");
+let siteId: string | null = null;
+let brandName = "BSCFASHION";
+let isPlatform = true;
 
-    // 2️⃣ ADMIN FLOW → auto assign BSCFASHION
-    if (!siteId) {
-      siteId = PLATFORM_SITE_ID;
-    }
+if (siteIdRaw) {
+  siteId = String(siteIdRaw);
 
-    // 3️⃣ Validate site
-    const site = await prisma.site.findUnique({
-      where: { id: siteId },
-    });
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+  });
 
-    if (!site) {
-      return NextResponse.json(
-        { message: "Invalid site" },
-        { status: 400 }
-      );
-    }
+  if (!site) {
+    return NextResponse.json(
+      { message: "Invalid site" },
+      { status: 400 }
+    );
+  }
 
-    // 4️⃣ Read rest of data
+  brandName = site.name;
+  isPlatform = false;
+}
+
+
     const name = String(formData.get("name") || "");
     const description = String(formData.get("description") || "");
 
@@ -170,11 +169,14 @@ export async function POST(req: Request) {
     const discount =
       Number(formData.get("discount")) ||
       (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
-
     const stock = Number(formData.get("stock") || 0);
 
     const sizes = formData.get("sizes")
       ? JSON.parse(String(formData.get("sizes")))
+      : [];
+
+    const colors = formData.get("colors")
+      ? JSON.parse(String(formData.get("colors")))
       : [];
 
     const productFiles = formData.getAll("images") as File[];
@@ -185,24 +187,26 @@ export async function POST(req: Request) {
       if (url) productImages.push(url);
     }
 
-    // 5️⃣ CREATE PRODUCT (ADMIN = BSCFASHION)
-    const product = await prisma.product.create({
-      data: {
-        siteId,
-        brandName: siteId === PLATFORM_SITE_ID ? PLATFORM_BRAND_NAME : site.name,
-        name,
-        description,
-        category,
-        subCategory,
-        subSubCategory,
-        price,
-        mrp,
-        discount,
-        stock,
-        sizes,
-        images: productImages,
-      },
-    });
+   const product = await prisma.product.create({
+  data: {
+    siteId,                 // null for admin
+    brandName,              // BSCFASHION or site name
+    isPlatform,             // true for admin
+    name,
+    description,
+    category,
+    subCategory,
+    subSubCategory,
+    price,
+    mrp,
+    discount,
+    stock,
+    sizes,
+    images: productImages,
+    status: "ACTIVE",       // admin products auto-live
+  },
+});
+
 
     return NextResponse.json({
       message: "✅ Product added successfully!",

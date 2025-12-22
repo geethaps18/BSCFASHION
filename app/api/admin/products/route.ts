@@ -17,21 +17,25 @@ export async function GET(req: Request) {
     let page = Number(url.searchParams.get("page") || 1);
     let limit = Number(url.searchParams.get("limit") || 20);
     const search = String(url.searchParams.get("search") || "").trim();
+    const siteId = url.searchParams.get("siteId");
 
     // sanitize
     if (!Number.isFinite(page) || page < 1) page = 1;
     if (!Number.isFinite(limit) || limit < 1) limit = 20;
     limit = Math.min(limit, 100);
     const skip = (page - 1) * limit;
+const where: Prisma.ProductWhereInput = {
+  ...(siteId ? { siteId } : {}),
+  ...(search
+    ? {
+        OR: [
+          { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { category: { contains: search, mode: Prisma.QueryMode.insensitive } },
+        ],
+      }
+    : {}),
+};
 
-    const where: Prisma.ProductWhereInput = search
-      ? {
-          OR: [
-            { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
-            { category: { contains: search, mode: Prisma.QueryMode.insensitive } },
-          ],
-        }
-      : {};
 
     // include _count.stockReminders so we can show reminderCount
     const products = await prisma.product.findMany({
@@ -48,16 +52,20 @@ export async function GET(req: Request) {
 
     const total = await prisma.product.count({ where });
 
-    const mapped = products.map((p) => ({
-      id: p.id,
-      name: p.name ?? "",
-      category: p.category ?? "",
-      price: p.price ?? 0,
-      stock: p.stock ?? 0,
-      images: Array.isArray(p.images) ? p.images : [],
-      createdAt: p.createdAt,
-      reminderCount: p._count?.stockReminders ?? 0,
-    }));
+   const mapped = products.map((p) => ({
+  id: p.id,
+  name: p.name ?? "",
+  category: p.category ?? "",
+  price: p.price ?? 0,
+  stock: p.stock ?? 0,
+  images: Array.isArray(p.images) ? p.images : [],
+  status: p.status,          // ✅ REQUIRED
+  siteId: p.siteId,          // ✅ REQUIRED
+  brandName: p.brandName,    // ✅ OPTIONAL but useful
+  createdAt: p.createdAt,
+  reminderCount: p._count?.stockReminders ?? 0,
+}));
+
 
     return NextResponse.json({
       products: mapped,

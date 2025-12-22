@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import LoadingRing from "@/components/LoadingRing";
 import Link from "next/link";
 
+const productCache = new Map<string, ProductWithReviews>();
 
 
 /** --------------------------
@@ -99,7 +100,13 @@ export default function ProductDetailPage() {
   const { addToCart } = useCart();
   const router = useRouter();
 
-  const [product, setProduct] = useState<ProductWithReviews | null>(null);
+ const [product, setProduct] = useState<ProductWithReviews | null>(() => {
+  if (id && productCache.has(id)) {
+    return productCache.get(id)!;
+  }
+  return null;
+});
+
   const [similarProducts, setSimilarProducts] = useState<ProductType[]>([]);
   const [networkError, setNetworkError] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -134,45 +141,37 @@ useEffect(() => {
 
 
 
-  useEffect(() => {
-    if (!id) return;
+ useEffect(() => {
+  if (!id) return;
 
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/products/${id}`);
-        if (!res.ok) {
-          setProduct(null);
-          return;
-        }
+  if (productCache.has(id)) {
+    return; // already set from initial state
+  }
 
-        const data = (await res.json()) as ProductWithReviews;
-        // ensure fields exist
-        setProduct({
-          ...data,
-          reviews: Array.isArray(data.reviews) ? data.reviews : [],
-          rating: data.rating ?? 0,
-          reviewCount: data.reviewCount ?? (data.reviews ? data.reviews.length : 0),
-        });
+  const load = async () => {
+    try {
+      const res = await fetch(`/api/products/${id}`);
+      if (!res.ok) return;
 
+      const data = (await res.json()) as ProductWithReviews;
 
-        // Fetch similar products
-        const params2 = new URLSearchParams();
-        if ((data as any).subSubCategory) params2.append("subSubCategory", (data as any).subSubCategory);
-        else if ((data as any).subCategory) params2.append("subCategory", (data as any).subCategory);
-        else if ((data as any).category) params2.append("category", (data as any).category);
-        params2.append("exclude", data.id);
+      const finalProduct = {
+        ...data,
+        reviews: Array.isArray(data.reviews) ? data.reviews : [],
+        rating: data.rating ?? 0,
+        reviewCount: data.reviewCount ?? 0,
+      };
 
-        const sim = await fetch(`/api/products/similar?${params2.toString()}`);
-        if (sim.ok) setSimilarProducts(await sim.json());
-      } catch (err) {
-        console.error("Product fetch error:", err);
-        setNetworkError("No internet connection. Please check your network.");
-        setProduct(null);
-      }
-    };
+      productCache.set(id, finalProduct);
+      setProduct(finalProduct);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-    load();
-  }, [id]);
+  load();
+}, [id]);
+
 
   if (networkError) {
     return (

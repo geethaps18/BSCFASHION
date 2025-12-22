@@ -318,22 +318,24 @@ const handleAddToBagWithLoginCheck = () => {
           </div>
 
           {/* Mobile: Swiper slides (swipe only) */}
-          {/* Mobile: Swiper */}
-<div className="md:hidden mb-4">
-  <Swiper
-    slidesPerView={1}
-    spaceBetween={10}
-    modules={[Pagination, Scrollbar]}
-    scrollbar={{ draggable: true }}
-  >
-    {images.map((img) => (
-      <SwiperSlide key={img}>
-        <ZoomImage src={img} alt={product.name} />
-      </SwiperSlide>
-    ))}
-  </Swiper>
-</div>
-
+          <div className="md:hidden mb-4">
+            <Swiper
+              slidesPerView={1.2}
+              spaceBetween={10}
+              centeredSlides
+              modules={[Pagination, Scrollbar]}
+              scrollbar={{ draggable: true }}
+            >
+              {images.map((img) => (
+                <SwiperSlide key={img}>
+                  <div className="w-full h-[360px] bg-gray-50 rounded overflow-hidden">
+                    {/* mobile still uses zoom on tap inside ZoomImage */}
+                    <ZoomImage src={img} alt={product.name} />
+                  </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
 
           {/* Desktop: two-column zoom grid (same as your original UI) */}
           <div className="hidden md:grid grid-cols-2 gap-1 max-h-[700px] overflow-y-auto pr-2">

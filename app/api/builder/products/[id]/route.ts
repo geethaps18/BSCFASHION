@@ -98,9 +98,12 @@ export async function PUT(req: Request, context: Context) {
  */
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = params.id;
+  const { id } = await params;
+
+  // delete logic here
+
 
   try {
     await prisma.$transaction([

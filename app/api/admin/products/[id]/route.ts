@@ -254,9 +254,9 @@ export async function PUT(
 // DELETE product (admin)
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
 
   try {
     // 1️⃣ Clean Wishlist FIRST

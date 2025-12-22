@@ -1,6 +1,8 @@
 // app/api/products/route.ts
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const runtime = "nodejs";
+
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
@@ -14,13 +16,12 @@ const PLATFORM_BRAND_NAME = "BSCFASHION";
 // ----------------------
 async function uploadToSupabase(file: File): Promise<string | null> {
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
     const fileName = `${Date.now()}_${file.name}`;
 
     const { error } = await supabase.storage
       .from("products")
-      .upload(`images/${fileName}`, buffer, {
-        contentType: file.type || "application/octet-stream",
+      .upload(`images/${fileName}`, file, {
+        contentType: file.type,
         upsert: true,
       });
 
@@ -33,12 +34,13 @@ async function uploadToSupabase(file: File): Promise<string | null> {
       .from("products")
       .getPublicUrl(`images/${fileName}`);
 
-    return data?.publicUrl ?? null;
+    return data.publicUrl;
   } catch (err) {
-    console.error("Upload error:", err);
+    console.error("Upload failed:", err);
     return null;
   }
 }
+
 
 // ----------------------
 // GET Products

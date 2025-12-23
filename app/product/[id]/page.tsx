@@ -47,7 +47,7 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
   };
 
   return (
-    <div className="relative w-full overflow-hidden shadow-lg">
+    <div className="relative w-full ">
       <div
         onClick={toggleZoom}
         onMouseMove={(e) => setPos(e.clientX, e.clientY, e.currentTarget)}
@@ -56,15 +56,16 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
         setPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget)
 
         }
-        className={`w-full h-[400px] md:h-[360px] bg-gray-50 select-none ${
+        className={`w-full aspect-[3/4] select-none  ${
           zoom === MIN ? "cursor-zoom-in" : "cursor-move"
         }`}
-        style={{
-          backgroundImage: `url(${src})`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: zoom === MIN ? "center" : bgPos,
-          backgroundSize: zoom === MIN ? "contain" : `${zoom * 120}%`,
-        }}
+       style={{
+  backgroundImage: `url(${src})`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: zoom === MIN ? "center" : bgPos,
+  backgroundSize: zoom === MIN ? "cover" : `${zoom * 140}%`,
+}}
+
       >
         {/* Invisible Image keeps layout/resolution stable for Next/Image optimization */}
         <Image src={src} alt={alt} fill className="opacity-0" draggable={false} />
@@ -297,12 +298,17 @@ const handleAddToBagWithLoginCheck = () => {
 
   // ---------------- UI ----------------
   return (
-    <div className="min-h-screen bg-white px-4 sm:px-6 py-6 pt-20 md:pt-24">
+  <div className="min-h-screen bg-white pt-20 md:pt-24">
+
+
       <Header productName={product.name} />
 
-      <div className="flex flex-col md:flex-row gap-6 max-w-6xl mx-auto mt-4">
+   <div className="flex flex-col md:flex-row w-full mt-4">
+
         {/* Images */}
-        <div className="w-full md:w-1/2 relative">
+       <div className="w-screen md:w-[67%] relative -mx-4 md:mx-0">
+
+
           <div className="absolute bottom-6 right-2 z-10">
             {product.rating && product.rating > 0 ? (
               <div className="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1">
@@ -318,15 +324,16 @@ const handleAddToBagWithLoginCheck = () => {
           {/* Mobile: Swiper slides (swipe only) */}
           <div className="md:hidden mb-4">
             <Swiper
-              slidesPerView={1.2}
-              spaceBetween={10}
+              slidesPerView={1}
+              spaceBetween={1}
               centeredSlides
               modules={[Pagination, Scrollbar]}
               scrollbar={{ draggable: true }}
             >
               {images.map((img) => (
                 <SwiperSlide key={img}>
-                  <div className="w-full h-[360px] bg-gray-50 rounded overflow-hidden">
+                  <div className="w-full h-[90vh] bg-gray-50 overflow-hidden">
+
                     {/* mobile still uses zoom on tap inside ZoomImage */}
                     <ZoomImage src={img} alt={product.name} />
                   </div>
@@ -336,15 +343,21 @@ const handleAddToBagWithLoginCheck = () => {
           </div>
 
           {/* Desktop: two-column zoom grid (same as your original UI) */}
-          <div className="hidden md:grid grid-cols-2 gap-1 max-h-[700px] overflow-y-auto pr-2">
-            {images.map((img) => (
-              <ZoomImage key={img} src={img} alt={product.name} />
-            ))}
-          </div>
+  <div className="hidden md:grid grid-cols-2 gap-[2px]">
+
+  {images.map((img) => (
+    <ZoomImage key={img} src={img} alt={product.name} />
+  ))}
+</div>
+
+
         </div>
 
         {/* Information */}
-        <div className="flex flex-col gap-4 w-full md:w-1/2">
+        
+   <div className="flex flex-col gap-4 w-full md:w-[33%] px-6">
+
+
           <div>
             <div className="flex justify-between items-center">
               <h1 className="text-lg font-light tracking-tight">{product.name}</h1>

@@ -183,7 +183,7 @@ useEffect(() => {
   return (
     <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
 
-      <div className="max-w-7xl mx-auto px-2 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-2">
+     <div className="w-full px-4 md:px-8 py-2 sm:py-3 flex items-center justify-between gap-2">
         {/* Left: Back Arrow + Logo + Page Name */}
         <div className="flex items-center gap-4">
          {isBackArrowPage && (
@@ -238,7 +238,7 @@ useEffect(() => {
 >
   {/* CATEGORY BAR */}
   <div className="border-t">
-    <div className="max-w-7xl mx-auto px-8 h-12 flex items-center gap-8 text-sm font-medium text-gray-700 overflow-hidden">
+    <div className="w-full px-10 h-12 flex items-center gap-8 text-sm font-medium text-gray-700 overflow-hidden">
       {categories.map((cat) => (
         <div
           key={cat.id}
@@ -267,7 +267,7 @@ useEffect(() => {
   {/* MEGA MENU */}
   {activeCategory && (
     <div className="absolute left-0 right-0 top-full bg-white border-t shadow-2xl z-50">
-      <div className="max-w-7xl mx-auto px-10 py-8 max-h-[70vh] overflow-y-auto">
+      <div className="w-full px-1 py-8 max-h-[70vh] overflow-y-auto">
         <div className="grid grid-cols-4 gap-10">
           {categories
             .find((c) => c.name === activeCategory)

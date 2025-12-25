@@ -380,7 +380,8 @@ console.log(product.fit, product.fabricCare, product.features);
    <div className="flex flex-col md:flex-row w-full mt-4">
 
         {/* Images */}
-       <div className="w-screen md:w-[67%] relative -mx-4 md:mx-0">
+     <div className="w-full md:w-[67%] relative md:mx-0 overflow-hidden">
+
 
 
           <div className="absolute bottom-6 right-2 z-10">

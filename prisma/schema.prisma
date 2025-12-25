@@ -8,11 +8,7 @@ generator client {
   engineType = "binary"
 }
 
-/**
- * =========================
- * OTP
- * =========================
- */
+
 model OTP {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   contact   String   @unique // email OR phone
@@ -21,11 +17,7 @@ model OTP {
   createdAt DateTime @default(now())
 }
 
-/**
- * =========================
- * USERS
- * =========================
- */
+
 model User {
   id    String  @id @default(auto()) @map("_id") @db.ObjectId
   phone String?
@@ -69,11 +61,7 @@ model Settings {
   updatedAt DateTime @updatedAt
 }
 
-/**
- * =========================
- * ADDRESSES
- * =========================
- */
+
 model Address {
   id         String    @id @default(auto()) @map("_id") @db.ObjectId
   userId     String    @db.ObjectId
@@ -94,11 +82,7 @@ model Address {
   user User @relation(fields: [userId], references: [id])
 }
 
-/**
- * =========================
- * CATEGORY (hierarchical)
- * =========================
- */
+
 model Category {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   name      String
@@ -115,11 +99,6 @@ model Category {
   @@index([parentId])
 }
 
-/**
- * =========================
- * PRODUCTS
- * =========================
- */
 model Product {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   name           String?
@@ -176,11 +155,7 @@ model StockReminder {
   product Product @relation("StockReminderRelation", fields: [productId], references: [id])
 }
 
-/**
- * =========================
- * PRODUCT VARIANTS
- * =========================
- */
+
 
 model Rating {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -221,11 +196,6 @@ model Review {
   @@index([orderId])
 }
 
-/**
- * =========================
- * WISHLIST
- * =========================
- */
 model Wishlist {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
@@ -241,11 +211,7 @@ model Wishlist {
   @@index([productId])
 }
 
-/**
- * =========================
- * BAG
- * =========================
- */
+
 model Bag {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
@@ -262,11 +228,7 @@ model Bag {
   @@index([productId])
 }
 
-/**
- * =========================
- * ACCOUNT
- * =========================
- */
+
 model Account {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId
   userId        String   @unique @db.ObjectId
@@ -285,11 +247,7 @@ model Account {
   user User @relation(fields: [userId], references: [id])
 }
 
-/**
- * =========================
- * ORDERS
- * =========================
- */
+
 model Order {
   id               String    @id @default(auto()) @map("_id") @db.ObjectId
   userId           String?   @db.ObjectId // ❌ remove ?
@@ -321,11 +279,7 @@ model Order {
   @@index([userId])
 }
 
-/**
- * =========================
- * ORDER ITEMS
- * =========================
- */
+
 model OrderItem {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
   orderId   String  @db.ObjectId

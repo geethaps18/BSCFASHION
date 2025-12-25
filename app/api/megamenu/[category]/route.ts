@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 export async function GET(
-  req: Request,
-  { params }: { params: { category: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ category: string }> }
 ) {
-  const category = decodeURIComponent(params.category);
+  const { category } = await params;
 
   const products = await prisma.product.findMany({
     where: {
@@ -19,7 +19,7 @@ export async function GET(
       name: true,
       images: true,
     },
-    take: 2, // 👈 Vuori-style: only 1–2 hero images
+    take: 2, // Vuori-style hero items
   });
 
   return NextResponse.json(products);

@@ -407,7 +407,7 @@ console.log(product.fit, product.fabricCare, product.features);
             >
               {images.map((img) => (
                 <SwiperSlide key={img}>
-                  <div className="w-full h-[90vh] bg-gray-50 overflow-hidden">
+                  <div className="w-full bg-gray-50 overflow-hidden">
 
                     {/* mobile still uses zoom on tap inside ZoomImage */}
                     <ZoomImage src={img} alt={product.name} />

@@ -37,6 +37,17 @@ export default function Header({ productName }: HeaderProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSeller, setIsSeller] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [menuProducts, setMenuProducts] = useState<Product[]>([]);
+  const categoryBarRef = React.useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+  if (!activeCategory) return;
+
+  fetch(`/api/megamenu/${activeCategory}`)
+    .then(res => res.json())
+    .then(setMenuProducts)
+    .catch(() => setMenuProducts([]));
+}, [activeCategory]);
 
 
 
@@ -79,6 +90,10 @@ useEffect(() => {
 }, []);
 
 
+useEffect(() => {
+  // Close mega menu on route change
+  setActiveCategory(null)
+}, [pathname])
 
 
   useEffect(() => setMounted(true), []);
@@ -172,6 +187,11 @@ useEffect(() => {
       setSearchQuery("");
     }
   };
+  const [underlineStyle, setUnderlineStyle] = useState<{
+  left: number
+  width: number
+} | null>(null)
+
 
   const noArrowPages = ["/", "/bag"];
   const isBackArrowPage = !noArrowPages.includes(
@@ -181,10 +201,17 @@ useEffect(() => {
   const showHeartIcon = pathname !== "/wishlist";
 
   return (
-    <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
+    
+ <header className="fixed top-0 left-0 w-full bg-white border-b border-black/10 z-50">
+    
 
-     <div className="w-full px-4 md:px-8 py-2 sm:py-3 flex items-center justify-between gap-2">
-        {/* Left: Back Arrow + Logo + Page Name */}
+     <div className="w-full px-4 md:px-8 py-2 sm:py-3 flex items-center gap-2">
+      
+      
+
+
+          
+ {/* Left: Back Arrow + Logo + Page Name */}
         <div className="flex items-center gap-4">
          {isBackArrowPage && (
   <div
@@ -194,11 +221,6 @@ useEffect(() => {
     <ArrowLeft className="w-5 h-5 text-gray-700" />
   </div>
 )}
-
-
-
-          
-
         {/* LOGO */}
 <div
   className={`
@@ -216,35 +238,32 @@ useEffect(() => {
   />
 </div>
 
+{/* CATEGORY BAR */}
+<div ref={categoryBarRef} className="hidden lg:block relative">
 
-         {isBackArrowPage && (
-  <div className="flex flex-col lg:hidden">
-    <span className="font-medium text-gray-800 text-sm">
-      {pageName}
-    </span>
-    {mounted && productCount > 0 && (
-      <span className="text-xs text-gray-500">
-        {productCount} Products
-      </span>
-    )}
-  </div>
-)}
-
-        </div>
-{/* DESKTOP HOVER ZONE */}
-<div
-  className="hidden lg:block relative"
-  onMouseLeave={() => setActiveCategory(null)}
->
-  {/* CATEGORY BAR */}
-  <div className="border-t">
-    <div className="w-full px-10 h-12 flex items-center gap-8 text-sm font-medium text-gray-700 overflow-hidden">
+    <div className="w-full px-10 h-12 flex items-center gap-8 text-sm font-medium text-gray-700 ">
+     
       {categories.map((cat) => (
         <div
           key={cat.id}
           className="relative flex-shrink-0"
-          onMouseEnter={() => setActiveCategory(cat.name)}
+    onMouseEnter={(e) => {
+  if (!categoryBarRef.current) return
+
+  const itemRect = e.currentTarget.getBoundingClientRect()
+  const barRect = categoryBarRef.current.getBoundingClientRect()
+
+  setActiveCategory(cat.name)
+  setUnderlineStyle({
+    left: itemRect.left - barRect.left,
+width: itemRect.width,
+
+  })
+}}
+
+
         >
+          
           <span
             className="
               block
@@ -257,34 +276,66 @@ useEffect(() => {
             "
             title={cat.name}
           >
+            
             {cat.name}
           </span>
         </div>
       ))}
+      {activeCategory && underlineStyle && (
+  <div
+    className="absolute bg-black transition-all duration-300"
+    style={{
+      height: "2px",
+      left: underlineStyle.left,
+      width: underlineStyle.width,
+      bottom: "-1px", // between header & menu
+    }}
+  />
+)}
+      
     </div>
   </div>
+{/* BACKDROP (Vuori style – BELOW HEADER) */}
+{activeCategory && (
+  <div
+    className="fixed inset-0 bg-black/20 z-40"
+    style={{ top: "64px" }} // 👈 height of header
+    onClick={() => setActiveCategory(null)}
+  />
+)}  
 
-  {/* MEGA MENU */}
-  {activeCategory && (
-    <div className="absolute left-0 right-0 top-full bg-white border-t shadow-2xl z-50">
-      <div className="w-full px-1 py-8 max-h-[70vh] overflow-y-auto">
-        <div className="grid grid-cols-4 gap-10">
+
+{/* MEGA MENU */}
+{activeCategory && ( 
+  <div className="absolute left-0 right-0 top-full bg-white border-t shadow-2xl z-50 h-[582px]"
+    style={{ top: "64px" }} 
+  onClick={(e) => e.stopPropagation()}>
+    
+    {/* FULL WIDTH WRAPPER */}
+    <div className="w-full h-full px-16 py-8">
+      
+      {/* MAIN GRID */}
+      <div className="grid grid-cols-12 gap-12 h-full">
+
+        {/* ================= LEFT: TEXT ================= */}
+        <div className="col-span-7 grid grid-cols-3 gap-x-10 gap-y-6">
+
           {categories
             .find((c) => c.name === activeCategory)
             ?.subCategories.map((sub) => (
               <div key={sub.id}>
-               <Link
-  href={`/categories/${activeCategory
-    .toLowerCase()
-    .replace(/\s+/g, "-")}/${sub.name
-    .toLowerCase()
-    .replace(/\s+/g, "-")}`}
-  className="block font-semibold text-gray-900 mb-4 hover:text-black"
->
-  {sub.name}
-</Link>
+                <Link
+                  href={`/categories/${activeCategory
+                    .toLowerCase()
+                    .replace(/\s+/g, "-")}/${sub.name
+                    .toLowerCase()
+                    .replace(/\s+/g, "-")}`}
+                  className="block text-[15px] font-semibold text-gray-900 mb-3"
+                >
+                  {sub.name}
+                </Link>
 
-                <ul className="space-y-2">
+                <ul className="space-y-1">
                   {sub.subCategories.map((child) => (
                     <li key={child.id}>
                       <Link
@@ -305,13 +356,51 @@ useEffect(() => {
               </div>
             ))}
         </div>
+
+        {/* ================= RIGHT: BIG IMAGE (VUORI STYLE) ================= */}
+        <div className="col-span-5 flex justify-end">
+          {menuProducts[0] && (
+            <Link
+              href={`/product/${menuProducts[0].id}`}
+              className="block w-[360px]"
+            >
+              <div className="relative w-full aspect-[4/5] overflow-hidden">
+                <Image
+                  src={menuProducts[0].images?.[0]}
+                  alt={menuProducts[0].name}
+                  fill
+                  className="object-cover transition-transform duration-500 hover:scale-105"
+                  priority
+                />
+              </div>
+
+              <p className="mt-3 text-sm text-gray-800">
+                {menuProducts[0].name}
+              </p>
+            </Link>
+          )}
+        </div>
+
       </div>
     </div>
-  )}
-</div>
-
+  </div>
+)}
+         {isBackArrowPage && (
+  <div className="flex flex-col lg:hidden">
+    <span className="font-medium text-gray-800 text-sm">
+      {pageName}
+    </span>
+    {mounted && productCount > 0 && (
+      <span className="text-xs text-gray-500">
+        {productCount} Products
+      </span>
+    )}
+  </div>
+)}
+   </div>
 {/* Right Icons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+
           <button
             aria-label="Search"
             onClick={() => setIsSearchOpen(true)}
@@ -329,9 +418,7 @@ useEffect(() => {
     <User className="w-5 h-5 text-gray-600 stroke-[1.2]" />
   </Link>
 )}
-
-
-          {mounted && showHeartIcon && (
+        {mounted && showHeartIcon && (
             <Link
               href="/wishlist"
               className="relative p-1.5 sm:p-2 rounded-full hover:bg-gray-100 transition"
@@ -372,9 +459,7 @@ useEffect(() => {
     <Store className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 stroke-[1.2]" />
   </button>
 )}
-
-
-        </div>
+    </div>
       </div>
 
 {isSearchOpen && (
@@ -426,6 +511,7 @@ useEffect(() => {
   </>
 )}
 
-    </header>
+ </header>
+    
   );
 }

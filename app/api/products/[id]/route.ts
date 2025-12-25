@@ -76,19 +76,23 @@ export async function GET(
     ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
       product.reviews.length
     : 0;
-
 const normalized = {
   id: product.id,
   name: product.name ?? "",
-   brandName: product.brandName ?? "BSCFASHION", 
+  brandName: product.brandName ?? "BSCFASHION",
   description: product.description ?? "",
   images: product.images ?? [],
   price: product.price ?? 0,
   mrp: product.mrp ?? null,
   sizes: product.sizes ?? [],
-  rating: averageRating,                 
-  reviewCount: product.reviews.length, 
-  stock: product.stock ?? 0,  
+  rating: averageRating,
+  reviewCount: product.reviews.length,
+  stock: product.stock ?? 0,
+
+  // ✅ ADD THESE
+  fit: product.fit ?? [],
+  fabricCare: product.fabricCare ?? [],
+  features: product.features ?? [],
 
   reviews: product.reviews.map((r) => ({
     id: r.id,
@@ -102,6 +106,7 @@ const normalized = {
   subCategory: product.subCategory ?? null,
   subSubCategory: product.subSubCategory ?? null,
 };
+
 
 
     return NextResponse.json(normalized);

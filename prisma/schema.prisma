@@ -124,6 +124,10 @@ model Product {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   name           String?
   description    String?
+  fit            String[]
+  fabricCare     String[]
+  features       String[]
+
   category       String?
   subCategory    String?
   subSubCategory String?

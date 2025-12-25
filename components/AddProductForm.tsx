@@ -33,6 +33,10 @@ export default function AddProductFormTabbed() {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [fit, setFit] = useState("");
+const [fabricCare, setFabricCare] = useState("");
+const [features, setFeatures] = useState("");
+
   const [category, setCategory] = useState<SubCategory | null>(categories[0] || null);
   const [subCategory, setSubCategory] = useState<SubCategory | null>(null);
   const [subSubCategory, setSubSubCategory] = useState<SubCategory | null>(null);
@@ -156,6 +160,27 @@ export default function AddProductFormTabbed() {
    
 
 form.append("siteId", siteId!);
+form.append(
+  "fit",
+  JSON.stringify(
+    fit.split("\n").map(v => v.trim()).filter(Boolean)
+  )
+);
+
+form.append(
+  "fabricCare",
+  JSON.stringify(
+    fabricCare.split("\n").map(v => v.trim()).filter(Boolean)
+  )
+);
+
+form.append(
+  "features",
+  JSON.stringify(
+    features.split("\n").map(v => v.trim()).filter(Boolean)
+  )
+);
+
 
 
       const res = await fetch('/api/products', { method: 'POST', body: form });
@@ -217,6 +242,41 @@ form.append("siteId", siteId!);
                   <span className="text-sm font-medium">Description</span>
                   <textarea value={description} onChange={e=>setDescription(e.target.value)} className="mt-1 block w-full rounded border px-3 py-2 h-36" />
                 </label>
+                <label className="block">
+  <span className="text-sm font-medium">Fit (one point per line)</span>
+  <textarea
+    value={fit}
+    onChange={(e) => setFit(e.target.value)}
+    className="mt-1 block w-full rounded border px-3 py-2 h-24"
+    placeholder="Relaxed fit from chest through bottom
+Model is 6'2 wearing size L"
+  />
+</label>
+
+<label className="block">
+  <span className="text-sm font-medium">Fabric & Care (one point per line)</span>
+  <textarea
+    value={fabricCare}
+    onChange={(e) => setFabricCare(e.target.value)}
+    className="mt-1 block w-full rounded border px-3 py-2 h-24"
+    placeholder="66% Organic Cotton, 34% Polyester
+Machine wash cold
+Do not bleach"
+  />
+</label>
+
+<label className="block">
+  <span className="text-sm font-medium">Product Features (one point per line)</span>
+  <textarea
+    value={features}
+    onChange={(e) => setFeatures(e.target.value)}
+    className="mt-1 block w-full rounded border px-3 py-2 h-24"
+    placeholder="4-way stretch
+Breathable fabric
+Soft brushed interior"
+  />
+</label>
+
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>

@@ -20,6 +20,8 @@ import { getCookie } from "cookies-next";
 import { useRouter } from "next/navigation";
 import LoadingRing from "@/components/LoadingRing";
 import Link from "next/link";
+import ProductAccordion from "@/components/ProductAccordion";
+
 
 const productCache = new Map<string, ProductWithReviews>();
 
@@ -90,8 +92,13 @@ type ProductWithReviews = ProductType & {
   reviews?: Review[];
   rating?: number;
   reviewCount?: number;
-  stock?:number;
+  stock?: number;
+
+  fit?: string[];
+  fabricCare?: string[];
+  features?: string[];
 };
+
 
 export default function ProductDetailPage() {
   const params = useParams<{ id?: string }>();
@@ -114,12 +121,14 @@ export default function ProductDetailPage() {
   const [addingToBag, setAddingToBag] = useState(false);
   const [sizeError, setSizeError] = useState(false);
   const sizesRef = useRef<HTMLDivElement | null>(null);
-
+  
   // Gallery modal state for Real Images fullscreen slider
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
   const [showStickyBar, setShowStickyBar] = useState(true);
   const visibleSimilarProducts = similarProducts.slice(0, 8);
+const infoRef = useRef<HTMLDivElement | null>(null);
+const [showStickyDesktopBar, setShowStickyDesktopBar] = useState(false);
 
 
 
@@ -139,6 +148,19 @@ useEffect(() => {
 useEffect(() => {
   window.scrollTo({ top: 0, behavior: "instant" });
 }, [id]);
+useEffect(() => {
+  const handleScroll = () => {
+    if (!infoRef.current) return;
+
+    const rect = infoRef.current.getBoundingClientRect();
+
+    // when product info scrolls out of view
+    setShowStickyDesktopBar(rect.bottom < 0);
+  };
+
+  window.addEventListener("scroll", handleScroll);
+  return () => window.removeEventListener("scroll", handleScroll);
+}, []);
 
 
 
@@ -295,13 +317,65 @@ const handleAddToBagWithLoginCheck = () => {
     setIsGalleryOpen(false);
     document.body.style.overflow = "";
   };
+console.log(product.fit, product.fabricCare, product.features);
 
   // ---------------- UI ----------------
   return (
   <div className="min-h-screen bg-white pt-20 md:pt-24">
 
 
-      <Header productName={product.name} />
+   <Header productName={product.name} />
+
+{showStickyDesktopBar && (
+ <div
+  className={`hidden md:flex fixed left-0 right-0 z-40
+  top-[72px]
+  backdrop-blur-md bg-white/90
+  border-b border-black/10
+  transition-all duration-300 ease-out
+  ${showStickyDesktopBar
+    ? "opacity-100 translate-y-0"
+    : "opacity-0 -translate-y-4 pointer-events-none"}
+  `}
+>
+
+    <div className="max-w-7xl mx-auto w-full flex items-center justify-between px-6 py-3">
+
+      {/* LEFT: IMAGE + INFO */}
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-14 relative rounded overflow-hidden border">
+          <Image
+            src={product.images?.[0] || "/placeholder.png"}
+            alt={product.name}
+            fill
+            className="object-cover"
+          />
+        </div>
+
+        <div className="leading-tight">
+          <p className="text-sm font-medium line-clamp-1">
+            {product.name}
+          </p>
+          <p className="text-sm text-gray-700">
+            Rs.{price}
+          </p>
+        </div>
+      </div>
+
+      {/* RIGHT: BUTTON */}
+      <button
+        onClick={handleAddToBagWithLoginCheck}
+        disabled={addingToBag}
+        className="px-6 py-2 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500"
+      >
+        {addingToBag ? "Added!" : "Add to Bag"}
+      </button>
+
+    </div>
+  </div>
+)}
+
+
 
    <div className="flex flex-col md:flex-row w-full mt-4">
 
@@ -358,7 +432,7 @@ const handleAddToBagWithLoginCheck = () => {
    <div className="flex flex-col gap-4 w-full md:w-[33%] px-6">
 
 
-          <div>
+          <div ref={infoRef}>
             <div className="flex justify-between items-center">
               <h1 className="text-lg font-light tracking-tight">{product.name}</h1>
               <Share2 className="h-5 w-5 text-gray-700" />
@@ -388,16 +462,14 @@ const handleAddToBagWithLoginCheck = () => {
 </div>
 
 
-      {/* Sizes Section (supports One Size fallback) */}
-{/* Sizes Section (supports One Size + Out of Stock) */}
-<div
+    <div
   ref={sizesRef}
   className={`${sizeError ? "ring-1 ring-red-400 rounded-md p-2" : ""}`}
 >
-  <p className="text-gray-700 mb-2">Size</p>
+  <p className="text-gray-700 mb-2 text-sm font-medium">Size</p>
 
   {product.sizes && product.sizes.length > 0 ? (
-    <div className="grid grid-cols-10 gap-2">
+    <div className="flex flex-wrap gap-2">
       {product.sizes.map((size) => (
         <button
           key={size}
@@ -407,8 +479,15 @@ const handleAddToBagWithLoginCheck = () => {
             setSelectedSize(size);
             setSizeError(false);
           }}
-          className={`border py-2 rounded-md text-sm
-            ${selectedSize === size ? "border-black bg-gray-200" : "border-gray-300"}
+          className={`
+            min-w-[44px] h-10 px-3
+            text-sm font-medium
+            border transition
+            ${
+              selectedSize === size
+                ? "border-gray-900 text-gray-900"
+                : "border-gray-300 text-gray-600 hover:border-gray-500"
+            }
             ${product.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}
           `}
         >
@@ -424,8 +503,15 @@ const handleAddToBagWithLoginCheck = () => {
         setSelectedSize("One Size");
         setSizeError(false);
       }}
-      className={`border py-2 px-2 rounded-md text-sm
-        ${selectedSize === "One Size" ? "border-black " : "border-gray-300"}
+      className={`
+        min-w-[80px] h-10 px-4
+        text-sm font-medium
+        border transition
+        ${
+          selectedSize === "One Size"
+            ? "border-gray-900 text-gray-900"
+            : "border-gray-300 text-gray-600 hover:border-gray-500"
+        }
         ${product.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}
       `}
     >
@@ -440,12 +526,10 @@ const handleAddToBagWithLoginCheck = () => {
 
 
 
-          {/* Description */}
-         {product.description && (
-  <p className="text-gray-600 leading-relaxed text-sm whitespace-pre-line">
-    {product.description}
-  </p>
-)}
+
+       
+
+
 
 
           {/* ⭐ RATING SUMMARY — show only when reviews exist */}
@@ -486,6 +570,7 @@ const handleAddToBagWithLoginCheck = () => {
 </div>
           )}
 
+
          
 
 {/* ----------------- OUT OF STOCK UI ----------------- */}
@@ -517,6 +602,8 @@ const handleAddToBagWithLoginCheck = () => {
     🔔 Remind Me
   </button>
 ) : (
+
+  
   <>
     {/* NORMAL ADD TO BAG + WISHLIST UI */}
     <div className="hidden md:flex flex-col gap-3 mt-4">
@@ -544,6 +631,28 @@ const handleAddToBagWithLoginCheck = () => {
   
   
 )}</div>
+<div className="mt-6 divide-y">
+  <ProductAccordion
+    title="Product Description"
+    content={product.description}
+  />
+
+  <ProductAccordion
+    title="Fit"
+    items={product.fit ?? []}
+  />
+
+  <ProductAccordion
+    title="Fabric & Care"
+    items={product.fabricCare ?? []}
+  />
+
+  <ProductAccordion
+    title="Product Features"
+    items={product.features ?? []}
+  />
+</div>
+
 
 
 

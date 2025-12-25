@@ -181,6 +181,18 @@ if (siteIdRaw) {
 
     const productFiles = formData.getAll("images") as File[];
     const productImages: string[] = [];
+ const fit = formData.get("fit")
+  ? JSON.parse(formData.get("fit") as string)
+  : [];
+
+const fabricCare = formData.get("fabricCare")
+  ? JSON.parse(formData.get("fabricCare") as string)
+  : [];
+
+const features = formData.get("features")
+  ? JSON.parse(formData.get("features") as string)
+  : [];
+
 
     for (const file of productFiles) {
       const url = await uploadToSupabase(file);
@@ -194,6 +206,9 @@ if (siteIdRaw) {
     isPlatform,             // true for admin
     name,
     description,
+     fit,           // ✅ ADD
+    fabricCare,    // ✅ ADD
+    features, 
     category,
     subCategory,
     subSubCategory,

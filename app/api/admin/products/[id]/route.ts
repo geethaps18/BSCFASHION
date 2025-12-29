@@ -254,38 +254,50 @@ export async function PUT(
 // DELETE product (admin)
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const id = params.id;
 
   try {
-    // 1️⃣ Clean Wishlist FIRST
-    await prisma.wishlist.deleteMany({
-      where: { productId: id },
-    });
+    await prisma.$transaction(async (tx) => {
+      // 1️⃣ Delete Stock Reminders
+      await tx.stockReminder.deleteMany({
+        where: { productId: id },
+      });
 
-    // 2️⃣ Clean Stock Reminders
-    await prisma.stockReminder.deleteMany({
-      where: { productId: id },
-    });
+      // 2️⃣ Delete Wishlist items
+      await tx.wishlist.deleteMany({
+        where: { productId: id },
+      });
 
-    // 3️⃣ Clean Reviews
-    await prisma.review.deleteMany({
-      where: { productId: id },
-    });
+      // 3️⃣ Delete Bag items
+      await tx.bag.deleteMany({
+        where: { productId: id },
+      });
 
-    // 4️⃣ Clean Ratings
-    await prisma.rating.deleteMany({
-      where: { productId: id },
-    });
+      // 4️⃣ Delete Reviews
+      await tx.review.deleteMany({
+        where: { productId: id },
+      });
 
-    // 5️⃣ NOW delete Product (ONLY place)
-    await prisma.product.delete({
-      where: { id },
+      // 5️⃣ Delete Ratings
+      await tx.rating.deleteMany({
+        where: { productId: id },
+      });
+
+      // 6️⃣ 🔥 DELETE PRODUCT VARIANTS FIRST
+      await tx.productVariant.deleteMany({
+        where: { productId: id },
+      });
+
+      // 7️⃣ ✅ NOW delete Product (NO ERROR)
+      await tx.product.delete({
+        where: { id },
+      });
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error("DELETE PRODUCT ERROR:", error);
     return NextResponse.json(
       { error: "Failed to delete product" },
@@ -293,4 +305,6 @@ export async function DELETE(
     );
   }
 }
+
+
 

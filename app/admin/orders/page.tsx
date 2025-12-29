@@ -22,6 +22,7 @@ type OrderItem = {
   quantity?: number;
   price?: number;
   size?: string;
+  color?: string;
   image?: string;
   product?: { images?: string[] };   // ⭐ ADD THIS
 };
@@ -541,6 +542,11 @@ const allPacked =
             Size: {it.size}
           </div>
         )}
+        {it.color && (
+  <div className="text-xs text-gray-500">
+    Color: {it.color}
+  </div>
+)}
       </div>
     </div>
 

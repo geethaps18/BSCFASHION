@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import LoadingRing from "@/components/LoadingRing";
 import Link from "next/link";
 import ProductAccordion from "@/components/ProductAccordion";
+import { COLOR_OPTIONS } from "@/data/colors";
 
 
 const productCache = new Map<string, ProductWithReviews>();
@@ -88,17 +89,43 @@ interface Review {
   userName?: string | null;
 }
 
-type ProductWithReviews = ProductType & {
-  reviews?: Review[];
+type ProductWithReviews = {
+  id: string;
+  name: string;
+  description: string;
+
+  brandName?: string;
+  category?: string;
+
+  images: string[];
+
+  price: number;
+  mrp?: number | null;
+  discount?: number | null;
+
+  stock?: number;
+
   rating?: number;
   reviewCount?: number;
+
+  sizes: string[];
+
+ variants: {
+  id: string;
+  size?: string | null;
+  color?: string | null;
+  price?: number;
   stock?: number;
+  images?: string[];
+}[];
+
+
+  reviews?: Review[];
 
   fit?: string[];
   fabricCare?: string[];
   features?: string[];
 };
-
 
 export default function ProductDetailPage() {
   const params = useParams<{ id?: string }>();
@@ -107,6 +134,7 @@ export default function ProductDetailPage() {
   const { wishlist, toggleWishlist } = useWishlist();
   const { addToCart } = useCart();
   const router = useRouter();
+
 
  const [product, setProduct] = useState<ProductWithReviews | null>(() => {
   if (id && productCache.has(id)) {
@@ -121,7 +149,8 @@ export default function ProductDetailPage() {
   const [addingToBag, setAddingToBag] = useState(false);
   const [sizeError, setSizeError] = useState(false);
   const sizesRef = useRef<HTMLDivElement | null>(null);
-  
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const variants = product?.variants ?? [];
   // Gallery modal state for Real Images fullscreen slider
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
@@ -129,7 +158,31 @@ export default function ProductDetailPage() {
   const visibleSimilarProducts = similarProducts.slice(0, 8);
 const infoRef = useRef<HTMLDivElement | null>(null);
 const [showStickyDesktopBar, setShowStickyDesktopBar] = useState(false);
+const [selectedVariant, setSelectedVariant] = useState<{
+  id: string;
+  size?: string | null;
+  color?: string | null;
+  price?: number;
+  stock?: number;
+  images?: string[];
+} | null>(null);
 
+const getColorHex = (name: string) =>
+  COLOR_OPTIONS.find(c => c.name === name)?.hex ?? "#ccc";
+
+
+useEffect(() => {
+  if (!selectedColor) return;
+
+  const firstVariant = variants.find(
+    v => v.color === selectedColor && (v.stock ?? 0) > 0
+  );
+
+  if (firstVariant) {
+    setSelectedSize(firstVariant.size ?? null);
+    setSelectedVariant(firstVariant);
+  }
+}, [selectedColor, variants]);
 
 
   // ---------------- FETCH PRODUCT ----------------
@@ -161,6 +214,7 @@ useEffect(() => {
   window.addEventListener("scroll", handleScroll);
   return () => window.removeEventListener("scroll", handleScroll);
 }, []);
+
 
 
 
@@ -214,9 +268,27 @@ if (!product) {
   );
 }
 
+// ✅ PRODUCT LEVEL IMAGES (LIFESTYLE / REAL PHOTOS)
+const images: string[] =
+  product.images && product.images.length > 0
+    ? product.images
+    : ["/placeholder.png"];
 
   // ---------------- Derived / Safe data ----------------
-  const images = product.images?.length ? product.images : ["/placeholder.png"];
+const cleanImages = (arr?: string[]) =>
+  (arr ?? []).filter((img) => typeof img === "string" && img.trim().length > 0);
+
+const galleryImages =
+  selectedVariant && cleanImages(selectedVariant.images).length > 0
+    ? [
+        ...cleanImages(selectedVariant.images),
+        ...cleanImages(product.images),
+      ]
+    : cleanImages(product.images).length > 0
+    ? cleanImages(product.images)
+    : ["/placeholder.png"];
+
+
   const isWishlisted = wishlist.some((p) => p.id === product.id);
 
   const price = product.price;
@@ -265,7 +337,13 @@ if (!product) {
     return;
   }
 
-  toggleWishlist(product);
+ toggleWishlist({
+  id: product.id,
+  name: product.name,
+  images: product.images,
+  price: product.price,
+});
+
  
 };
 const handleAddToBagWithLoginCheck = () => {
@@ -280,10 +358,55 @@ const handleAddToBagWithLoginCheck = () => {
 };
 
 
+const sizes = Array.from(
+  new Set(variants.map(v => v.size).filter(Boolean))
+) as string[];
+const isProductOutOfStock =
+  variants.length > 0 &&
+  variants.every(v => (v.stock ?? 0) <= 0);
 
- const handleAddToBag = () => {
-  if (!selectedSize && product.sizes?.length) {
+  const colors = Array.from(
+  new Set(
+    variants
+      .filter(v => (v.stock ?? 0) > 0)
+      .map(v => v.color)
+      .filter(Boolean)
+  )
+) as string[];
+
+
+const getVariantBySize = (size: string) =>
+  variants.find(
+    v =>
+      v.size === size &&
+      (!selectedColor || v.color === selectedColor)
+  ) ?? null;
+
+const getVariant = (size: string, color: string | null) =>
+  variants.find(
+    v =>
+      v.size === size &&
+      (!color || v.color === color)
+  ) ?? null;
+
+
+const isSizeOutOfStock = (size: string) => {
+  const v = getVariantBySize(size);
+  return !v || (v.stock ?? 0) <= 0;
+};
+
+
+const handleAddToBag = () => {
+  // 1️⃣ If product has variants, variant MUST be selected
+  if (variants.length > 0 && (!selectedVariant || !selectedVariant.id)) {
+    toast.error("Please select color and size");
+    return;
+  }
+
+  // 2️⃣ Size required (if product has sizes)
+  if (product.sizes?.length > 0 && !selectedSize) {
     setSizeError(true);
+    toast.error("Please select size");
     return;
   }
 
@@ -294,17 +417,22 @@ const handleAddToBagWithLoginCheck = () => {
       id: product.id,
       name: product.name,
       price,
-      images: product.images,
+      images:
+        selectedVariant?.images?.length
+          ? selectedVariant.images
+          : product.images,
       availableSizes: product.sizes,
     },
-    selectedSize ?? undefined
+    selectedSize ?? null,
+    selectedColor ?? null,
+    variants.length > 0 ? selectedVariant!.id : null // ✅ CRITICAL FIX
   );
 
-  // ✅ Redirect to Bag page (UX fix)
   router.push("/bag");
 
-  setTimeout(() => setAddingToBag(false), 1000);
+  setTimeout(() => setAddingToBag(false), 800);
 };
+
 
 
   const openGalleryAt = (index: number) => {
@@ -405,24 +533,22 @@ console.log(product.fit, product.fabricCare, product.features);
               modules={[Pagination, Scrollbar]}
               scrollbar={{ draggable: true }}
             >
-              {images.map((img) => (
-                <SwiperSlide key={img}>
-                  <div className="w-full bg-gray-50 overflow-hidden">
+             {galleryImages.map(img => (
+  <SwiperSlide key={img}>
+    <ZoomImage src={img} alt={product.name} />
+  </SwiperSlide>
+))}
 
-                    {/* mobile still uses zoom on tap inside ZoomImage */}
-                    <ZoomImage src={img} alt={product.name} />
-                  </div>
-                </SwiperSlide>
-              ))}
             </Swiper>
           </div>
 
           {/* Desktop: two-column zoom grid (same as your original UI) */}
   <div className="hidden md:grid grid-cols-2 gap-[2px]">
 
-  {images.map((img) => (
-    <ZoomImage key={img} src={img} alt={product.name} />
-  ))}
+ {galleryImages.map(img => (
+  <ZoomImage key={img} src={img} alt={product.name} />
+))}
+
 </div>
 
 
@@ -449,18 +575,47 @@ console.log(product.fit, product.fabricCare, product.features);
               )}
             </div>
           </div>
-          {/* OUT OF STOCK NOTICE */}
-{product.stock <= 0 && (
-  <p className="text-red-600 font-medium text-sm mt-2">
-    Currently Out of Stock
-  </p>
-)}
 
       <div className="space-y-1 p-1">
   <p className="text-xs uppercase tracking-wide text-gray-500">
     {product.brandName ?? "BSCFASHION"}
   </p>
 </div>
+
+{colors.length > 0 && (
+  <div className="mt-3">
+    <p className="text-sm font-medium text-gray-700 mb-2">
+      Color {selectedColor && `: ${selectedColor}`}
+    </p>
+
+    <div className="flex flex-wrap gap-2">
+      {colors.map(color => (
+        <button
+          key={color}
+          onClick={() => {
+            setSelectedColor(color);
+            setSelectedSize(null);
+            setSelectedVariant(null);
+          }}
+          className={`
+            h-8 w-8 rounded-full border
+            flex items-center justify-center
+            ${selectedColor === color
+              ? "ring-2 ring-black"
+              : "ring-1 ring-gray-300"}
+          `}
+          title={color}
+        >
+          <span
+            className="h-6 w-6 rounded-full"
+            style={{ backgroundColor: getColorHex(color) }}
+
+          />
+        </button>
+      ))}
+    </div>
+  </div>
+)}
 
 
     <div
@@ -471,53 +626,58 @@ console.log(product.fit, product.fabricCare, product.features);
 
   {product.sizes && product.sizes.length > 0 ? (
     <div className="flex flex-wrap gap-2">
-      {product.sizes.map((size) => (
-        <button
-          key={size}
-          disabled={product.stock <= 0}
-          onClick={() => {
-            if (product.stock <= 0) return;
-            setSelectedSize(size);
-            setSizeError(false);
-          }}
-          className={`
-            min-w-[44px] h-10 px-3
-            text-sm font-medium
-            border transition
-            ${
-              selectedSize === size
-                ? "border-gray-900 text-gray-900"
-                : "border-gray-300 text-gray-600 hover:border-gray-500"
-            }
-            ${product.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}
-          `}
-        >
-          {size}
-        </button>
-      ))}
-    </div>
+  {sizes.map((size) => {
+    const variant = getVariantBySize(size);
+    const outOfStock = !variant || (variant.stock ?? 0) <= 0;
+
+    return (
+      <button
+        key={size}
+        disabled={outOfStock}
+        onClick={() => {
+          if (outOfStock) return;
+
+          setSelectedSize(size);
+          setSelectedVariant(variant);
+          setSizeError(false);
+        }}
+        className={`
+          min-w-[44px] h-10 px-3
+          text-sm font-medium border transition
+          ${
+            selectedSize === size
+              ? "border-gray-900 text-gray-900"
+              : "border-gray-300 text-gray-600 hover:border-gray-500"
+          }
+          ${outOfStock ? "opacity-40 cursor-not-allowed line-through" : ""}
+        `}
+      >
+        {size}
+      </button>
+    );
+  })}
+</div>
+
   ) : (
-    <button
-      disabled={product.stock <= 0}
-      onClick={() => {
-        if (product.stock <= 0) return;
-        setSelectedSize("One Size");
-        setSizeError(false);
-      }}
-      className={`
-        min-w-[80px] h-10 px-4
-        text-sm font-medium
-        border transition
-        ${
-          selectedSize === "One Size"
-            ? "border-gray-900 text-gray-900"
-            : "border-gray-300 text-gray-600 hover:border-gray-500"
-        }
-        ${product.stock <= 0 ? "opacity-40 cursor-not-allowed" : ""}
-      `}
-    >
-      One Size
-    </button>
+   <button
+  onClick={() => {
+    setSelectedSize("One Size");
+    setSizeError(false);
+  }}
+  className={`
+    min-w-[80px] h-10 px-4
+    text-sm font-medium
+    border transition
+    ${
+      selectedSize === "One Size"
+        ? "border-gray-900 text-gray-900"
+        : "border-gray-300 text-gray-600 hover:border-gray-500"
+    }
+  `}
+>
+  One Size
+</button>
+
   )}
 
   {sizeError && (
@@ -576,7 +736,7 @@ console.log(product.fit, product.fabricCare, product.features);
 
 {/* ----------------- OUT OF STOCK UI ----------------- */}
 <div className="hidden md:flex flex-col gap-3 mt-4">
-{product.stock !== undefined && product.stock <= 0 ? (
+{isProductOutOfStock ? (
   <button
     onClick={async () => {
       const token = getCookie("token");
@@ -603,11 +763,7 @@ console.log(product.fit, product.fabricCare, product.features);
     🔔 Remind Me
   </button>
 ) : (
-
-  
-  <>
-    {/* NORMAL ADD TO BAG + WISHLIST UI */}
-    <div className="hidden md:flex flex-col gap-3 mt-4">
+  <div className="flex flex-col gap-3 mt-4">
     <button
       onClick={handleWishlistClick}
       className="flex-1 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2 rounded-md"
@@ -619,19 +775,19 @@ console.log(product.fit, product.fabricCare, product.features);
     <button
       onClick={handleAddToBagWithLoginCheck}
       disabled={addingToBag}
-      className={`flex-1 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500 ${
-        addingToBag ? "opacity-50" : ""
-      }`}
+      className="flex-1 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500"
     >
       <ShoppingBag className="inline w-5 h-5 mr-2" />
       {addingToBag ? "Added!" : "Add to Bag"}
     </button>
-    </div>
+  </div>
+)}
+
     
-  </>
   
   
-)}</div>
+  
+</div>
 <div className="mt-6 divide-y">
   <ProductAccordion
     title="Product Description"
@@ -656,11 +812,8 @@ console.log(product.fit, product.fabricCare, product.features);
 
 
 
-
-{/* MOBILE FIXED BUTTON BAR */}
 <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white flex gap-2 p-3 z-50">
-  {product.stock !== undefined && product.stock <= 0 ? (
-    /* ------------ OUT OF STOCK (SHOW REMIND ME ONLY) ------------ */
+  {isProductOutOfStock ? (
     <button
       onClick={async () => {
         const token = getCookie("token");
@@ -669,18 +822,13 @@ console.log(product.fit, product.fabricCare, product.features);
           return;
         }
 
-        const res = await fetch("/api/reminders", {
+        await fetch("/api/reminders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ productId: product.id }),
         });
 
-        const data = await res.json();
-        if (res.ok) {
-          toast.success("We will notify you when it's back in stock!");
-        } else {
-          toast.error(data.error || "Something went wrong");
-        }
+        toast.success("We will notify you when it's back in stock!");
       }}
       className="w-full py-3 text-sm font-semibold bg-black text-white rounded-md"
     >
@@ -688,31 +836,33 @@ console.log(product.fit, product.fabricCare, product.features);
     </button>
   ) : (
     <>
-      {/* ------------ NORMAL WISHLIST BUTTON ------------ */}
       <button
         onClick={handleWishlistClick}
         className="w-1/2 bg-white ring-1 ring-black/10 py-3 flex items-center justify-center gap-2 rounded-md"
       >
-        <Heart className={`h-5 w-5 ${isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"}`} />
-        {isWishlisted ? "Wishlisted" : "Wishlist"}
+        <Heart
+          className={`h-5 w-5 ${
+            isWishlisted ? "text-red-500 fill-red-500" : "text-gray-700"
+          }`}
+        />
+        Wishlist
       </button>
 
-      {/* ------------ ADD TO BAG BUTTON ------------ */}
       <button
         onClick={handleAddToBagWithLoginCheck}
         disabled={addingToBag}
-        className={`w-1/2 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500 ${
-          addingToBag ? "opacity-50" : ""
-        }`}
+        className="w-1/2 py-3 text-sm font-semibold rounded-md bg-gradient-to-r from-yellow-300 to-yellow-500"
       >
         <ShoppingBag className="inline w-5 h-5 mr-2" />
-        {addingToBag ? "Added!" : "Add to Bag"}
+        Add to Bag
       </button>
     </>
   )}
 </div>
+
 </div>
 </div>
+
 
       {/* Similar products */}
       {similarProducts.length > 0 && (

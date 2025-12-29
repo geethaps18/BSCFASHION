@@ -13,37 +13,67 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1️⃣ Create Order (Courier based)
+    // 1️⃣ Create Order
     const order = await prisma.order.create({
       data: {
         userId,
         totalAmount,
-        address: JSON.stringify(address), // store full address snapshot
+        address, // store JSON
         status: "PENDING",
-       // ✅ optional but recommended
       },
     });
 
-    // 2️⃣ Create Order Items
-    await prisma.orderItem.createMany({
-      data: items.map((item: any) => ({
-        orderId: order.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price,
-        size: item.size,
-      })),
-    });
+    // 2️⃣ Process each item SAFELY
+    for (const item of items) {
+      // 🔥 Variant is REQUIRED
+      if (!item.variantId) {
+        throw new Error("Variant missing for product");
+      }
+
+      const variant = await prisma.productVariant.findFirst({
+        where: {
+          id: item.variantId,
+          productId: item.productId,
+        },
+      });
+
+      if (!variant || variant.stock < item.quantity) {
+        throw new Error(
+          `${item.productName ?? "Product"} (${item.size} ${item.color}) is out of stock`
+        );
+      }
+
+      // 3️⃣ Reduce variant stock
+      await prisma.productVariant.update({
+        where: { id: variant.id },
+        data: {
+          stock: { decrement: item.quantity },
+        },
+      });
+
+      // 4️⃣ Create order item
+      await prisma.orderItem.create({
+        data: {
+          orderId: order.id,
+          productId: item.productId,
+          variantId: variant.id,
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size,
+          color: item.color,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       orderId: order.id,
       message: "Order placed successfully",
     });
-  } catch (error) {
-    console.error("ORDER CREATE ERROR:", error);
+  } catch (error: any) {
+    console.error("ORDER CREATE ERROR:", error.message);
     return NextResponse.json(
-      { success: false, error: "Failed to create order" },
+      { success: false, error: error.message },
       { status: 500 }
     );
   }

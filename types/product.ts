@@ -12,6 +12,15 @@ export interface ColorOption {
   //images: string[];
   //stock: number;
   //design?: string;
+  
+  export type ProductVariant = {
+  id: string;
+  size?: string | null;
+  color?: string | null;
+  price?: number;
+  stock?: number;
+  images?: string[];
+};
 
 
 export interface Product {
@@ -35,6 +44,7 @@ export interface Product {
   rating?: number;
   reviewCount: number; 
   reviews?: Review[];
+  
  
 }
 export interface Review {

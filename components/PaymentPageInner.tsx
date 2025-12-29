@@ -14,7 +14,10 @@ interface BagItem {
   price: number;
   productName: string;
   size?: string | null;
+  color?: string | null;      // ✅ ADD
+  variantId?: string | null;  // ✅ ADD
 }
+
 
 interface CardDetails {
   number: string;
@@ -89,14 +92,17 @@ export default function PaymentPageInner() {
         if (data.items) {
           const mappedItems: BagItem[] = data.items
             .filter((item: any) => item.product != null && item.product.price != null)
-            .map((item: any) => ({
-              id: item.id,
-              productId: item.product.id,
-              quantity: item.quantity,
-              price: item.product.price ?? 0,
-              productName: item.product.name ?? "Product",
-              size: item.size ?? null,
-            }));
+           .map((item: any) => ({
+  id: item.id,
+  productId: item.product.id,
+  quantity: item.quantity,
+  price: item.product.price ?? 0,
+  productName: item.product.name ?? "Product",
+  size: item.size ?? null,
+  color: item.color ?? null,        // ✅ ADD
+  variantId: item.variantId ?? null // ✅ ADD
+}));
+
           setBagItems(mappedItems);
         }
       } catch (err) {
@@ -172,12 +178,24 @@ export default function PaymentPageInner() {
     try {
       setLoading(true);
 
-      const orderItems = bagItems.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price,
-        size: item.size,
-      }));
+     const orderItems = bagItems.map((item) => ({
+  productId: item.productId,
+  quantity: item.quantity,
+  price: item.price,
+  size: item.size,
+  color: item.color,          // ✅ ADD
+  variantId: item.variantId,  // 🔥 THIS FIXES EVERYTHING
+}));
+
+const invalidItem = bagItems.find(i => !i.variantId);
+
+if (invalidItem) {
+  toast.error(
+    `Please reselect size / color for ${invalidItem.productName}`
+  );
+  router.push(`/product/${invalidItem.productId}`);
+  return;
+}
 
       const res = await fetch("/api/create-order", {
         method: "POST",

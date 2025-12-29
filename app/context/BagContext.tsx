@@ -25,10 +25,15 @@ export interface Product {
 export interface BagItem {
   id: string; // bag document ID
   product: Product;
-  size?: string;
+
+  size?: string | null;
+  color?: string | null;        // ✅ KEEP
+  variantId?: string | null;    // ✅ ADD
+
   quantity: number;
-  uniqueKey: string; // productId-size
+  uniqueKey: string; // productId-size-color
 }
+
 
 interface BagContextType {
   bagItems: BagItem[];
@@ -36,7 +41,13 @@ interface BagContextType {
   subtotal: number;
   shipping: number;
   total: number;
-  addToCart: (product: Product, size?: string) => Promise<void>;
+addToCart: (
+  product: Product,
+  size?: string,
+  color?: string,
+  variantId?: string
+) => Promise<void>;
+
   removeFromCart: (uniqueKey: string) => Promise<void>;
   updateQuantity: (uniqueKey: string, quantity: number) => Promise<void>;
   updateSize: (uniqueKey: string, size: string) => Promise<void>;
@@ -83,7 +94,8 @@ export const BagProvider = ({ children }: BagProviderProps) => {
 
       const itemsWithKey: BagItem[] = (data.items || []).map((item: any) => ({
         ...item,
-        uniqueKey: `${item.product.id}-${item.size || "nosize"}`,
+        uniqueKey: `${item.product.id}-${item.size || "nosize"}-${item.color || "nocolor"}`,
+
       }));
 
       setBagItems(itemsWithKey);
@@ -100,13 +112,24 @@ export const BagProvider = ({ children }: BagProviderProps) => {
   // -------------------
   // Actions
   // -------------------
-  const addToCart = async (product: Product, size?: string) => {
+const addToCart = async (
+  product: Product,
+  size?: string,
+  color?: string,
+  variantId?: string
+) => {
+
     if (product.availableSizes?.length && !size) {
       toast.error("Please select a size");
       return;
     }
+    if (!variantId) {
+  toast.error("Variant missing. Please select size and color.");
+  return;
+}
 
-    const uniqueKey = `${product.id}-${size || "default"}`;
+const uniqueKey = `${product.id}-${size || "default"}-${color || "nocolor"}`;
+
     const existingItem = bagItems.find((i) => i.uniqueKey === uniqueKey);
 
     if (existingItem) {
@@ -119,7 +142,13 @@ export const BagProvider = ({ children }: BagProviderProps) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ productId: product.id, size }),
+       body: JSON.stringify({
+  productId: product.id,
+  size,
+  color,
+  variantId,
+}),
+
       });
       await fetchBag();
       toast.success("Added to bag");
@@ -182,12 +211,14 @@ export const BagProvider = ({ children }: BagProviderProps) => {
       toast.error("Failed to update quantity");
     }
   };
+  
 
   const updateSize = async (uniqueKey: string, newSize: string) => {
     const item = bagItems.find((i) => i.uniqueKey === uniqueKey);
     if (!item) return;
 
-    const newUniqueKey = `${item.product.id}-${newSize}`;
+   const newUniqueKey = `${item.product.id}-${newSize}-${item.color || "nocolor"}`;
+
     const existingItem = bagItems.find((i) => i.uniqueKey === newUniqueKey);
 
     if (existingItem) {
@@ -201,7 +232,12 @@ export const BagProvider = ({ children }: BagProviderProps) => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ bagId: item.id, size: newSize }),
+   body: JSON.stringify({
+  bagId: item.id,
+  size: newSize,
+}),
+
+
       });
       await fetchBag();
     } catch (err) {

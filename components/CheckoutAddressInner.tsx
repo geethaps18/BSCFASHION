@@ -36,17 +36,17 @@ interface BagItem {
   id: string;
   quantity: number;
   size?: string;
+  color?: string | null;       // ✅ ADD
+  variantId?: string | null;   // ✅ ADD
   product: {
     id?: string;
     name?: string;
     images?: string[];
-    image?: string;
     price?: number;
-    mrp?: number;
-    variants?: { images?: string[]; size?: string; price?: number }[];
     [k: string]: any;
   };
 }
+
 
 interface PincodeSuggestion {
   Pincode: string;
@@ -124,12 +124,15 @@ export default function CheckoutAddressInner() {
           else if (Array.isArray(bagData.items)) items = bagData.items;
           else if (Array.isArray(bagData.data)) items = bagData.data;
 
-          const normalized: BagItem[] = items.map((it: any) => ({
-            id: it.id ?? it._id ?? `${it.product?.id || "p"}-${it.size ?? "d"}`,
-            quantity: Number(it.quantity ?? 1),
-            size: it.size ?? it.sizes?.[0] ?? it.product?.selectedSize,
-            product: it.product ?? {},
-          }));
+         const normalized: BagItem[] = items.map((it: any) => ({
+  id: it.id ?? it._id,
+  quantity: Number(it.quantity ?? 1),
+  size: it.size ?? null,
+  color: it.color ?? null,         // ✅ KEEP COLOR
+  variantId: it.variantId ?? null, // ✅ KEEP VARIANT
+  product: it.product ?? {},
+}));
+
           setBagItems(normalized);
 
           // normalize addresses

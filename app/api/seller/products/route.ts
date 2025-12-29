@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         mrp,
         discount,
         stock,
-        sizes,
+      
         images,
 
         sellerId,

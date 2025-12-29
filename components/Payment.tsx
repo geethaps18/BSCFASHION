@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import toast from "react-hot-toast";
-
 interface BagItem {
+  id: string;
   productId: string;
-  productName: string;
   quantity: number;
   price: number;
+  productName: string;
+  size?: string | null;
+  color?: string | null;        // ✅ ADD
+  variantId?: string | null;    // ✅ ADD
 }
+
 
 interface Address {
   name: string;
@@ -52,10 +56,14 @@ export default function PaymentOptions({
         body: JSON.stringify({
           userId,
           items: bagItems.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-          })),
+  productId: item.productId,
+  quantity: item.quantity,
+  price: item.price,
+  size: item.size ?? null,
+  color: item.color ?? null,
+  variantId: item.variantId ?? null, // 🔥 THIS IS THE KEY
+}))
+,
           totalAmount,
           paymentMode: "COD",
           address: `${address.name}, ${address.street}, ${address.city}, ${address.state} - ${address.pincode}`,

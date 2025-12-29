@@ -46,7 +46,7 @@
     "models/User.ts",
     "middleware.ts",
     "app/api/**/*"
-, "app/website/pagetsx", "app/admin/sellers/create"  ],
+, "app/website/pagetsx", "app/admin/sellers/create", "prisma/seed.js"  ],
 
   "exclude": ["node_modules"]
 }

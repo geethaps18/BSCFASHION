@@ -37,34 +37,48 @@ const where: Prisma.ProductWhereInput = {
 };
 
 
-    // include _count.stockReminders so we can show reminderCount
-    const products = await prisma.product.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-      include: {
-        _count: {
-          select: { stockReminders: true },
-        },
-      },
-    });
+   const products = await prisma.product.findMany({
+  where,
+  orderBy: { createdAt: "desc" },
+  skip,
+  take: limit,
+  include: {
+    variants: {
+      select: { stock: true },
+    },
+    _count: {
+      select: { stockReminders: true },
+    },
+  },
+});
+
 
     const total = await prisma.product.count({ where });
 
-   const mapped = products.map((p) => ({
-  id: p.id,
-  name: p.name ?? "",
-  category: p.category ?? "",
-  price: p.price ?? 0,
-  stock: p.stock ?? 0,
-  images: Array.isArray(p.images) ? p.images : [],
-  status: p.status,          // ✅ REQUIRED
-  siteId: p.siteId,          // ✅ REQUIRED
-  brandName: p.brandName,    // ✅ OPTIONAL but useful
-  createdAt: p.createdAt,
-  reminderCount: p._count?.stockReminders ?? 0,
-}));
+const mapped = products.map((p) => {
+  const variantStock =
+    p.variants?.reduce((sum, v) => sum + (v.stock ?? 0), 0) ?? 0;
+
+  const finalStock =
+    p.variants && p.variants.length > 0
+      ? variantStock
+      : p.stock ?? 0;
+
+  return {
+    id: p.id,
+    name: p.name ?? "",
+    category: p.category ?? "",
+    price: p.price ?? 0,
+    stock: finalStock,              // ✅ FIX
+    images: Array.isArray(p.images) ? p.images : [],
+    status: p.status,
+    siteId: p.siteId,
+    brandName: p.brandName,
+    createdAt: p.createdAt,
+    reminderCount: p._count?.stockReminders ?? 0,
+  };
+});
+
 
 
     return NextResponse.json({

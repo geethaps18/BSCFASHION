@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { X, Loader2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { categories, SubCategory } from "@/data/categories";
+import { COLOR_OPTIONS } from "@/data/colors";
 
 /*
   Tailwind-UI style, tabbed Add Product form
@@ -15,17 +16,15 @@ import { categories, SubCategory } from "@/data/categories";
 type ColorOption = { name: string; hex: string };
 type Variant = {
   id: string;
-  name?: string;
-  sizes: string[];
-  colors: ColorOption[];
-  design?: string;
+  size?: string;
+  color?: string;
   price: string;
-  mrp: string;
-  discount: string;
   stock: string;
   images: File[];
   previews: string[];
 };
+
+
 
 export default function AddProductFormTabbed() {
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -39,12 +38,15 @@ const [features, setFeatures] = useState("");
   const [subCategory, setSubCategory] = useState<SubCategory | null>(null);
   const [subSubCategory, setSubSubCategory] = useState<SubCategory | null>(null);
 
-  const [sizes, setSizes] = useState<string[]>([]);
-  const [colors, setColors] = useState<ColorOption[]>([]);
+
+const [selectedColors, setSelectedColors] =
+  useState<ColorOption[]>(COLOR_OPTIONS);
+
+
   const [price, setPrice] = useState("");
   const [mrp, setMrp] = useState("");
   const [discount, setDiscount] = useState("");
-  const [stock, setStock] = useState("");
+
 
   const [productFiles, setProductFiles] = useState<File[]>([]);
   const [productPreviews, setProductPreviews] = useState<string[]>([]);
@@ -52,6 +54,7 @@ const [features, setFeatures] = useState("");
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -59,8 +62,12 @@ const [features, setFeatures] = useState("");
   const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","FREE"];
   const KIDS_SIZES = ["0-3M","3-6M","6-9M","9-12M","1-2Y","2-3Y","3-4Y"];
   const currentSizes = category?.name === "Kids" ? KIDS_SIZES : STANDARD_SIZES;
+  const [customColor, setCustomColor] = useState({
+  name: "",
+  hex: "#000000",
+});
 
- 
+
 
   useEffect(() => {
     const d = calcDiscount(mrp, price);
@@ -86,9 +93,18 @@ const [features, setFeatures] = useState("");
   }
 
   // Variant helpers
-  function newVariant(): Variant {
-    return { id: String(Date.now()) + Math.random().toString(36).slice(2), sizes: [], colors: [], price: "", mrp: "", discount: "", stock: "", images: [], previews: [] };
-  }
+function newVariant(): Variant {
+  return {
+    id: String(Date.now()) + Math.random().toString(36).slice(2),
+    size: "",
+    color: "",
+    price: "",
+    stock: "",
+    images: [],
+    previews: [],
+  };
+}
+
   function addVariant() { setVariants(v => [...v, newVariant()]); }
   function removeVariant(i:number) { setVariants(v => v.filter((_, idx) => idx !== i)); }
   function handleVariantFiles(files: FileList | null, idx:number) {
@@ -130,17 +146,49 @@ const [features, setFeatures] = useState("");
     setErrors(err);
     return Object.keys(err).length === 0;
   }
-  function validateInventory() {
-    const err: Record<string,string> = {};
-    if (stock === "" || Number(stock) < 0) err.stock = "Stock must be >= 0";
-    setErrors(err);
-    return Object.keys(err).length === 0;
-  }
+
 
   async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
+    if (selectedColors.length === 0) {
+  toast.error("Add at least one color");
+  return;
+}
+
+for (const v of variants) {
+  if (!v.size || !v.color || v.stock === "") {
+    toast.error("Each size must have color and stock");
+    return;
+  }
+}
+// ✅ Auto-assign color if only one color exists
+if (selectedColors.length === 1) {
+  const onlyColor = selectedColors[0].name;
+
+  setVariants(prev =>
+    prev.map(v => ({
+      ...v,
+      color: v.color || onlyColor,
+    }))
+  );
+}
+const uploadImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("type", "product");
+
+  const res = await fetch("/api/media/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await res.json();
+  return data.media; // { id, url, publicId }
+};
+
+
     // final validation
-    if (!validateBasic() || !validateMedia() || !validatePricing() || !validateInventory()) { toast.error("Fix errors"); return; }
+    if (!validateBasic() || !validateMedia() || !validatePricing() ) { toast.error("Fix errors"); return; }
     setLoading(true);
     try {
       const form = new FormData();
@@ -151,9 +199,26 @@ const [features, setFeatures] = useState("");
       form.append("price", String(price));
       form.append("mrp", String(mrp));
       form.append("discount", String(discount));
-      form.append("stock", String(stock));
-      form.append("sizes", JSON.stringify(sizes));
-      form.append("colors", JSON.stringify(colors.map(c => c.name)));
+     
+   form.append(
+  "variants",
+  JSON.stringify(
+    variants.map(v => ({
+      size: v.size,
+      color: v.color,   // ✅ THIS WAS MISSING
+      price: Number(v.price),
+      stock: Number(v.stock),
+    }))
+  )
+);
+
+variants.forEach((v, i) => {
+  v.images.forEach(file => {
+    form.append(`variantImages_${i}`, file);
+  });
+});
+
+      
       form.append(
   "fit",
   JSON.stringify(
@@ -184,7 +249,7 @@ form.append(
       toast.success('Product added');
       // reset
       setName(''); setDescription(''); setCategory(categories[0] || null); setSubCategory(null); setSubSubCategory(null);
-      setSizes([]); setColors([]); setPrice(''); setMrp(''); setDiscount(''); setStock('');
+    
       setProductFiles([]); setProductPreviews([]); setVariants([]);
       setActiveTab(0);
     } catch (err:any) {
@@ -193,8 +258,8 @@ form.append(
     } finally { setLoading(false); }
   }
 
-  // UI pieces
-  const Tabs = ["Basic","Media","Pricing","Inventory","Review"];
+const Tabs = ["Basic","Media","Pricing","Variants","Review"];
+
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -361,84 +426,167 @@ Soft brushed interior"
             </div>
           )}
 
-          {/* Inventory */}
-          {activeTab === 3 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium">Stock</label>
-                <input type="number" value={stock} onChange={e=>setStock(e.target.value)} className={`mt-1 block w-full rounded border px-3 py-2 ${errors.stock ? 'border-red-500' : 'border-gray-200'}`} />
-                {errors.stock && <p className="text-sm text-red-600">{errors.stock}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Sizes</label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {currentSizes.map(s => (
-                    <button key={s} type="button" onClick={()=>setSizes(prev=> prev.includes(s) ? prev.filter(x=>x!==s) : [...prev, s])} className={`px-3 py-1 rounded-full border ${sizes.includes(s) ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200'}`}>{s}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+      
 
           {/* Variants */}
-          {false && activeTab === 4 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold">Variants</h3>
-                <button type="button" onClick={addVariant} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-indigo-600 text-white">
-                  <Plus size={14}/> Add Variant
+         {activeTab === 3 && (
+  <div>
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="font-semibold">Variants</h3>
+      <button
+  type="button"
+  onClick={addVariant}
+  className="flex items-center gap-2 px-3 py-2 rounded bg-black text-white"
+>
+  <Plus size={16} />
+  Add Variant
+</button>
+    </div>
+
+
+
+
+          <div className="border rounded p-3 space-y-2">
+  <p className="text-sm font-medium">Add Custom Color</p>
+
+  <input
+    placeholder="Color name (e.g. Wine Red)"
+    value={customColor.name}
+    onChange={(e) =>
+      setCustomColor({ ...customColor, name: e.target.value })
+    }
+    className="border px-3 py-2 w-full"
+  />
+
+  <input
+    type="color"
+    value={customColor.hex}
+    onChange={(e) =>
+      setCustomColor({ ...customColor, hex: e.target.value })
+    }
+    className="w-16 h-10"
+  />
+  
+
+ <button
+  type="button"
+  onClick={() => {
+    if (!customColor.name) return;
+
+    if (selectedColors.some(c => c.name === customColor.name)) {
+      toast.error("Color already added");
+      return;
+    }
+
+    setSelectedColors(prev => [...prev, customColor]);
+    setCustomColor({ name: "", hex: "#000000" });
+  }}
+  className="px-3 py-1 bg-black text-white rounded"
+>
+  Add Color
+</button>
+
+</div>
+
+
+
+    <div className="space-y-4">
+      {variants.map((v, idx) => (
+        <div key={v.id} className="border rounded p-3 space-y-3">
+          <div className="flex justify-between">
+            <strong>Variant #{idx + 1}</strong>
+          
+          </div>
+
+         <select
+  value={v.size}
+  onChange={(e) => {
+    const copy = [...variants];
+    copy[idx].size = e.target.value;
+    setVariants(copy);
+  }}
+  className="border rounded px-3 py-2 w-full"
+>
+  <option value="">Select Size</option>
+  {currentSizes.map((size) => (
+    <option key={size} value={size}>
+      {size}
+    </option>
+  ))}
+</select>
+
+ <select
+  value={v.color}
+  onChange={(e) => {
+    const copy = [...variants];
+    copy[idx].color = e.target.value;
+    setVariants(copy);
+  }}
+  className="border rounded px-3 py-2 w-full"
+>
+  <option value="">Select Color</option>
+
+  {selectedColors.map((c) => (
+    <option key={c.name} value={c.name}>
+      {c.name}
+    </option>
+  ))}
+</select>
+
+
+          <input
+            placeholder="Variant Price"
+            value={v.price}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[idx].price = e.target.value;
+              setVariants(copy);
+            }}
+            className="border rounded px-3 py-2 w-full"
+          />
+
+          <input
+            placeholder="Variant Stock"
+            value={v.stock}
+            onChange={(e) => {
+              const copy = [...variants];
+              copy[idx].stock = e.target.value;
+              setVariants(copy);
+            }}
+            className="border rounded px-3 py-2 w-full"
+          />
+
+          <input
+            type="file"
+            multiple
+            onChange={(e) => handleVariantFiles(e.target.files, idx)}
+          />
+
+          <div className="grid grid-cols-4 gap-2">
+            {v.previews.map((src, i) => (
+              <div key={i} className="relative">
+                <img src={src} className="h-24 w-full object-cover rounded" />
+                <button
+                  type="button"
+                  onClick={() => removeVariantImage(idx, i)}
+                  className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded"
+                >
+                  <X size={12} />
                 </button>
               </div>
+            ))}
+          </div>
+        </div>
+      ))}
 
-              <div className="space-y-4">
-                {variants.map((v, idx) => (
-                  <div key={v.id} className="border rounded p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <strong>Variant #{idx+1}</strong>
-                      <button type="button" onClick={()=>removeVariant(idx)} className="text-sm text-red-600">Remove</button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <input value={v.name||''} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].name=val; return c; }); }} placeholder="Variant name (eg: Red - Large)" className="border rounded px-3 py-2 md:col-span-3" />
-
-                      <div>
-                        <label className="text-sm">Sizes</label>
-                        <div className="mt-2 flex gap-2 flex-wrap">
-                          {currentSizes.map(sz=> (
-                            <button key={sz} type="button" onClick={()=>{ setVariants(prev=>{ const c=[...prev]; const has=c[idx].sizes.includes(sz); c[idx].sizes = has ? c[idx].sizes.filter(x=>x!==sz) : [...c[idx].sizes, sz]; return c; }); }} className={`px-2 py-1 rounded-full border ${v.sizes.includes(sz) ? 'bg-green-600 text-white border-green-600' : 'bg-white border-gray-200'}`}>{sz}</button>
-                          ))}
-                        </div>
-                      </div>
+      {variants.length === 0 && (
+        <p className="text-gray-500 text-sm">No variants added yet.</p>
+      )}
+    </div>
+  </div>
+)}
 
 
-                      <div className="md:col-span-3 grid grid-cols-4 gap-2">
-                        <input value={v.mrp} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].mrp=val; c[idx].discount = calcDiscount(c[idx].mrp, c[idx].price); return c; }); }} placeholder="MRP" className="border rounded px-3 py-2" />
-                        <input value={v.price} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].price=val; c[idx].discount = calcDiscount(c[idx].mrp, val); return c; }); }} placeholder="Price" className="border rounded px-3 py-2" />
-                        <input value={v.discount} readOnly placeholder="Discount %" className="border rounded px-3 py-2 bg-gray-50" />
-                        <input value={v.stock} onChange={e=>{ const val=e.target.value; setVariants(prev=>{ const c=[...prev]; c[idx].stock=val; return c; }); }} placeholder="Stock" className="border rounded px-3 py-2" />
-                      </div>
-
-                      <div className="md:col-span-3">
-                        <input type="file" multiple onChange={e=>handleVariantFiles(e.target.files, idx)} className="mt-2" />
-                        <div className="grid grid-cols-4 gap-2 mt-2">
-                          {v.previews.map((src, ii) => (
-                            <div key={ii} className="relative group rounded overflow-hidden border">
-                              <img src={src} className="w-full h-28 object-cover" />
-                              <button type="button" onClick={()=>removeVariantImage(idx, ii)} className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded opacity-0 group-hover:opacity-100"><X size={14} /></button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                ))}
-
-                {variants.length === 0 && <div className="text-gray-500">No variants added yet. Use <strong>+ Add Variant</strong>.</div>}
-              </div>
-            </div>
-          )}
 
           {/* Review */}
           {activeTab === 4 && (
@@ -448,7 +596,7 @@ Soft brushed interior"
                 <p><strong>Name:</strong> {name || '—'}</p>
                 <p><strong>Category:</strong> {category?.name || '—'}</p>
                 <p><strong>Price:</strong> ₹{price || '—'}</p>
-                <p><strong>Stock:</strong> {stock || '—'}</p>
+             
                 <p><strong>Images:</strong> {productPreviews.length} files</p>
               </div>
 
@@ -472,7 +620,7 @@ Soft brushed interior"
                 if (activeTab === 0) ok = validateBasic();
                 if (activeTab === 1) ok = validateMedia();
                 if (activeTab === 2) ok = validatePricing();
-                if (activeTab === 3) ok = validateInventory();
+               
                 if (ok) setActiveTab(t=>t+1);
                 else toast.error('Fix errors before continuing');
               }} className="px-3 py-2 rounded bg-indigo-600 text-white">Next</button>}

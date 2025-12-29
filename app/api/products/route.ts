@@ -198,17 +198,48 @@ const features = formData.get("features")
       const url = await uploadToSupabase(file);
       if (url) productImages.push(url);
     }
+const variants = formData.get("variants")
+  ? JSON.parse(String(formData.get("variants")))
+  : [];
 
-   const product = await prisma.product.create({
+const variantData = [];
+
+for (let i = 0; i < variants.length; i++) {
+  const v = variants[i];
+
+  // 🔥 get variant images from FormData
+  const variantFiles = formData.getAll(`variantImages_${i}`) as File[];
+
+  const variantImages: string[] = [];
+
+  for (const file of variantFiles) {
+    const url = await uploadToSupabase(file);
+    if (url) variantImages.push(url);
+  }
+
+  variantData.push({
+    size: v.size ?? null,
+    color: v.color ?? null,
+    price: Number(v.price) || null,
+    stock: Number(v.stock) || 0,
+    images: variantImages, // ✅ SAVED
+  });
+}
+
+
+
+
+
+  const product = await prisma.product.create({
   data: {
-    siteId,                 // null for admin
-    brandName,              // BSCFASHION or site name
-    isPlatform,             // true for admin
+    siteId,
+    brandName,
+    isPlatform,
     name,
     description,
-     fit,           // ✅ ADD
-    fabricCare,    // ✅ ADD
-    features, 
+    fit,
+    fabricCare,
+    features,
     category,
     subCategory,
     subSubCategory,
@@ -216,11 +247,18 @@ const features = formData.get("features")
     mrp,
     discount,
     stock,
-    sizes,
     images: productImages,
-    status: "ACTIVE",       // admin products auto-live
+    status: "ACTIVE",
+
+    variants: {
+      create: variantData,
+    },
+  },
+  include: {
+    variants: true,
   },
 });
+
 
 
     return NextResponse.json({

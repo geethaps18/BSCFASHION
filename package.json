@@ -27,6 +27,7 @@
     "canvas-confetti": "^1.9.3",
     "cashfree-sdk": "^0.1.1",
     "chart.js": "^4.5.1",
+    "cloudinary": "^2.8.0",
     "clsx": "^2.1.1",
     "cookie-parser": "^1.4.6",
     "cookies-next": "^6.1.0",

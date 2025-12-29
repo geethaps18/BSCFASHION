@@ -23,6 +23,7 @@ function getUserId(req: NextRequest): string | null {
   }
 }
 
+
 // ----------------------
 // Validate Mongo ObjectId
 // ----------------------
@@ -50,6 +51,7 @@ export async function GET(
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
+        variants: true,
         reviews: {
           select: {
             id: true,
@@ -76,36 +78,55 @@ export async function GET(
     ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
       product.reviews.length
     : 0;
+
 const normalized = {
   id: product.id,
   name: product.name ?? "",
-  brandName: product.brandName ?? "BSCFASHION",
   description: product.description ?? "",
-  images: product.images ?? [],
+
+  brandName: product.brandName ?? "BSCFASHION",
+  category: product.category ?? null,
+
+  images: (product.images ?? []).filter(
+  (img) => typeof img === "string" && img.trim().length > 0
+),
+
+
   price: product.price ?? 0,
   mrp: product.mrp ?? null,
-  sizes: product.sizes ?? [],
-  rating: averageRating,
-  reviewCount: product.reviews.length,
+  discount: product.discount ?? null,
+
   stock: product.stock ?? 0,
 
-  // ✅ ADD THESE
+  rating: averageRating,
+  reviewCount: product.reviews.length,
+
+  // ✅ Sizes derived from variants (Shopify style)
+  sizes:
+    product.variants?.map(v => v.size).filter(Boolean) ?? [],
+
+  variants: product.variants.map(v => ({
+    id: v.id,
+    color:v.color,
+    size: v.size,
+    price: v.price ?? product.price,
+    stock: v.stock ?? 0,
+    images: v.images ?? [],
+  })),
+
   fit: product.fit ?? [],
   fabricCare: product.fabricCare ?? [],
   features: product.features ?? [],
 
-  reviews: product.reviews.map((r) => ({
+  reviews: product.reviews.map(r => ({
     id: r.id,
     rating: r.rating,
     comment: r.comment,
     createdAt: r.createdAt,
     userName: r.user?.name ?? "BSCFASHION User",
   })),
-
-  category: product.category ?? null,
-  subCategory: product.subCategory ?? null,
-  subSubCategory: product.subSubCategory ?? null,
 };
+
 
 
 

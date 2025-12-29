@@ -8,10 +8,18 @@ generator client {
   engineType = "binary"
 }
 
+model Media {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  url       String
+  publicId  String
+  type      String   // product | variant | banner | other
+  createdAt DateTime @default(now())
+}
+
 
 model OTP {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  contact   String   @unique // email OR phone
+  contact   String   @unique 
   otp       String
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -25,12 +33,11 @@ model User {
   name  String?
 
   role String @default("CUSTOMER")
-  // ADMIN | SELLER | CUSTOMER
+
 
   createdAt DateTime @default(now())
   blocked   Boolean  @default(false)
 
-  // 🔥 RELATIONS (THIS IS WHAT WAS MISSING)
   addresses Address[]
   ratings   Rating[]
   reviews   Review[]
@@ -90,7 +97,6 @@ model Category {
   parentId  String?  @db.ObjectId
   createdAt DateTime @default(now())
 
-  // Self-relation (tree)
   parent   Category?  @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children Category[] @relation("CategoryChildren")
 
@@ -112,7 +118,7 @@ model Product {
   subSubCategory String?
   brandName      String?
   images         String[]
-  sizes          String[]
+  
   rating         Float?   @default(0)
   reviewCount    Int?     @default(0)
   price          Float
@@ -121,7 +127,7 @@ model Product {
   stock          Int      @default(0)
   siteId         String?  @db.ObjectId
   sellerId       String?  @db.ObjectId
-  isPlatform     Boolean  @default(false) // admin vs seller
+  isPlatform     Boolean  @default(false)
   status         String   @default("PENDING")
   purchases      Int      @default(0)
   createdAt      DateTime @default(now())
@@ -129,15 +135,16 @@ model Product {
 
   categoryId   String?   @db.ObjectId
   seller       User?     @relation(fields: [sellerId], references: [id])
-  site         Site?     @relation(fields: [siteId], references: [id])
-  categoryNode Category? @relation("ProductToCategory", fields: [categoryId], references: [id])
+    site         Site?      @relation(fields: [siteId], references: [id])
+  categoryNode Category?  @relation("ProductToCategory", fields: [categoryId], references: [id])
 
-  wishlists      Wishlist[]
-  bagItems       Bag[]
-  orderItems     OrderItem[]
-  ratings        Rating[]
-  reviews        Review[]
-  stockReminders StockReminder[] @relation("StockReminderRelation")
+  variants        ProductVariant[]
+  wishlists       Wishlist[]
+  bagItems        Bag[]
+  orderItems      OrderItem[]
+  ratings         Rating[]
+  reviews         Review[]
+  stockReminders  StockReminder[] @relation("StockReminderRelation")
 
 
   @@index([sellerId])
@@ -154,6 +161,31 @@ model StockReminder {
 
   product Product @relation("StockReminderRelation", fields: [productId], references: [id])
 }
+
+model ProductVariant {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId String   @db.ObjectId
+
+product Product @relation(fields: [productId], references: [id])
+
+
+
+  title     String?
+  size      String?
+  color     String?
+  sku       String?
+  price     Float?
+  stock     Int      @default(0)
+  images    String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
+
+
 
 
 
@@ -179,8 +211,8 @@ model Review {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
   productId String   @db.ObjectId
-  orderId   String?  @db.ObjectId // optional if tied to a purchase
-  rating    Float // numeric rating 1-5
+  orderId   String?  @db.ObjectId 
+  rating    Float 
   comment   String?
   review    String?
   createdAt DateTime @default(now())
@@ -190,7 +222,7 @@ model Review {
   product Product @relation(fields: [productId], references: [id])
   order   Order?  @relation(fields: [orderId], references: [id])
 
-  @@unique([userId, productId]) // one review per user per product
+  @@unique([userId, productId]) 
   @@index([userId])
   @@index([productId])
   @@index([orderId])
@@ -217,6 +249,8 @@ model Bag {
   userId    String   @db.ObjectId
   productId String   @db.ObjectId
   size      String?
+  color     String   @default("nocolor")   // ✅ ADD
+  variantId String?   
   quantity  Int      @default(1)
   createdAt DateTime @default(now())
 
@@ -254,7 +288,7 @@ model Order {
   totalAmount      Float
   status           String    @default("PENDING")
   paymentMode      String    @default("COD")
-  address          Json? // 🔥 FIXED: JSON instead of string
+  address          Json? 
   expectedDelivery DateTime?
   upiId            String?
   cardDetails      String?
@@ -271,7 +305,7 @@ model Order {
   outForDeliveryAt DateTime?
   deliveredAt      DateTime?
 
-  user    User?       @relation(fields: [userId], references: [id]) // ❌ Remove optional
+  user    User?       @relation(fields: [userId], references: [id]) 
   items   OrderItem[]
   ratings Rating[]
   reviews Review[]
@@ -290,14 +324,16 @@ model OrderItem {
   quantity  Int
   price     Float
   size      String?
+  color     String?      // ✅ ADD
+  variantId String?
   image     String?
   packed    Boolean   @default(false)
   packedAt  DateTime?
 
   confirmedAt DateTime?
 
-  sellerId String? // ✅ MUST BE OPTIONAL
-  siteId   String? // ✅ MUST BE OPTIONAL
+  sellerId String? 
+  siteId   String?
 
   deliveryOtp String?
   delivered   Boolean @default(false)

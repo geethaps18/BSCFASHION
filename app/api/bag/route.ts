@@ -9,7 +9,10 @@ interface BagItemPayload {
   productId?: string;
   quantity?: number;
   size?: string;
+  color?: string;
+  variantId?: string;
 }
+
 
 interface JwtPayload {
   userId: string;
@@ -31,22 +34,25 @@ function getUserId(req: NextRequest): string | null {
 
 function mapBagItem(item: any) {
   const size = item.size || "default";
+  const color = item.color || "nocolor";
+
   return {
     id: item.id,
     quantity: item.quantity,
     size,
-    product: item.product
-      ? {
-          id: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          images: item.product.images || [],
-          availableSizes: item.product.sizes || [],
-        }
-      : { id: "", name: "Unknown", price: 0, images: [], availableSizes: [] },
-    uniqueKey: `${item.product?.id || item.id}-${size}`,
+    color, // ✅ ADD
+    variantId: item.variantId ?? null, // ✅ ADD
+    product: {
+      id: item.product.id,
+      name: item.product.name,
+      price: item.product.price,
+      images: item.product.images || [],
+      availableSizes: item.product.sizes || [],
+    },
+    uniqueKey: `${item.product.id}-${size}-${color}`, // ✅ FIX
   };
 }
+
 
 // =====================
 // GET BAG ITEMS
@@ -71,15 +77,21 @@ export async function POST(req: NextRequest) {
   const userId = getUserId(req);
   if (!userId) return NextResponse.json({ items: [] }, { status: 401 });
 
-  const { productId, size }: BagItemPayload = await req.json();
+  const { productId, size, color, variantId }: BagItemPayload = await req.json();
   if (!productId) {
     return NextResponse.json({ error: "Missing productId" }, { status: 400 });
   }
 
   const finalSize = size || "default";
+  const finalColor = color || "nocolor";
 
   const existing = await prisma.bag.findFirst({
-    where: { userId, productId, size: finalSize },
+    where: {
+      userId,
+      productId,
+      size: finalSize,
+      color: finalColor,
+    },
   });
 
   if (existing) {
@@ -89,7 +101,14 @@ export async function POST(req: NextRequest) {
     });
   } else {
     await prisma.bag.create({
-      data: { userId, productId, size: finalSize, quantity: 1 },
+      data: {
+        userId,
+        productId,
+        size: finalSize,
+        color: finalColor,        // ✅ SAVE COLOR
+        variantId: variantId,     // ✅ SAVE VARIANT
+        quantity: 1,
+      },
     });
   }
 
@@ -97,8 +116,10 @@ export async function POST(req: NextRequest) {
     where: { userId },
     include: { product: true },
   });
+
   return NextResponse.json({ items: items.map(mapBagItem) });
 }
+
 
 // =====================
 // UPDATE BAG ITEM
@@ -131,9 +152,15 @@ export async function PUT(req: NextRequest) {
 
   // size update
   if (size) {
-    const existing = await prisma.bag.findFirst({
-      where: { userId, productId: item.productId, size },
-    });
+   const existing = await prisma.bag.findFirst({
+  where: {
+    userId,
+    productId: item.productId,
+    size,
+    color: item.color ?? "nocolor", // ✅ IMPORTANT
+  },
+});
+
 
     if (existing) {
       await prisma.bag.update({
@@ -212,13 +239,16 @@ export async function PATCH(req: NextRequest) {
     const totalAmount = subtotal + shipping;
 
     // Map order items
-    const orderItems = bagItems.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      price: item.product?.price || 0,
-      name: item.product?.name || "Unknown", 
-      size: item.size || null,
-    }));
+   const orderItems = bagItems.map((item) => ({
+  productId: item.productId,
+  quantity: item.quantity,
+  price: item.product?.price || 0,
+  name: item.product?.name || "Unknown",
+  size: item.size || null,
+  color: item.color || null,        // ✅ ADD
+  variantId: item.variantId || null // ✅ ADD
+}));
+
 
     // Create order
     const order = await prisma.order.create({

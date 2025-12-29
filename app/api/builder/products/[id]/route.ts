@@ -24,7 +24,7 @@ export async function GET(_req: Request, context: Context) {
         price: true,
         mrp: true,
         stock: true,
-        sizes: true,
+       
         images: true,
       },
     });
@@ -68,22 +68,30 @@ export async function PUT(req: Request, context: Context) {
     const images = formData.get("oldImages")
       ? JSON.parse(String(formData.get("oldImages")))
       : [];
-
-    const updated = await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        category,
-        price,
-        mrp,
-        stock,
-        sizes,
-        images,
+const product = await prisma.product.findUnique({
+  where: { id },
+  select: {
+    id: true,
+    name: true,
+    price: true,
+    mrp: true,
+    stock: true,
+    images: true,
+    variants: {
+      select: {
+        id: true,
+        size: true,
+        color: true,
+        stock: true,
+        price: true,
+        images: true,
       },
-    });
+    },
+  },
+});
 
-    return NextResponse.json({ product: updated });
+  return NextResponse.json({ success: true, product });
+
   } catch (err) {
     console.error("BUILDER UPDATE ERROR", err);
     return NextResponse.json(

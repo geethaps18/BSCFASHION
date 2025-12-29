@@ -105,9 +105,15 @@ export default function BagPage() {
 
 
                   <div className="flex-1 flex flex-col justify-between mt-2 sm:mt-0">
-                    <h3 className="text-sm sm:text-base font-medium text-gray-900 line-clamp-2">
-                      {item.product.name} {item.size && `(${item.size})`}
-                    </h3>
+                 <h3 className="text-sm sm:text-base font-medium text-gray-900 line-clamp-2">
+  {item.product.name}
+</h3>
+
+<div className="text-xs text-gray-600 mt-1">
+  {item.size && <span>Size: {item.size}</span>}
+  {item.color && <span className="ml-2">Color: {item.color}</span>}
+</div>
+
 
                     {item.product.availableSizes?.length ? (
   <div className="mt-1">

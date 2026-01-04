@@ -9,6 +9,9 @@ import Providers from "./providers";
 import DesktopFooter from "@/components/DesktopFooter";
 import OfflineBanner from "@/components/OfflineBanner";
 import AppLayoutWrapper from "@/components/AppLayoutWrapper";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

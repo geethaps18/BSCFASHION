@@ -1,53 +1,57 @@
 "use client";
-import React from "react";
-import Link from "next/link";
+
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import Slider from "react-slick";
 
 export default function Hero() {
+  const router = useRouter();
+
+  const settings = {
+    dots: false,
+    arrows: false,
+    infinite: true,
+    autoplay: true,
+    autoplaySpeed: 4500,
+    speed: 700,
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    pauseOnHover: false,
+  };
+
+  const slides = [
+    { src: "/images/slide1.png", href: "/categories/saree" },
+    { src: "/images/slide2.png", href: "/categories/western" },
+    { src: "/images/slide3.png", href: "/categories/men" },
+    { src: "/images/slide4.png", href: "/categories" },
+  ];
+
   return (
-    <section className="relative w-full h-[55vh] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] flex items-start justify-center text-white">
-      {/* Background Video */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="absolute inset-0 w-full h-full object-cover"
-      >
-        <source src="/bsc.mp4" type="video/mp4" />
-      </video>
-
-      {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/40"></div>
-
-      {/* Content */}
-      <div className="relative z-10 max-w-4xl px-6 text-center flex flex-col items-center justify-start mt-2 sm:mt-12 md:mt-16">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold">
-          BSCFASHION
-        </h1>
-        <h2 className="text-lg sm:text-xl md:text-2xl font-semibold mt-2">
-          Since 1938. Trusted by Generations.
-        </h2>
-        <p className="mt-3 text-sm sm:text-base md:text-lg max-w-xl">
-          Discover timeless sarees, men’s wear, kids’ wear, and home essentials —{" "}
-          <span className="font-semibold">ಬಟ್ಟೆ ಅಂದರೆ BSC.</span>
-        </p>
-
-        {/* Buttons */}
-        <div className="mt-5 flex flex-wrap gap-3 justify-center">
-          <Link
-            href="/shop"
-            className="bg-white/20 hover:bg-white/30 border border-white text-white px-5 py-2 rounded-full font-semibold text-sm sm:text-base"
+    <section
+      className="
+        w-full overflow-hidden
+        min-h-auto
+        md:min-h-[calc(100vh-96px)]
+      "
+    >
+      <Slider {...settings}>
+        {slides.map((slide, index) => (
+          <div
+            key={index}
+            className="w-full cursor-pointer hover:opacity-95 transition"
+            onClick={() => router.push(slide.href)}
           >
-            Shop Now
-          </Link>
-          <Link
-            href="/ourstory"
-            className="bg-white/20 hover:bg-white/30 border border-white text-white px-5 py-2 rounded-full font-semibold text-sm sm:text-base"
-          >
-            Our Story
-          </Link>
-        </div>
-      </div>
+            <Image
+              src={slide.src}
+              alt={`BSC Hero Slide ${index + 1}`}
+              width={1920}
+              height={920}
+              priority={index === 0}
+              className="w-full h-auto object-contain block"
+            />
+          </div>
+        ))}
+      </Slider>
     </section>
   );
 }

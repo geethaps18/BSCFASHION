@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import ClientShell from "@/components/ClientShell";
 import HomeInner from "@/app/HomeInner"; // or your actual home component
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 
 export default async function Page() {
   const headersList = await headers();              // ✅ get headers

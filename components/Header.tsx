@@ -202,7 +202,11 @@ useEffect(() => {
 
   return (
     
- <header className="fixed top-0 left-0 w-full bg-white border-b border-black/10 z-50">
+<header
+  className="fixed top-0 left-0 w-full bg-white border-b border-black/10 z-50"
+  onMouseLeave={() => setActiveCategory(null)}
+>
+
     
 
      <div className="w-full px-4 md:px-8 py-2 sm:py-3 flex items-center gap-2">
@@ -295,14 +299,13 @@ width: itemRect.width,
       
     </div>
   </div>
-{/* BACKDROP (Vuori style – BELOW HEADER) */}
 {activeCategory && (
   <div
-    className="fixed inset-0 bg-black/20 z-40"
-    style={{ top: "64px" }} // 👈 height of header
-    onClick={() => setActiveCategory(null)}
+    className="fixed inset-0 bg-black/20 z-40 pointer-events-none"
+    style={{ top: "64px" }}
   />
-)}  
+)}
+ 
 
 
 {/* MEGA MENU */}

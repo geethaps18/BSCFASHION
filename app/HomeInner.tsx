@@ -68,8 +68,10 @@ export default function HomeInner() {
           </div>
         </div>
 
-        {/* Hero */}
-        <Hero />
+       <div className="-mt- lg:-mt-10">
+  <Hero />
+</div>
+
 
         {/* ✅ Recent Products Slider */}
         {!initialLoading && recentProducts.length > 4 && (

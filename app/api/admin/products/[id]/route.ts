@@ -125,10 +125,12 @@ export async function PUT(
     const price = form.get("price") ? Number(form.get("price")) : undefined;
     const mrp = form.get("mrp") ? Number(form.get("mrp")) : undefined;
     const stock = form.get("stock") ? Number(form.get("stock")) : undefined;
+const categoryPath = form.get("categoryPath")
+  ? JSON.parse(form.get("categoryPath")!.toString())
+  : [];
 
-    const category = form.get("category")?.toString() ?? "";
-    const subCategory = form.get("subCategory")?.toString() ?? "";
-    const subSubCategory = form.get("subSubCategory")?.toString() ?? "";
+const [category, subCategory, subSubCategory] = categoryPath;
+
 
     const sizes = form.get("sizes")
       ? JSON.parse(form.get("sizes")!.toString())
@@ -165,7 +167,6 @@ export async function PUT(
     const updateData: any = {
       name,
       description,
-      sizes,
       category,
       subCategory,
       subSubCategory,

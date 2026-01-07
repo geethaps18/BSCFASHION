@@ -23,10 +23,23 @@ type Variant = {
   images: File[];
   previews: string[];
 };
+type ProductFormMode = "add" | "edit";
+
+type ProductFormProps = {
+  mode: ProductFormMode;
+  productId?: string;
+};
 
 
 
-export default function AddProductFormTabbed() {
+export default function ProductFormTabbed({
+  mode = "add",
+  productId,
+}: {
+  mode?: "add" | "edit";
+  productId?: string;
+}) {
+
   const [activeTab, setActiveTab] = useState<number>(0);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -67,6 +80,51 @@ const [selectedColors, setSelectedColors] =
   hex: "#000000",
 });
 
+
+
+useEffect(() => {
+  if (mode !== "edit" || !productId) return;
+
+  (async () => {
+    const res = await fetch(`/api/admin/products/${productId}`);
+    const data = await res.json();
+
+    setName(data.name ?? "");
+    setDescription(data.description ?? "");
+    setPrice(String(data.price ?? ""));
+    setMrp(String(data.mrp ?? ""));
+    setDiscount(String(data.discount ?? ""));
+
+    setFit((data.fit ?? []).join("\n"));
+    setFabricCare((data.fabricCare ?? []).join("\n"));
+    setFeatures((data.features ?? []).join("\n"));
+
+    // categoryPath → category / sub / subSub
+    const [c, sc, ssc] = data.categoryPath || [];
+    const cat = categories.find(x => x.name === c) || null;
+    setCategory(cat);
+    setSubCategory(cat?.subCategories?.find(x => x.name === sc) || null);
+    setSubSubCategory(
+      cat?.subCategories
+        ?.find(x => x.name === sc)
+        ?.subCategories?.find(x => x.name === ssc) || null
+    );
+
+    setProductPreviews(data.images || []);
+
+    setVariants(
+      (data.variants || []).map((v:any) => ({
+        id: crypto.randomUUID(),
+        size: v.size,
+        color: v.color,
+        price: String(v.price),
+        stock: String(v.stock),
+        images: [],
+        previews: v.images || [],
+      }))
+    );
+  })();
+}, [mode, productId]);
 
 
   useEffect(() => {
@@ -243,10 +301,24 @@ form.append(
       productFiles.forEach(f => form.append("images", f));
       
 
-      const res = await fetch('/api/products', { method: 'POST', body: form });
+      const url =
+  mode === "edit"
+    ? `/api/admin/products/${productId}`
+    : `/api/products`;
+
+const method = mode === "edit" ? "PUT" : "POST";
+
+const res = await fetch(url, {
+  method,
+  body: form,
+});
+
       const json = await res.json();
       if (!res.ok) throw new Error(json?.message || 'Failed');
-      toast.success('Product added');
+      toast.success(
+  mode === "add" ? "Product added" : "Product updated"
+);
+
       // reset
       setName(''); setDescription(''); setCategory(categories[0] || null); setSubCategory(null); setSubSubCategory(null);
     

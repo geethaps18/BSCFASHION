@@ -23,10 +23,30 @@ type Variant = {
   images: File[];
   previews: string[];
 };
+type ProductFormData = {
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  mrp: number;
+  stock: number;
+  images: string[];
+  sizes?: string[];
+};
+
+type ProductFormMode = "add" | "edit";
+
+type ProductFormProps = {
+  mode: ProductFormMode;
+  productId?: string;
+  initialData?: ProductFormData; // ✅ ADD THIS
+};
 
 
 
-export default function AddProductFormTabbed() {
+
+export default function ProductFormTabbed({ mode, productId }: ProductFormProps) {
+
   const [activeTab, setActiveTab] = useState<number>(0);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -67,6 +87,51 @@ const [selectedColors, setSelectedColors] =
   hex: "#000000",
 });
 
+useEffect(() => {
+  if (mode !== "edit" || !productId) return;
+
+  const loadProduct = async () => {
+    const res = await fetch(`/api/builder/products/${productId}`);
+    const data = await res.json();
+
+    setName(data.name || "");
+    setDescription(data.description || "");
+    setPrice(String(data.price || ""));
+    setMrp(String(data.mrp || ""));
+    setProductPreviews(data.images || []);
+    setProductFiles([]); // existing images only
+
+    // 🔥 category path
+    if (data.categoryPath?.length) {
+      const [cat, sub, subsub] = data.categoryPath;
+      const c = categories.find(c => c.name === cat) || null;
+      setCategory(c);
+
+      const sc = c?.subCategories?.find(s => s.name === sub) || null;
+      setSubCategory(sc);
+
+      const ssc = sc?.subCategories?.find(s => s.name === subsub) || null;
+      setSubSubCategory(ssc);
+    }
+
+    // 🔥 variants
+    if (data.variants) {
+      setVariants(
+        data.variants.map((v: any) => ({
+          id: v.id,
+          size: v.size,
+          color: v.color,
+          price: String(v.price),
+          stock: String(v.stock),
+          images: [],
+          previews: v.images || [],
+        }))
+      );
+    }
+  };
+
+  loadProduct();
+}, [mode, productId]);
 
 
   useEffect(() => {
@@ -243,10 +308,24 @@ form.append(
       productFiles.forEach(f => form.append("images", f));
       
 
-      const res = await fetch('/api/products', { method: 'POST', body: form });
+     const url =
+  mode === "add"
+    ? "/api/products"
+    : `/api/builder/products/${productId}`;
+
+const method = mode === "add" ? "POST" : "PUT";
+
+const res = await fetch(url, {
+  method,
+  body: form,
+});
+
       const json = await res.json();
       if (!res.ok) throw new Error(json?.message || 'Failed');
-      toast.success('Product added');
+     toast.success(
+  mode === "add" ? "Product added" : "Product updated"
+);
+
       // reset
       setName(''); setDescription(''); setCategory(categories[0] || null); setSubCategory(null); setSubSubCategory(null);
     

@@ -65,33 +65,28 @@ export async function PUT(req: Request, context: Context) {
       ? JSON.parse(String(formData.get("sizes")))
       : [];
 
-    const images = formData.get("oldImages")
+    const existingImages = formData.get("oldImages")
       ? JSON.parse(String(formData.get("oldImages")))
       : [];
-const product = await prisma.product.findUnique({
-  where: { id },
-  select: {
-    id: true,
-    name: true,
-    price: true,
-    mrp: true,
-    stock: true,
-    images: true,
-    variants: {
-      select: {
-        id: true,
-        size: true,
-        color: true,
-        stock: true,
-        price: true,
-        images: true,
+
+    // 🔥 UPDATE PRODUCT
+    const updated = await prisma.product.update({
+      where: { id },
+      data: {
+        name,
+        description,
+        category,
+        price,
+        mrp,
+        stock,
+        images: existingImages,
       },
-    },
-  },
-});
+    });
 
-  return NextResponse.json({ success: true, product });
-
+    return NextResponse.json({
+      success: true,
+      product: updated,
+    });
   } catch (err) {
     console.error("BUILDER UPDATE ERROR", err);
     return NextResponse.json(
@@ -100,6 +95,7 @@ const product = await prisma.product.findUnique({
     );
   }
 }
+
 
 /**
  * DELETE /api/builder/products/:id

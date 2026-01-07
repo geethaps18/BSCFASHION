@@ -254,9 +254,12 @@ export async function PUT(
 // DELETE product (admin)
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const id = params.id;
+  const { id } = await context.params;
+
+  // your delete logic here
+
 
   try {
     await prisma.$transaction(async (tx) => {

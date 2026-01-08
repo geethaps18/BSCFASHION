@@ -101,12 +101,34 @@ export async function GET(req: Request) {
 
     const total = await prisma.product.count({ where });
 
-    const products = await prisma.product.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: pageSize,
-    });
+   const products = await prisma.product.findMany({
+  where,
+  orderBy: { createdAt: "desc" },
+  skip,
+  take: pageSize,
+  select: {
+    id: true,
+    name: true,
+    price: true,
+    mrp: true,
+    discount: true,
+    images: true,
+    brandName: true,
+    rating: true,
+    reviewCount: true,
+    category: true,
+
+    // ✅ CRITICAL FIX
+    variants: {
+      select: {
+        id: true,
+        size: true,
+        stock: true,
+      },
+    },
+  },
+});
+
 
     return NextResponse.json({
       products,

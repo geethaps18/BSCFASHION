@@ -358,9 +358,17 @@ const handleAddToBagWithLoginCheck = () => {
 };
 
 
-const sizes = Array.from(
-  new Set(variants.map(v => v.size).filter(Boolean))
-) as string[];
+const sizes = selectedColor
+  ? Array.from(
+      new Set(
+        variants
+          .filter(v => v.color === selectedColor && (v.stock ?? 0) > 0)
+          .map(v => v.size)
+          .filter(Boolean)
+      )
+    )
+  : [];
+
 const isProductOutOfStock =
   variants.length > 0 &&
   variants.every(v => (v.stock ?? 0) <= 0);
@@ -375,12 +383,19 @@ const isProductOutOfStock =
 ) as string[];
 
 
-const getVariantBySize = (size: string) =>
-  variants.find(
-    v =>
-      v.size === size &&
-      (!selectedColor || v.color === selectedColor)
-  ) ?? null;
+const getVariantBySize = (size: string) => {
+  if (!selectedColor) return null;
+
+  return (
+    variants.find(
+      v =>
+        v.size === size &&
+        v.color === selectedColor &&
+        (v.stock ?? 0) > 0
+    ) ?? null
+  );
+};
+
 
 const getVariant = (size: string, color: string | null) =>
   variants.find(

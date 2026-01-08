@@ -73,10 +73,13 @@ export default function HomeInner() {
 </div>
 
 
-        {/* ✅ Recent Products Slider */}
-        {!initialLoading && recentProducts.length > 4 && (
-          <RecentProductsSlider products={recentProducts} />
-        )}
+       {/* ✅ Recent Products Slider */}
+{!initialLoading && recentProducts.length > 4 && (
+  <div className="mt-6 sm:mt-8 lg:mt-10">
+    <RecentProductsSlider products={recentProducts} />
+  </div>
+)}
+
 
         {/* Products Grid */}
         <main className="flex-grow sm:p-6 pb-2">

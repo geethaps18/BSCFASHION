@@ -1,12 +1,30 @@
+export interface ProductVariantCard {
+  id: string;
+  size: string;
+  stock: number;
+  price: number;
+}
+
 export interface ProductCardProduct {
   id: string;
-  name: string | null;
-  images: string[];
+  name: string;
   price: number;
-  mrp?: number | null;
-  discount?: number | null;
-  rating?: number | null;
-  reviewCount?: number | null;
-  sizes?: string[];
+
+  mrp?: number;          // ✅ make optional
+  discount?: number;
+
+  images: string[];
+
+  sizes?: string[];      // legacy fallback
+  variants?: {
+    id: string;
+    size: string;
+    stock: number;
+  }[];
+
   brandName?: string;
+  rating?: number;
+  reviewCount?: number;
+
+
 }

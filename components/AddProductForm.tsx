@@ -23,29 +23,27 @@ type Variant = {
   images: File[];
   previews: string[];
 };
-type ProductFormData = {
-  name: string;
-  description: string;
-  category: string;
-  price: number;
-  mrp: number;
-  stock: number;
-  images: string[];
-  sizes?: string[];
-};
-
 type ProductFormMode = "add" | "edit";
 
 type ProductFormProps = {
-  mode: ProductFormMode;
+  mode?: "add" | "edit";
   productId?: string;
-  initialData?: ProductFormData; // ✅ ADD THIS
+  siteId: string; // ✅ ADD THIS
 };
 
 
 
 
-export default function ProductFormTabbed({ mode, productId }: ProductFormProps) {
+export default function AddProductFormTabbed({
+  mode = "add",
+  productId,
+  siteId,
+}: {
+  mode?: "add" | "edit";
+  productId?: string;
+  siteId: string;
+}) {
+
 
   const [activeTab, setActiveTab] = useState<number>(0);
   const [name, setName] = useState("");
@@ -87,50 +85,50 @@ const [selectedColors, setSelectedColors] =
   hex: "#000000",
 });
 
+
+
 useEffect(() => {
   if (mode !== "edit" || !productId) return;
 
-  const loadProduct = async () => {
-    const res = await fetch(`/api/builder/products/${productId}`);
+  (async () => {
+    const res = await fetch(`/api/admin/products/${productId}`);
     const data = await res.json();
 
-    setName(data.name || "");
-    setDescription(data.description || "");
-    setPrice(String(data.price || ""));
-    setMrp(String(data.mrp || ""));
+    setName(data.name ?? "");
+    setDescription(data.description ?? "");
+    setPrice(String(data.price ?? ""));
+    setMrp(String(data.mrp ?? ""));
+    setDiscount(String(data.discount ?? ""));
+
+    setFit((data.fit ?? []).join("\n"));
+    setFabricCare((data.fabricCare ?? []).join("\n"));
+    setFeatures((data.features ?? []).join("\n"));
+
+    // categoryPath → category / sub / subSub
+    const [c, sc, ssc] = data.categoryPath || [];
+    const cat = categories.find(x => x.name === c) || null;
+    setCategory(cat);
+    setSubCategory(cat?.subCategories?.find(x => x.name === sc) || null);
+    setSubSubCategory(
+      cat?.subCategories
+        ?.find(x => x.name === sc)
+        ?.subCategories?.find(x => x.name === ssc) || null
+    );
+
     setProductPreviews(data.images || []);
-    setProductFiles([]); // existing images only
 
-    // 🔥 category path
-    if (data.categoryPath?.length) {
-      const [cat, sub, subsub] = data.categoryPath;
-      const c = categories.find(c => c.name === cat) || null;
-      setCategory(c);
-
-      const sc = c?.subCategories?.find(s => s.name === sub) || null;
-      setSubCategory(sc);
-
-      const ssc = sc?.subCategories?.find(s => s.name === subsub) || null;
-      setSubSubCategory(ssc);
-    }
-
-    // 🔥 variants
-    if (data.variants) {
-      setVariants(
-        data.variants.map((v: any) => ({
-          id: v.id,
-          size: v.size,
-          color: v.color,
-          price: String(v.price),
-          stock: String(v.stock),
-          images: [],
-          previews: v.images || [],
-        }))
-      );
-    }
-  };
-
-  loadProduct();
+    setVariants(
+      (data.variants || []).map((v:any) => ({
+        id: crypto.randomUUID(),
+        size: v.size,
+        color: v.color,
+        price: String(v.price),
+        stock: String(v.stock),
+        images: [],
+        previews: v.images || [],
+      }))
+    );
+  })();
 }, [mode, productId]);
 
 
@@ -211,131 +209,174 @@ function newVariant(): Variant {
     setErrors(err);
     return Object.keys(err).length === 0;
   }
-
-
-  async function handleSubmit(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (selectedColors.length === 0) {
-  toast.error("Add at least one color");
-  return;
-}
-
-for (const v of variants) {
-  if (!v.size || !v.color || v.stock === "") {
-    toast.error("Each size must have color and stock");
-    return;
-  }
-}
-// ✅ Auto-assign color if only one color exists
-if (selectedColors.length === 1) {
-  const onlyColor = selectedColors[0].name;
-
-  setVariants(prev =>
-    prev.map(v => ({
-      ...v,
-      color: v.color || onlyColor,
-    }))
-  );
-}
+  // Cloudinary upload helper (KEEP IT HERE)
 const uploadImage = async (file: File) => {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("type", "product");
 
   const res = await fetch("/api/media/upload", {
     method: "POST",
     body: formData,
   });
 
+  if (!res.ok) {
+    throw new Error("Image upload failed");
+  }
+
   const data = await res.json();
-  return data.media; // { id, url, publicId }
+  return data.url; // ✅ Cloudinary secure_url
 };
 
 
-    // final validation
-    if (!validateBasic() || !validateMedia() || !validatePricing() ) { toast.error("Fix errors"); return; }
-    setLoading(true);
-    try {
-      const form = new FormData();
-      form.append("name", name);
-      form.append("description", description);
-      const catPath = [category?.name, subCategory?.name, subSubCategory?.name].filter(Boolean);
-      form.append("categoryPath", JSON.stringify(catPath));
-      form.append("price", String(price));
-      form.append("mrp", String(mrp));
-      form.append("discount", String(discount));
-     
-   form.append(
-  "variants",
-  JSON.stringify(
-    variants.map(v => ({
-      size: v.size,
-      color: v.color,   // ✅ THIS WAS MISSING
-      price: Number(v.price),
-      stock: Number(v.stock),
-    }))
-  )
-);
 
-variants.forEach((v, i) => {
-  v.images.forEach(file => {
-    form.append(`variantImages_${i}`, file);
-  });
-});
+async function handleSubmit(e?: React.FormEvent) {
+  e?.preventDefault();
 
-      
-      form.append(
-  "fit",
-  JSON.stringify(
-    fit.split("\n").map(v => v.trim()).filter(Boolean)
-  )
-);
-
-form.append(
-  "fabricCare",
-  JSON.stringify(
-    fabricCare.split("\n").map(v => v.trim()).filter(Boolean)
-  )
-);
-
-form.append(
-  "features",
-  JSON.stringify(
-    features.split("\n").map(v => v.trim()).filter(Boolean)
-  )
-);
-
-      productFiles.forEach(f => form.append("images", f));
-      
-
-     const url =
-  mode === "add"
-    ? "/api/products"
-    : `/api/builder/products/${productId}`;
-
-const method = mode === "add" ? "POST" : "PUT";
-
-const res = await fetch(url, {
-  method,
-  body: form,
-});
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.message || 'Failed');
-     toast.success(
-  mode === "add" ? "Product added" : "Product updated"
-);
-
-      // reset
-      setName(''); setDescription(''); setCategory(categories[0] || null); setSubCategory(null); setSubSubCategory(null);
-    
-      setProductFiles([]); setProductPreviews([]); setVariants([]);
-      setActiveTab(0);
-    } catch (err:any) {
-      console.error(err);
-      toast.error(err.message || 'Server error');
-    } finally { setLoading(false); }
+  // -----------------------------
+  // VALIDATIONS
+  // -----------------------------
+  if (selectedColors.length === 0) {
+    toast.error("Add at least one color");
+    return;
   }
+
+  for (const v of variants) {
+    if (!v.size || !v.color || v.stock === "") {
+      toast.error("Each variant must have size, color and stock");
+      return;
+    }
+  }
+
+  // Auto assign color if only one exists
+  if (selectedColors.length === 1) {
+    const onlyColor = selectedColors[0].name;
+    setVariants(prev =>
+      prev.map(v => ({
+        ...v,
+        color: v.color || onlyColor,
+      }))
+    );
+  }
+
+  if (!validateBasic() || !validateMedia() || !validatePricing()) {
+    toast.error("Fix errors before submitting");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // -----------------------------
+    // CREATE FORM DATA (ONLY ONCE)
+    // -----------------------------
+    const form = new FormData();
+
+    // 🔥 REQUIRED
+    form.append("siteId", siteId);
+
+    // Basic
+    form.append("name", name);
+    form.append("description", description);
+
+    const categoryPath = [
+      category?.name,
+      subCategory?.name,
+      subSubCategory?.name,
+    ].filter(Boolean);
+
+    form.append("categoryPath", JSON.stringify(categoryPath));
+    form.append("price", price);
+    form.append("mrp", mrp);
+    form.append("discount", discount);
+
+    // Text fields
+    form.append(
+      "fit",
+      JSON.stringify(fit.split("\n").map(v => v.trim()).filter(Boolean))
+    );
+    form.append(
+      "fabricCare",
+      JSON.stringify(fabricCare.split("\n").map(v => v.trim()).filter(Boolean))
+    );
+    form.append(
+      "features",
+      JSON.stringify(features.split("\n").map(v => v.trim()).filter(Boolean))
+    );
+
+    // -----------------------------
+    // VARIANTS
+    // -----------------------------
+    form.append(
+      "variants",
+      JSON.stringify(
+        variants.map(v => ({
+          size: v.size,
+          color: v.color,
+          price: Number(v.price),
+          stock: Number(v.stock),
+        }))
+      )
+    );
+
+    variants.forEach((v, i) => {
+      v.images.forEach(file => {
+        form.append(`variantImages_${i}`, file);
+      });
+    });
+
+    // -----------------------------
+    // PRODUCT IMAGES → CLOUDINARY
+    // -----------------------------
+    const imageUrls: string[] = [];
+
+    for (const file of productFiles) {
+      const url = await uploadImage(file);
+      imageUrls.push(url);
+    }
+
+    form.append("images", JSON.stringify(imageUrls));
+
+    // -----------------------------
+    // SUBMIT
+    // -----------------------------
+    const url =
+      mode === "edit"
+        ? `/api/admin/products/${productId}`
+        : `/api/products`;
+
+    const res = await fetch(url, {
+      method: mode === "edit" ? "PUT" : "POST",
+      body: form,
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      throw new Error(json?.message || "Failed to save product");
+    }
+
+    toast.success(mode === "add" ? "Product added successfully" : "Product updated");
+
+    // -----------------------------
+    // RESET
+    // -----------------------------
+    setName("");
+    setDescription("");
+    setCategory(categories[0] || null);
+    setSubCategory(null);
+    setSubSubCategory(null);
+    setProductFiles([]);
+    setProductPreviews([]);
+    setVariants([]);
+    setActiveTab(0);
+  } catch (err: any) {
+    console.error(err);
+    toast.error(err.message || "Server error");
+  } finally {
+    setLoading(false);
+  }
+}
+
 
 const Tabs = ["Basic","Media","Pricing","Variants","Review"];
 

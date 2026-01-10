@@ -1,4 +1,6 @@
 // app/api/products/[id]/route.ts
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import jwt from "jsonwebtoken";
@@ -90,7 +92,7 @@ const normalized = {
   images: (product.images ?? []).filter(
   (img) => typeof img === "string" && img.trim().length > 0
 ),
-
+ video: product.video ?? null, 
 
   price: product.price ?? 0,
   mrp: product.mrp ?? null,

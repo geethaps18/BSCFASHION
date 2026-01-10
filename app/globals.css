@@ -231,3 +231,29 @@ body, html {
   height: 100%;
 }
 
+.bscfashion-swiper {
+  --swiper-pagination-bg-color: rgba(6, 6, 6, 0.15); /* lighter, more subtle */
+  --swiper-pagination-color: rgba(42, 41, 41, 0.95);   /* strong active */
+}
+
+
+.bscfashion-swiper .swiper-pagination-progressbar {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 4px !important;
+  top: auto !important;
+  height: 1.5px;
+  background: var(--swiper-pagination-bg-color);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.bscfashion-swiper .swiper-pagination-progressbar-fill {
+  background: var(--swiper-pagination-color);
+  transition: transform 0.35s ease;
+}
+.bscfashion-swiper .swiper-pagination-progressbar-fill {
+  opacity: 1;
+  will-change: transform;
+}

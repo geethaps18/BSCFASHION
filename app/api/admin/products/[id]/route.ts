@@ -89,9 +89,11 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-    });
+  const product = await prisma.product.findUnique({
+  where: { id },
+  include: { variants: true }, // 🔥 REQUIRED
+});
+
 
     if (!product)
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -137,7 +139,13 @@ const [category, subCategory, subSubCategory] = categoryPath;
       : [];
 
     // fetch previous product to compare stock
-    const prevProduct = await prisma.product.findUnique({ where: { id } });
+    const prevProduct = await prisma.product.findUnique({
+  where: { id },
+  include: { variants: true },
+});
+
+
+
     if (!prevProduct)
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
@@ -161,7 +169,9 @@ const [category, subCategory, subSubCategory] = categoryPath;
       ? JSON.parse(form.get("existingImages")!.toString())
       : [];
 
-    const finalImages = [...(existingImages || []), ...uploadedImages];
+   const finalImages =
+  uploadedImages.length > 0 ? uploadedImages : prevProduct.images;
+
 
     // prepare update data
     const updateData: any = {
@@ -181,6 +191,54 @@ const [category, subCategory, subSubCategory] = categoryPath;
       where: { id },
       data: updateData,
     });
+    const variantsRaw = form.get("variants");
+if (variantsRaw) {
+  const incomingVariants = JSON.parse(variantsRaw.toString());
+
+  for (let i = 0; i < incomingVariants.length; i++) {
+    const v = incomingVariants[i];
+
+    const existingVariant = prevProduct.variants.find(
+      ev => ev.size === v.size && ev.color === v.color
+    );
+
+    const variantImageFiles = form.getAll(`variantImages_${i}`) as File[];
+    const uploadedVariantImages: string[] = [];
+
+    for (const file of variantImageFiles) {
+      if (file && file.size > 0) {
+        const url = await uploadImage(file);
+        if (url) uploadedVariantImages.push(url);
+      }
+    }
+
+    if (existingVariant) {
+      await prisma.productVariant.update({
+        where: { id: existingVariant.id },
+        data: {
+          price: v.price ?? existingVariant.price,
+          stock: v.stock ?? existingVariant.stock,
+          images:
+            uploadedVariantImages.length > 0
+              ? uploadedVariantImages
+              : existingVariant.images,
+        },
+      });
+    } else {
+      await prisma.productVariant.create({
+        data: {
+          productId: id,
+          size: v.size,
+          color: v.color,
+          price: v.price,
+          stock: v.stock,
+          images: uploadedVariantImages,
+        },
+      });
+    }
+  }
+}
+
 
     // ---------- RESTOCK LOGIC ----------
     const prevStock = prevProduct.stock ?? 0;
@@ -250,6 +308,7 @@ const [category, subCategory, subSubCategory] = categoryPath;
     return NextResponse.json({ error: "Update failed", details: String(err) }, { status: 500 });
   }
 }
+
 
 // ---------------------------------------------------
 // DELETE product (admin)

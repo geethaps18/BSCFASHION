@@ -2,99 +2,117 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 type Context = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
-/**
- * GET /api/builder/products/:id
- */
+// ---------------- GET (same as admin) ----------------
 export async function GET(_req: Request, context: Context) {
-  try {
-    const { id } = await context.params;
+  const { id } = await context.params;
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        category: true,
-        price: true,
-        mrp: true,
-        stock: true,
-       
-        images: true,
-      },
-    });
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: { variants: true }, // ✅ SAME AS ADMIN
+  });
 
-    if (!product) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(product);
-  } catch (err) {
-    console.error("BUILDER GET ERROR", err);
-    return NextResponse.json(
-      { error: "Failed to fetch product" },
-      { status: 500 }
-    );
+  if (!product) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
+
+  return NextResponse.json(product);
 }
 
-/**
- * PUT /api/builder/products/:id
- */
+// ---------------- PUT (same logic as admin) ----------------
 export async function PUT(req: Request, context: Context) {
-  try {
-    const { id } = await context.params;
-    const formData = await req.formData();
+  const { id } = await context.params;
+  const form = await req.formData();
+  
 
-    const name = String(formData.get("name") || "");
-    const description = String(formData.get("description") || "");
-    const category = String(formData.get("category") || "");
-    const price = Number(formData.get("price") || 0);
-    const mrp = Number(formData.get("mrp") || 0);
-    const stock = Number(formData.get("stock") || 0);
+  // ---- basic fields ----
+  const name = String(form.get("name") || "");
+  const description = String(form.get("description") || "");
+  const category = String(form.get("category") || "");
+  const price = Number(form.get("price") || 0);
+  const mrp = Number(form.get("mrp") || 0);
+  const stock = Number(form.get("stock") || 0);
 
-    const sizes = formData.get("sizes")
-      ? JSON.parse(String(formData.get("sizes")))
-      : [];
+  // ---- fetch previous product ----
+  const prevProduct = await prisma.product.findUnique({
+    where: { id },
+    include: { variants: true },
+  });
 
-    const existingImages = formData.get("oldImages")
-      ? JSON.parse(String(formData.get("oldImages")))
-      : [];
-
-    // 🔥 UPDATE PRODUCT
-    const updated = await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        category,
-        price,
-        mrp,
-        stock,
-        images: existingImages,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      product: updated,
-    });
-  } catch (err) {
-    console.error("BUILDER UPDATE ERROR", err);
-    return NextResponse.json(
-      { error: "Failed to update product" },
-      { status: 500 }
-    );
+  if (!prevProduct) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
+
+  // ---- images (KEEP OLD IF NO NEW) ----
+  const newImages = form.get("images")
+    ? JSON.parse(String(form.get("images")))
+    : [];
+
+  const finalImages =
+    newImages.length > 0 ? newImages : prevProduct.images;
+
+  // ---- update product ----
+  const updatedProduct = await prisma.product.update({
+    where: { id },
+    data: {
+      name,
+      description,
+      category,
+      price,
+      mrp,
+      stock,
+      images: finalImages,
+    },
+  });
+
+  // ---- variants (SAME AS ADMIN) ----
+  const variantsRaw = form.get("variants");
+
+  if (variantsRaw) {
+    const incomingVariants = JSON.parse(String(variantsRaw));
+
+    for (const v of incomingVariants) {
+      const existingVariant = prevProduct.variants.find(
+        ev => ev.size === v.size && ev.color === v.color
+      );
+
+      if (existingVariant) {
+        // ✅ UPDATE VARIANT
+        await prisma.productVariant.update({
+          where: { id: existingVariant.id },
+          data: {
+            price: v.price,
+            stock: v.stock,
+            images:
+              v.images?.length > 0
+                ? v.images
+                : existingVariant.images,
+          },
+        });
+      } else {
+        // ✅ CREATE VARIANT
+        await prisma.productVariant.create({
+          data: {
+            productId: id,
+            size: v.size,
+            color: v.color,
+            price: v.price,
+            stock: v.stock,
+            images: v.images || [],
+          },
+        });
+      }
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    product: updatedProduct,
+  });
 }
+
 
 
 /**

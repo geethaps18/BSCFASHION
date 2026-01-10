@@ -1,5 +1,6 @@
 "use client";
 
+
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
@@ -22,6 +23,8 @@ import LoadingRing from "@/components/LoadingRing";
 import Link from "next/link";
 import ProductAccordion from "@/components/ProductAccordion";
 import { COLOR_OPTIONS } from "@/data/colors";
+import { Zoom } from "swiper/modules";
+import "swiper/css/zoom";
 
 
 const productCache = new Map<string, ProductWithReviews>();
@@ -76,6 +79,10 @@ function ZoomImage({ src, alt }: { src: string; alt: string }) {
     </div>
   );
 }
+type GalleryItem =
+  | { type: "image"; src: string }
+  | { type: "video"; src: string };
+
 
 /** ---- Types ---- */
 interface Review {
@@ -98,6 +105,7 @@ type ProductWithReviews = {
   category?: string;
 
   images: string[];
+  video?: string | null;
 
   price: number;
   mrp?: number | null;
@@ -131,6 +139,7 @@ export default function ProductDetailPage() {
   const params = useParams<{ id?: string }>();
   const id = params?.id;
 
+
   const { wishlist, toggleWishlist } = useWishlist();
   const { addToCart } = useCart();
   const router = useRouter();
@@ -150,7 +159,12 @@ export default function ProductDetailPage() {
   const [sizeError, setSizeError] = useState(false);
   const sizesRef = useRef<HTMLDivElement | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const variants = product?.variants ?? [];
+ const variants = React.useMemo(
+  () => product?.variants ?? [],
+  [product]
+);
+
+  
   // Gallery modal state for Real Images fullscreen slider
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
@@ -166,9 +180,11 @@ const [selectedVariant, setSelectedVariant] = useState<{
   stock?: number;
   images?: string[];
 } | null>(null);
+const [activeIndex, setActiveIndex] = useState(0);
 
 const getColorHex = (name: string) =>
   COLOR_OPTIONS.find(c => c.name === name)?.hex ?? "#ccc";
+
 
 
 useEffect(() => {
@@ -184,6 +200,11 @@ useEffect(() => {
   }
 }, [selectedColor, variants]);
 
+useEffect(() => {
+  if (product) {
+    console.log("VIDEO URL 👉", product.video);
+  }
+}, [product]);
 
   // ---------------- FETCH PRODUCT ----------------
 
@@ -250,16 +271,47 @@ useEffect(() => {
 }, [id]);
 
 
-  if (networkError) {
-    return (
-      <div className="p-6 text-center text-red-600 text-lg mt-20">
-        {networkError}
-      </div>
-    );
+  
+
+
+
+
+// ✅ useMemo MUST be here (before any return)
+// ---------------- Derived / Safe data ----------------
+const cleanImages = (arr?: string[]) =>
+  (arr ?? []).filter(
+    (img) => typeof img === "string" && img.trim().length > 0
+  );
+
+// ✅ MOVE THIS UP — BEFORE ANY RETURN
+const galleryItems = React.useMemo<GalleryItem[]>(() => {
+  if (!product) return [];
+
+  const images =
+    selectedVariant && cleanImages(selectedVariant.images).length > 0
+      ? [...cleanImages(selectedVariant.images), ...cleanImages(product.images)]
+      : cleanImages(product.images);
+
+  const items: GalleryItem[] = [];
+
+  if (images.length > 0) {
+    items.push({ type: "image", src: images[0] });
   }
 
+  if (product.video && product.video.trim().length > 0) {
+    items.push({ type: "video", src: product.video });
+  }
 
+  images.slice(1).forEach((img) => {
+    items.push({ type: "image", src: img });
+  });
 
+  return items.length > 0
+    ? items
+    : [{ type: "image", src: "/placeholder.png" }];
+}, [product, selectedVariant]);
+
+// ✅ NOW the early return is SAFE
 if (!product) {
   return (
     <div className="flex justify-center items-center h-[60vh]">
@@ -268,25 +320,20 @@ if (!product) {
   );
 }
 
-// ✅ PRODUCT LEVEL IMAGES (LIFESTYLE / REAL PHOTOS)
-const images: string[] =
-  product.images && product.images.length > 0
-    ? product.images
-    : ["/placeholder.png"];
 
-  // ---------------- Derived / Safe data ----------------
-const cleanImages = (arr?: string[]) =>
-  (arr ?? []).filter((img) => typeof img === "string" && img.trim().length > 0);
+// ✅ Product-level out of stock (ALL variants = 0)
+const isProductOutOfStock =
+  variants.length > 0 &&
+  variants.every(v => (v.stock ?? 0) <= 0);
 
-const galleryImages =
-  selectedVariant && cleanImages(selectedVariant.images).length > 0
-    ? [
-        ...cleanImages(selectedVariant.images),
-        ...cleanImages(product.images),
-      ]
-    : cleanImages(product.images).length > 0
-    ? cleanImages(product.images)
-    : ["/placeholder.png"];
+// ✅ Selected variant out of stock
+const isSelectedVariantOutOfStock =
+  !!selectedVariant && (selectedVariant.stock ?? 0) <= 0;
+
+// ✅ Final Add-to-Bag disable flag (Vuori logic)
+const disableAddToBag =
+  isProductOutOfStock || isSelectedVariantOutOfStock;
+
 
 
   const isWishlisted = wishlist.some((p) => p.id === product.id);
@@ -361,9 +408,7 @@ const handleAddToBagWithLoginCheck = () => {
 const sizes = Array.from(
   new Set(variants.map(v => v.size).filter(Boolean))
 ) as string[];
-const isProductOutOfStock =
-  variants.length > 0 &&
-  variants.every(v => (v.stock ?? 0) <= 0);
+
 
   const colors = Array.from(
   new Set(
@@ -453,6 +498,7 @@ console.log(product.fit, product.fabricCare, product.features);
 
 
    <Header productName={product.name} />
+   
 
 {showStickyDesktopBar && (
  <div
@@ -512,44 +558,83 @@ console.log(product.fit, product.fabricCare, product.features);
 
 
 
-          <div className="absolute bottom-6 right-2 z-10">
-            {product.rating && product.rating > 0 ? (
-              <div className="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded shadow-lg flex items-center gap-1">
-                ★ {product.rating.toFixed(1)}
-              </div>
-            ) : (
-              <div className="bg-black text-white text-xs font-semibold px-2 py-1 rounded shadow-lg">
-                New
-              </div>
-            )}
-          </div>
+          
 
-          {/* Mobile: Swiper slides (swipe only) */}
-          <div className="md:hidden mb-4">
-            <Swiper
-              slidesPerView={1}
-              spaceBetween={1}
-              centeredSlides
-              modules={[Pagination, Scrollbar]}
-              scrollbar={{ draggable: true }}
-            >
-             {galleryImages.map(img => (
-  <SwiperSlide key={img}>
-    <ZoomImage src={img} alt={product.name} />
-  </SwiperSlide>
-))}
+      {/* Mobile Swiper */}
+<div className="relative md:hidden">
+  <Swiper
+     modules={[Zoom, Pagination]}
+    zoom={{ maxRatio: 3 }}
+    pagination={{ type: "progressbar" }}
+    slidesPerView={1}
+    className="bscfashion-swiper"
+  >
 
-            </Swiper>
-          </div>
+  {galleryItems.map((item, idx) => (
+    <SwiperSlide key={idx}>
+      {item.type === "video" ? (
+        <video
+          src={item.src}
+          muted
+          loop
+          playsInline
+          autoPlay
+          preload="metadata"
+          className="w-full aspect-[3/4] object-cover"
+        />
+      ) : (
+        
+        <img
+          src={item.src}
+          alt=""
+          className="w-full aspect-[3/4] object-cover"
+        />
+      )}
+    </SwiperSlide>
+  ))}
+</Swiper>
 
-          {/* Desktop: two-column zoom grid (same as your original UI) */}
-  <div className="hidden md:grid grid-cols-2 gap-[2px]">
+  <div className="mt-2 h-[px] w-full bg-black/20">
+  <div
+    className="h-full bg-black transition-all duration-300"
+    style={{
+      width: `${((activeIndex + 1) / galleryItems.length) * 100}%`,
+    }}
+  />
+</div>
 
- {galleryImages.map(img => (
-  <ZoomImage key={img} src={img} alt={product.name} />
-))}
 
 </div>
+
+
+
+
+
+<div className="hidden md:grid grid-cols-2 gap-[2px]">
+  {galleryItems.map((item, idx) =>
+    item.type === "video" ? (
+  <div key={idx} className="relative">
+    <video
+      src={item.src}
+      muted
+      loop
+      playsInline
+      autoPlay
+      preload="metadata"
+      className="w-full aspect-[3/4] object-cover"
+    />
+
+    {/* ▶ Video badge */}
+    <div className="absolute top-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded">
+      ▶ Video
+    </div>
+  </div>
+) : (
+  <ZoomImage key={idx} src={item.src} alt={product.name} />
+)
+  )}
+</div>
+
 
 
         </div>

@@ -4,41 +4,71 @@ export const revalidate = 0;
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+import { v2 as cloudinary } from "cloudinary";
 import { Buffer } from "buffer";
 
 // ----------------------
-// Upload helper
+// Cloudinary config
 // ----------------------
-async function uploadToSupabase(file: File): Promise<string | null> {
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
+
+// ----------------------
+// Upload helper (Cloudinary)
+// ----------------------
+async function uploadToCloudinary(file: File): Promise<string | null> {
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-   const safeName = file.name.replace(/\s+/g, "-");
-const fileName = `${Date.now()}_${safeName}`;
 
-
-    const { error } = await supabase.storage
-      .from("products")
-      .upload(`images/${fileName}`, buffer, {
-        contentType: file.type || "application/octet-stream",
-        upsert: true,
-      });
-
-    if (error) {
-      console.error("Supabase upload error:", error.message);
-      return null;
-    }
-
-    const { data } = supabase.storage
-      .from("products")
-      .getPublicUrl(`images/${fileName}`);
-
-    return data?.publicUrl ?? null;
+    return await new Promise((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          { folder: "bscfashion/products" },
+          (error, result) => {
+            if (error) {
+              console.error("Cloudinary error:", error);
+              reject(null);
+            }
+            resolve(result?.secure_url ?? null);
+          }
+        )
+        .end(buffer);
+    });
   } catch (err) {
-    console.error("Upload error:", err);
+    console.error("Upload failed:", err);
     return null;
   }
 }
+
+async function uploadVideoToCloudinary(file: File): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    return await new Promise((resolve) => {
+      cloudinary.uploader
+        .upload_stream(
+          {
+            folder: "bscfashion/product-videos",
+            resource_type: "video", // 🔥 IMPORTANT
+          },
+          (error, result) => {
+            if (error) {
+              console.error(error);
+              resolve(null);
+            }
+            resolve(result?.secure_url ?? null);
+          }
+        )
+        .end(buffer);
+    });
+  } catch {
+    return null;
+  }
+}
+
 
 // ----------------------
 // GET Products
@@ -46,99 +76,62 @@ const fileName = `${Date.now()}_${safeName}`;
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const siteId = searchParams.get("siteId");
 
+    const siteId = searchParams.get("siteId");
     const page = Number(searchParams.get("page") || 1);
     const pageSize = 20;
     const skip = (page - 1) * pageSize;
 
-    const mainSlug = searchParams.get("main");
-    const sub1Slug = searchParams.get("sub1");
-    const sub2Slug = searchParams.get("sub2");
-    const home = searchParams.get("home");
-    const excludeId = searchParams.get("exclude");
-    
-
-    const slugToName = (slug: string | null) =>
-      slug ? slug.replace(/-/g, " ").toLowerCase() : undefined;
-
-    const main = slugToName(mainSlug);
-    const sub1 = slugToName(sub1Slug);
-    const sub2 = slugToName(sub2Slug);
-
     const where: Record<string, any> = {};
 
+   // GET /api/products
+if (siteId) {
+  // store page
+  where.siteId = siteId;
+} else {
+  // homepage → show everything
+  where.status = "ACTIVE";
+}
 
-    // ✅ validate site only if siteId exists
-    if (siteId) {
-      const site = await prisma.site.findUnique({
-        where: { id: siteId },
-      });
-
-      if (!site) {
-        return NextResponse.json(
-          { message: "Invalid site" },
-          { status: 400 }
-        );
-      }
-
-      where.siteId = siteId;
-    }
-
-    if (home !== "true") {
-      if (main && !sub1 && !sub2) {
-        where.category = { equals: main, mode: "insensitive" };
-      } else if (sub1 && !sub2) {
-        where.subCategory = { equals: sub1, mode: "insensitive" };
-      } else if (sub2) {
-        where.subSubCategory = { equals: sub2, mode: "insensitive" };
-      }
-    }
-
-    if (excludeId) {
-      where.id = { not: excludeId };
-    }
 
     const total = await prisma.product.count({ where });
 
-   const products = await prisma.product.findMany({
-  where,
-  orderBy: { createdAt: "desc" },
-  skip,
-  take: pageSize,
-  select: {
-    id: true,
-    name: true,
-    price: true,
-    mrp: true,
-    discount: true,
-    images: true,
-    brandName: true,
-    rating: true,
-    reviewCount: true,
-    category: true,
-
-    // ✅ CRITICAL FIX
-    variants: {
+    const products = await prisma.product.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
       select: {
         id: true,
-        size: true,
-        stock: true,
+        name: true,
+        price: true,
+        mrp: true,
+        discount: true,
+        images: true,
+        video: true,
+        brandName: true,
+        category: true,
+        variants: {
+          select: {
+            id: true,
+            size: true,
+            color: true,
+            stock: true,
+            images: true,
+          },
+        },
       },
-    },
-  },
-});
-
+    });
 
     return NextResponse.json({
       products,
       hasMore: total > page * pageSize,
       page,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("GET /products error:", err);
     return NextResponse.json(
-      { message: "Failed to fetch products", error: err.message },
+      { message: "Failed to fetch products" },
       { status: 500 }
     );
   }
@@ -151,35 +144,40 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
-const siteIdRaw = formData.get("siteId");
-let siteId: string | null = null;
-let brandName = "BSCFASHION";
-let isPlatform = true;
+    // ----------------------
+    // SITE + BRAND LOGIC
+    // ----------------------
+    const siteIdRaw = formData.get("siteId");
+    let siteId: string | null = null;
+    let brandName = "BSCFASHION";
+    let isPlatform = true;
 
-if (siteIdRaw) {
-  siteId = String(siteIdRaw);
+    if (siteIdRaw) {
+      siteId = String(siteIdRaw);
 
-  const site = await prisma.site.findUnique({
-    where: { id: siteId },
-  });
+      const site = await prisma.site.findUnique({
+        where: { id: siteId },
+      });
 
-  if (!site) {
-    return NextResponse.json(
-      { message: "Invalid site" },
-      { status: 400 }
-    );
-  }
+      if (!site) {
+        return NextResponse.json(
+          { message: "Invalid site" },
+          { status: 400 }
+        );
+      }
 
-  brandName = site.name;
-  isPlatform = false;
-}
+      brandName = site.name; // 🔥 Rock
+      isPlatform = false;
+    }
 
-
+    // ----------------------
+    // Basic fields
+    // ----------------------
     const name = String(formData.get("name") || "");
     const description = String(formData.get("description") || "");
 
     const categoryPath = formData.get("categoryPath")
-      ? JSON.parse(String(formData.get("categoryPath")))
+      ? JSON.parse(formData.get("categoryPath") as string)
       : [];
 
     const category = (categoryPath[0] || "").toLowerCase();
@@ -191,100 +189,97 @@ if (siteIdRaw) {
     const discount =
       Number(formData.get("discount")) ||
       (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
-    const stock = Number(formData.get("stock") || 0);
 
-    const sizes = formData.get("sizes")
-      ? JSON.parse(String(formData.get("sizes")))
+    // ----------------------
+    // Product images (frontend uploaded)
+    // ----------------------
+    const productImages: string[] = formData.get("images")
+      ? JSON.parse(formData.get("images") as string)
       : [];
 
-    const colors = formData.get("colors")
-      ? JSON.parse(String(formData.get("colors")))
+    // ----------------------
+    // Extra fields
+    // ----------------------
+    const fit = formData.get("fit")
+      ? JSON.parse(formData.get("fit") as string)
       : [];
 
-    const productFiles = formData.getAll("images") as File[];
-    const productImages: string[] = [];
- const fit = formData.get("fit")
-  ? JSON.parse(formData.get("fit") as string)
-  : [];
+    const fabricCare = formData.get("fabricCare")
+      ? JSON.parse(formData.get("fabricCare") as string)
+      : [];
 
-const fabricCare = formData.get("fabricCare")
-  ? JSON.parse(formData.get("fabricCare") as string)
-  : [];
+    const features = formData.get("features")
+      ? JSON.parse(formData.get("features") as string)
+      : [];
 
-const features = formData.get("features")
-  ? JSON.parse(formData.get("features") as string)
-  : [];
+    // ----------------------
+    // Variants
+    // ----------------------
+    const variants = formData.get("variants")
+      ? JSON.parse(formData.get("variants") as string)
+      : [];
 
+    const variantData = [];
 
-    for (const file of productFiles) {
-      const url = await uploadToSupabase(file);
-      if (url) productImages.push(url);
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i];
+
+      const files = formData.getAll(`variantImages_${i}`) as File[];
+      const uploadedImages: string[] = [];
+
+      for (const file of files) {
+        const url = await uploadToCloudinary(file);
+        if (url) uploadedImages.push(url);
+      }
+
+      variantData.push({
+        size: v.size ?? null,
+        color: v.color ?? null,
+        price: Number(v.price) || null,
+        stock: Number(v.stock) || 0,
+        images: uploadedImages,
+      });
     }
-const variants = formData.get("variants")
-  ? JSON.parse(String(formData.get("variants")))
-  : [];
+const videoFile = formData.get("video") as File | null;
 
-const variantData = [];
-
-for (let i = 0; i < variants.length; i++) {
-  const v = variants[i];
-
-  // 🔥 get variant images from FormData
-  const variantFiles = formData.getAll(`variantImages_${i}`) as File[];
-
-  const variantImages: string[] = [];
-
-  for (const file of variantFiles) {
-    const url = await uploadToSupabase(file);
-    if (url) variantImages.push(url);
-  }
-
-  variantData.push({
-    size: v.size ?? null,
-    color: v.color ?? null,
-    price: Number(v.price) || null,
-    stock: Number(v.stock) || 0,
-    images: variantImages, // ✅ SAVED
-  });
+let videoUrl: string | null = null;
+if (videoFile && videoFile.size > 0) {
+  videoUrl = await uploadVideoToCloudinary(videoFile);
 }
 
-
-
-
-
-  const product = await prisma.product.create({
-  data: {
-    siteId,
-    brandName,
-    isPlatform,
-    name,
-    description,
-    fit,
-    fabricCare,
-    features,
-    category,
-    subCategory,
-    subSubCategory,
-    price,
-    mrp,
-    discount,
-    stock,
-    images: productImages,
-    status: "ACTIVE",
-
-    variants: {
-      create: variantData,
-    },
-  },
-  include: {
-    variants: true,
-  },
-});
-
-
+    // ----------------------
+    // Save product
+    // ----------------------
+    const product = await prisma.product.create({
+      data: {
+        siteId,
+        brandName,
+        isPlatform,
+        name,
+        description,
+        category,
+        subCategory,
+        subSubCategory,
+        price,
+        mrp,
+        discount,
+        images: productImages,
+        video: videoUrl,
+        fit,
+        fabricCare,
+        features,
+        status: "ACTIVE",
+        variants: {
+          create: variantData,
+        },
+      },
+      include: {
+        variants: true,
+      },
+    });
 
     return NextResponse.json({
-      message: "✅ Product added successfully!",
+      message: "✅ Product added successfully",
       product,
     });
   } catch (err: any) {

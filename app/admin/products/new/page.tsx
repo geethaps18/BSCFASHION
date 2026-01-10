@@ -51,6 +51,8 @@ const [features, setFeatures] = useState("");
   const [subCategory, setSubCategory] = useState<SubCategory | null>(null);
   const [subSubCategory, setSubSubCategory] = useState<SubCategory | null>(null);
 
+const [videoFile, setVideoFile] = useState<File | null>(null);
+const [videoPreview, setVideoPreview] = useState<string | null>(null);
 
 const [selectedColors, setSelectedColors] =
   useState<ColorOption[]>(COLOR_OPTIONS);
@@ -204,6 +206,24 @@ function newVariant(): Variant {
     setErrors(err);
     return Object.keys(err).length === 0;
   }
+  // Cloudinary upload helper (KEEP IT HERE)
+const uploadImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/api/media/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error("Image upload failed");
+  }
+
+  const data = await res.json();
+  return data.url; // ✅ Cloudinary secure_url
+};
+
 
 
   async function handleSubmit(e?: React.FormEvent) {
@@ -212,6 +232,8 @@ function newVariant(): Variant {
   toast.error("Add at least one color");
   return;
 }
+
+
 
 for (const v of variants) {
   if (!v.size || !v.color || v.stock === "") {
@@ -230,19 +252,7 @@ if (selectedColors.length === 1) {
     }))
   );
 }
-const uploadImage = async (file: File) => {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("type", "product");
 
-  const res = await fetch("/api/media/upload", {
-    method: "POST",
-    body: formData,
-  });
-
-  const data = await res.json();
-  return data.media; // { id, url, publicId }
-};
 
 
     // final validation
@@ -257,7 +267,9 @@ const uploadImage = async (file: File) => {
       form.append("price", String(price));
       form.append("mrp", String(mrp));
       form.append("discount", String(discount));
-     
+     if (videoFile) {
+  form.append("video", videoFile);
+}
    form.append(
   "variants",
   JSON.stringify(
@@ -298,7 +310,15 @@ form.append(
   )
 );
 
-      productFiles.forEach(f => form.append("images", f));
+     const imageUrls: string[] = [];
+
+for (const file of productFiles) {
+  const url = await uploadImage(file);
+  imageUrls.push(url);
+}
+
+form.append("images", JSON.stringify(imageUrls));
+
       
 
       const url =
@@ -451,6 +471,37 @@ Soft brushed interior"
           {/* Media */}
           {activeTab === 1 && (
             <div>
+              <div className="mb-6">
+  <h3 className="font-semibold mb-2">Product Video (optional)</h3>
+
+  <input
+    type="file"
+    accept="video/mp4,video/webm"
+    onChange={(e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setVideoFile(file);
+      setVideoPreview(URL.createObjectURL(file));
+    }}
+  />
+
+  {videoPreview && (
+    <video
+      src={videoPreview}
+      className="mt-3 w-64 rounded border"
+      muted
+      loop
+      autoPlay
+      playsInline
+    />
+  )}
+
+  <p className="text-xs text-gray-500 mt-1">
+    Recommended: MP4 · 5–15 sec · under 10MB
+  </p>
+</div>
+
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-semibold">Upload Product Images</h3>
                 <div className="text-sm text-gray-500">Drag & drop or click</div>

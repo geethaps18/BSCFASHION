@@ -118,6 +118,7 @@ model Product {
   subSubCategory String?
   brandName      String?
   images         String[]
+  video          String?
   
   rating         Float?   @default(0)
   reviewCount    Int?     @default(0)

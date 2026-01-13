@@ -83,15 +83,30 @@ export async function GET(req: Request) {
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, any> = {};
+    const category = searchParams.get("category");
+const subCategory = searchParams.get("subCategory");
+const subSubCategory = searchParams.get("subSubCategory");
+
 
    // GET /api/products
 if (siteId) {
-  // store page
   where.siteId = siteId;
 } else {
-  // homepage → show everything
   where.status = "ACTIVE";
 }
+
+if (category) {
+  where.category = category.toLowerCase();
+}
+
+if (subCategory) {
+  where.subCategory = subCategory.toLowerCase();
+}
+
+if (subSubCategory) {
+  where.subSubCategory = subSubCategory.toLowerCase();
+}
+
 
 
     const total = await prisma.product.count({ where });

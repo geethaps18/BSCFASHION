@@ -45,6 +45,10 @@ export default function ProductCard({
     };
     fetchRating();
   }, [product.id]);
+  const isMobile =
+  typeof window !== "undefined" &&
+  window.matchMedia("(hover: none)").matches;
+
 
   /* -------------------- IMAGES -------------------- */
   const images =
@@ -111,19 +115,21 @@ export default function ProductCard({
 
   /* ==================== JSX ==================== */
   return (
-    <Link
-      href={`/product/${product.id}`}
-      className="cursor-pointer w-full p-0.5 block"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
+<Link
+  href={`/product/${product.id}`}
+  className="cursor-pointer w-full p-0.5 block touch-manipulation"
+  onMouseEnter={() => !isMobile && setHovered(true)}
+  onMouseLeave={() => !isMobile && setHovered(false)}
+>
+
       {/* IMAGE */}
       <div className="relative w-full aspect-[4/5] bg-white overflow-hidden">
-        <img
-          src={mainImage}
-          alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-500"
-        />
+      <img
+  src={mainImage}
+  alt={product.name}
+  className="w-full h-full object-cover transition-transform duration-500 pointer-events-none"
+/>
+
 
         {/* HEART */}
         <div className="absolute top-3 right-3 z-20">
@@ -155,9 +161,12 @@ export default function ProductCard({
        {/* SIZES (from variants) */}
 <div
   className={`absolute bottom-0 left-0 right-0 flex flex-wrap justify-center gap-1 p-2 bg-white/80 backdrop-blur-md transition-all duration-300 ${
-    hovered ? "opacity-95 translate-y-0" : "opacity-0 translate-y-full"
+    !isMobile && hovered
+      ? "opacity-95 translate-y-0"
+      : "opacity-0 translate-y-full"
   }`}
 >
+
   {variantSizes.length > 0 ? (
     variantSizes.map((size) => (
       <span

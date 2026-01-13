@@ -27,9 +27,13 @@ const categories = [
 
 export default function HomeInner() {
   // 🔥 Infinite products (correct place)
-  const { products } = useInfiniteProducts("home", "/api/products?home=true");
+  const { products, loading } = useInfiniteProducts(
+  "home",
+  "/api/products?home=true"
+);
 
-  const initialLoading = products.length === 0;
+const initialLoading = loading && products.length === 0;
+
 
   // ✅ Take only first 10 for slider
   const recentProducts = products.slice(0, 10);
@@ -68,23 +72,24 @@ export default function HomeInner() {
           </div>
         </div>
 
-       <div className="-mt- lg:-mt-10">
+<div className="lg:-mt-10">
+
   <Hero />
 </div>
 
 
        {/* ✅ Recent Products Slider */}
-{!initialLoading && recentProducts.length > 4 && (
-  <div className="mt-6 sm:mt-8 lg:mt-10">
+{!loading && recentProducts.length > 4 && (
+
     <RecentProductsSlider products={recentProducts} />
-  </div>
+  
 )}
 
 
         {/* Products Grid */}
         <main className="flex-grow sm:p-6 pb-2">
           {initialLoading ? (
-            <div className="flex justify-center py-10">
+            <div className="flex justify-center py-20">
               <LoadingRing />
             </div>
           ) : (

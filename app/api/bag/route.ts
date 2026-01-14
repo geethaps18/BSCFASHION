@@ -11,6 +11,7 @@ interface BagItemPayload {
   size?: string;
   color?: string;
   variantId?: string;
+  
 }
 
 
@@ -33,25 +34,32 @@ function getUserId(req: NextRequest): string | null {
 }
 
 function mapBagItem(item: any) {
-  const size = item.size || "default";
-  const color = item.color || "nocolor";
-
   return {
     id: item.id,
     quantity: item.quantity,
-    size,
-    color, // ✅ ADD
-    variantId: item.variantId ?? null, // ✅ ADD
+    size: item.size,
+    color: item.color,
+    variantId: item.variantId,
+
+    images:
+      item.variant?.images?.length
+        ? item.variant.images
+        : item.product.images,
+
     product: {
       id: item.product.id,
       name: item.product.name,
       price: item.product.price,
-      images: item.product.images || [],
+      images: item.product.images,
       availableSizes: item.product.sizes || [],
     },
-    uniqueKey: `${item.product.id}-${size}-${color}`, // ✅ FIX
+
+    uniqueKey: `${item.product.id}-${item.size || "default"}-${item.color || "nocolor"}`,
   };
 }
+
+
+
 
 
 // =====================
@@ -63,7 +71,9 @@ export async function GET(req: NextRequest) {
 
   const items = await prisma.bag.findMany({
     where: { userId },
-    include: { product: true },
+    include: { product: true,
+               variant: true,
+     },
     orderBy: { createdAt: "desc" },
   });
 
@@ -85,32 +95,49 @@ export async function POST(req: NextRequest) {
   const finalSize = size || "default";
   const finalColor = color || "nocolor";
 
+  // ✅ FETCH VARIANT
+  const variant = variantId
+    ? await prisma.productVariant.findUnique({
+        where: { id: variantId },
+      })
+    : null;
+
   const existing = await prisma.bag.findFirst({
     where: {
       userId,
+      variantId,
       productId,
       size: finalSize,
       color: finalColor,
     },
   });
 
-  if (existing) {
-    await prisma.bag.update({
-      where: { id: existing.id },
-      data: { quantity: existing.quantity + 1 },
-    });
-  } else {
-    await prisma.bag.create({
-      data: {
+ if (existing) {
+  await prisma.bag.update({
+    where: {
+      userId_variantId: {
         userId,
-        productId,
-        size: finalSize,
-        color: finalColor,        // ✅ SAVE COLOR
-        variantId: variantId,     // ✅ SAVE VARIANT
-        quantity: 1,
+        variantId,
       },
-    });
-  }
+    },
+    data: {
+      quantity: { increment: 1 },
+    },
+  });
+} else {
+  await prisma.bag.create({
+    data: {
+      userId,
+      productId,
+      variantId,
+      size,
+      color,
+      quantity: 1,
+    },
+  });
+}
+
+
 
   const items = await prisma.bag.findMany({
     where: { userId },
@@ -119,6 +146,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ items: items.map(mapBagItem) });
 }
+
 
 
 // =====================

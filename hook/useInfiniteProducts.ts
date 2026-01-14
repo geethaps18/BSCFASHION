@@ -19,6 +19,7 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
     setHasMore,
     setLastLoadedPage,
   } = useInfiniteStore();
+const [total, setTotal] = useState(0);
 
   const loadingRef = useRef(false);
   const restoredRef = useRef(false);
@@ -31,11 +32,13 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
   }, [page]);
 
   // 🔄 Reset when key changes
-  useEffect(() => {
-    if (currentKey !== key) {
-      reset(key);
-    }
-  }, [key, currentKey, reset]);
+ useEffect(() => {
+  if (currentKey !== key) {
+    reset(key);
+    setTotal(0); // ✅ reset total on category change
+  }
+}, [key, currentKey, reset]);
+
 
   const buildUrl = (p: number) => {
     const sep = apiUrl.includes("?") ? "&" : "?";
@@ -53,9 +56,13 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
       const res = await fetch(buildUrl(p), {
         cache: "no-store",
       });
+const data = await res.json();
+const incoming = data.products ?? [];
 
-      const data = await res.json();
-      const incoming = data.products ?? [];
+if (typeof data.total === "number") {
+  setTotal(data.total); // ✅ STORE REAL TOTAL
+}
+
 
       if (p === 1) {
         setProducts(incoming);
@@ -118,5 +125,6 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
     window.scrollTo(0, scrollY);
   }, [products, scrollY]);
 
-  return { products, loading };
+  return { products, total, loading };
+
 }

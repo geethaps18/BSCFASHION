@@ -5,6 +5,7 @@ import { X, Loader2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { categories, SubCategory } from "@/data/categories";
 import { COLOR_OPTIONS } from "@/data/colors";
+import { useRouter } from "next/navigation";
 
 /*
   Tailwind-UI style, tabbed Add Product form
@@ -25,10 +26,11 @@ type Variant = {
 };
 type ProductFormMode = "add" | "edit";
 
-type ProductFormProps = {
+type ProductBuilderProps = {
   mode?: "add" | "edit";
   productId?: string;
-  siteId: string; // ✅ ADD THIS
+  siteId?: string;        // 🔥 optional
+  variant?: "admin" | "builder";
 };
 
 
@@ -38,11 +40,8 @@ export default function AddProductFormTabbed({
   mode = "add",
   productId,
   siteId,
-}: {
-  mode?: "add" | "edit";
-  productId?: string;
-  siteId: string;
-}) {
+  variant = "builder",
+}: ProductBuilderProps) {
 
 
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -52,10 +51,12 @@ export default function AddProductFormTabbed({
 const [fabricCare, setFabricCare] = useState("");
 const [features, setFeatures] = useState("");
 
-  const [category, setCategory] = useState<SubCategory | null>(categories[0] || null);
+  const [category, setCategory] = useState<SubCategory | null>(null);
   const [subCategory, setSubCategory] = useState<SubCategory | null>(null);
   const [subSubCategory, setSubSubCategory] = useState<SubCategory | null>(null);
 
+const [videoFile, setVideoFile] = useState<File | null>(null);
+const [videoPreview, setVideoPreview] = useState<string | null>(null);
 
 const [selectedColors, setSelectedColors] =
   useState<ColorOption[]>(COLOR_OPTIONS);
@@ -72,12 +73,14 @@ const [selectedColors, setSelectedColors] =
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+const router = useRouter();
+
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Sizes + Colors constants
-  const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","FREE"];
+  const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","FREE","One Size"];
   const KIDS_SIZES = ["0-3M","3-6M","6-9M","9-12M","1-2Y","2-3Y","3-4Y"];
   const currentSizes = category?.name === "Kids" ? KIDS_SIZES : STANDARD_SIZES;
   const [customColor, setCustomColor] = useState({
@@ -85,15 +88,29 @@ const [selectedColors, setSelectedColors] =
   hex: "#000000",
 });
 
+useEffect(() => {
+  // ONLY set default when creating NEW product
+  if (mode === "add" && !productId) {
+    setCategory(categories[0] || null);
+    setSubCategory(null);
+    setSubSubCategory(null);
+    setVideoFile(null);
+setVideoPreview(null);
+
+  }
+}, [mode, productId]);
+
+
 
 
 useEffect(() => {
   if (mode !== "edit" || !productId) return;
 
   (async () => {
-    const res = await fetch(`/api/admin/products/${productId}`);
-    const data = await res.json();
+    const res = await fetch(`/api/builder/products/${productId}`)
 
+    const data = await res.json();
+    
     setName(data.name ?? "");
     setDescription(data.description ?? "");
     setPrice(String(data.price ?? ""));
@@ -103,17 +120,39 @@ useEffect(() => {
     setFit((data.fit ?? []).join("\n"));
     setFabricCare((data.fabricCare ?? []).join("\n"));
     setFeatures((data.features ?? []).join("\n"));
+    setExistingImages(data.images || []);
+setProductPreviews(data.images || []); // UI preview only
+setProductFiles([]); // reset new uploads
+if (data.video) {
+  setVideoPreview(data.video);
+}
 
-    // categoryPath → category / sub / subSub
-    const [c, sc, ssc] = data.categoryPath || [];
-    const cat = categories.find(x => x.name === c) || null;
-    setCategory(cat);
-    setSubCategory(cat?.subCategories?.find(x => x.name === sc) || null);
-    setSubSubCategory(
-      cat?.subCategories
-        ?.find(x => x.name === sc)
-        ?.subCategories?.find(x => x.name === ssc) || null
-    );
+ 
+// category (case-insensitive match)
+const cat =
+  categories.find(
+    x => x.name.toLowerCase() === data.category
+  ) || null;
+
+setCategory(cat);
+
+// subcategory
+const subCat =
+  cat?.subCategories?.find(
+    s => s.name.toLowerCase() === data.subCategory
+  ) || null;
+
+setSubCategory(subCat);
+
+// sub-subcategory
+const subSubCat =
+  subCat?.subCategories?.find(
+    s => s.name.toLowerCase() === data.subSubCategory
+  ) || null;
+
+setSubSubCategory(subSubCat);
+
+
 
     setProductPreviews(data.images || []);
 
@@ -151,9 +190,15 @@ useEffect(() => {
     setProductPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))]);
   }
   function removeProductImage(idx: number) {
-    setProductFiles(prev => prev.filter((_, i) => i !== idx));
-    setProductPreviews(prev => prev.filter((_, i) => i !== idx));
-  }
+  setProductPreviews(prev => prev.filter((_, i) => i !== idx));
+
+  setExistingImages(prev => {
+    // remove only if it's an existing image
+    const img = productPreviews[idx];
+    return prev.filter(i => i !== img);
+  });
+}
+
 
   // Variant helpers
 function newVariant(): Variant {
@@ -170,16 +215,40 @@ function newVariant(): Variant {
 
   function addVariant() { setVariants(v => [...v, newVariant()]); }
   function removeVariant(i:number) { setVariants(v => v.filter((_, idx) => idx !== i)); }
-  function handleVariantFiles(files: FileList | null, idx:number) {
-    if (!files) return;
-    const arr = Array.from(files);
-    setVariants(prev => {
-      const copy = [...prev];
-      copy[idx].images = [...copy[idx].images, ...arr];
-      copy[idx].previews = [...copy[idx].previews, ...arr.map(a => URL.createObjectURL(a))];
-      return copy;
-    });
-  }
+ function handleVariantFiles(files: FileList | null, idx: number) {
+  if (!files) return;
+
+  const arr = Array.from(files);
+
+  setVariants(prev => {
+    const copy = [...prev];
+
+const existingKeys = new Set([
+  ...copy[idx].images.map(f => `${f.name}-${f.size}`),
+  ...copy[idx].previews,
+]);
+
+const uniqueFiles = arr.filter(
+  f => !existingKeys.has(`${f.name}-${f.size}`)
+);
+
+
+
+ 
+
+    copy[idx] = {
+      ...copy[idx],
+      images: [...copy[idx].images, ...uniqueFiles],
+      previews: [
+        ...copy[idx].previews,
+        ...uniqueFiles.map(f => URL.createObjectURL(f)),
+      ],
+    };
+
+    return copy;
+  });
+}
+
   function removeVariantImage(vIdx:number, iIdx:number) {
     setVariants(prev => {
       const copy = [...prev];
@@ -196,12 +265,18 @@ function newVariant(): Variant {
     setErrors(err);
     return Object.keys(err).length === 0;
   }
-  function validateMedia() {
-    const err: Record<string,string> = {};
-    if (productFiles.length === 0) err.images = "Add at least one image";
-    setErrors(err);
-    return Object.keys(err).length === 0;
+ function validateMedia() {
+  const err: Record<string, string> = {};
+
+  // ❌ only block if BOTH are empty
+  if (productPreviews.length === 0 && productFiles.length === 0) {
+    err.images = "Add at least one image";
   }
+
+  setErrors(err);
+  return Object.keys(err).length === 0;
+}
+
   function validatePricing() {
     const err: Record<string,string> = {};
     if (!price || Number(price) <= 0) err.price = "Valid price required";
@@ -232,80 +307,53 @@ const uploadImage = async (file: File) => {
 async function handleSubmit(e?: React.FormEvent) {
   e?.preventDefault();
 
-  // -----------------------------
-  // VALIDATIONS
-  // -----------------------------
   if (selectedColors.length === 0) {
     toast.error("Add at least one color");
     return;
   }
 
+  // ✅ CREATE ONCE
+  const form = new FormData();
+
+  // ✅ THIS IS THE MOST IMPORTANT LINE
+  if (siteId) {
+    form.append("siteId", siteId);
+  }
+
+  // validations
   for (const v of variants) {
     if (!v.size || !v.color || v.stock === "") {
-      toast.error("Each variant must have size, color and stock");
+      toast.error("Each size must have color and stock");
       return;
     }
   }
 
-  // Auto assign color if only one exists
-  if (selectedColors.length === 1) {
-    const onlyColor = selectedColors[0].name;
-    setVariants(prev =>
-      prev.map(v => ({
-        ...v,
-        color: v.color || onlyColor,
-      }))
-    );
-  }
-
   if (!validateBasic() || !validateMedia() || !validatePricing()) {
-    toast.error("Fix errors before submitting");
+    toast.error("Fix errors");
     return;
   }
 
   setLoading(true);
 
   try {
-    // -----------------------------
-    // CREATE FORM DATA (ONLY ONCE)
-    // -----------------------------
-    const form = new FormData();
-
-    // 🔥 REQUIRED
-    form.append("siteId", siteId);
-
-    // Basic
     form.append("name", name);
     form.append("description", description);
 
-    const categoryPath = [
+    const catPath = [
       category?.name,
       subCategory?.name,
       subSubCategory?.name,
     ].filter(Boolean);
 
-    form.append("categoryPath", JSON.stringify(categoryPath));
+    form.append("categoryPath", JSON.stringify(catPath));
     form.append("price", price);
     form.append("mrp", mrp);
     form.append("discount", discount);
 
-    // Text fields
-    form.append(
-      "fit",
-      JSON.stringify(fit.split("\n").map(v => v.trim()).filter(Boolean))
-    );
-    form.append(
-      "fabricCare",
-      JSON.stringify(fabricCare.split("\n").map(v => v.trim()).filter(Boolean))
-    );
-    form.append(
-      "features",
-      JSON.stringify(features.split("\n").map(v => v.trim()).filter(Boolean))
-    );
+    if (videoFile) {
+      form.append("video", videoFile);
+    }
 
-    // -----------------------------
-    // VARIANTS
-    // -----------------------------
     form.append(
       "variants",
       JSON.stringify(
@@ -314,6 +362,7 @@ async function handleSubmit(e?: React.FormEvent) {
           color: v.color,
           price: Number(v.price),
           stock: Number(v.stock),
+          existingImages: v.previews.filter(p => p.startsWith("http")),
         }))
       )
     );
@@ -324,59 +373,43 @@ async function handleSubmit(e?: React.FormEvent) {
       });
     });
 
-    // -----------------------------
-    // PRODUCT IMAGES → CLOUDINARY
-    // -----------------------------
-    const imageUrls: string[] = [];
+    form.append("fit", JSON.stringify(fit.split("\n").filter(Boolean)));
+    form.append("fabricCare", JSON.stringify(fabricCare.split("\n").filter(Boolean)));
+    form.append("features", JSON.stringify(features.split("\n").filter(Boolean)));
 
+    const finalImages = [...existingImages];
     for (const file of productFiles) {
       const url = await uploadImage(file);
-      imageUrls.push(url);
+      finalImages.push(url);
     }
 
-    form.append("images", JSON.stringify(imageUrls));
+    form.append("images", JSON.stringify(finalImages));
 
-    // -----------------------------
-    // SUBMIT
-    // -----------------------------
     const url =
-      mode === "edit"
-        ? `/api/admin/products/${productId}`
-        : `/api/products`;
+  mode === "edit"
+    ? `/api/builder/products/${productId}`
+    : `/api/products`;
 
-    const res = await fetch(url, {
-      method: mode === "edit" ? "PUT" : "POST",
-      body: form,
-    });
+const method = mode === "edit" ? "PUT" : "POST";
+
+const res = await fetch(url, {
+  method,
+  body: form,
+});
+
 
     const json = await res.json();
+    if (!res.ok) throw new Error(json.message);
 
-    if (!res.ok) {
-      throw new Error(json?.message || "Failed to save product");
-    }
+    toast.success("Product added");
+    router.refresh();
 
-    toast.success(mode === "add" ? "Product added successfully" : "Product updated");
-
-    // -----------------------------
-    // RESET
-    // -----------------------------
-    setName("");
-    setDescription("");
-    setCategory(categories[0] || null);
-    setSubCategory(null);
-    setSubSubCategory(null);
-    setProductFiles([]);
-    setProductPreviews([]);
-    setVariants([]);
-    setActiveTab(0);
   } catch (err: any) {
-    console.error(err);
     toast.error(err.message || "Server error");
   } finally {
     setLoading(false);
   }
 }
-
 
 const Tabs = ["Basic","Media","Pricing","Variants","Review"];
 
@@ -499,6 +532,37 @@ Soft brushed interior"
           {/* Media */}
           {activeTab === 1 && (
             <div>
+              <div className="mb-6">
+  <h3 className="font-semibold mb-2">Product Video (optional)</h3>
+
+  <input
+    type="file"
+    accept="video/mp4,video/webm"
+    onChange={(e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setVideoFile(file);
+      setVideoPreview(URL.createObjectURL(file));
+    }}
+  />
+
+  {videoPreview && (
+    <video
+      src={videoPreview}
+      className="mt-3 w-64 rounded border"
+      muted
+      loop
+      autoPlay
+      playsInline
+    />
+  )}
+
+  <p className="text-xs text-gray-500 mt-1">
+    Recommended: MP4 · 5–15 sec · under 10MB
+  </p>
+</div>
+
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-semibold">Upload Product Images</h3>
                 <div className="text-sm text-gray-500">Drag & drop or click</div>

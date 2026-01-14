@@ -17,7 +17,8 @@ export default function MainCategoryPage() {
 
   // 🔥 Hook MUST always be at the top — before ANY return
   const key = `main-${mainSlug || "none"}`;
-  const apiUrl = `/api/products?main=${mainSlug || ""}`;
+const apiUrl = `/api/products?category=${mainSlug}`;
+
   const { products } = useInfiniteProducts(key, apiUrl);
   
 

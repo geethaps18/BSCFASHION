@@ -25,7 +25,7 @@ export interface Product {
 export interface BagItem {
   id: string; // bag document ID
   product: Product;
-
+  images: string[];
   size?: string | null;
   color?: string | null;        // ✅ KEEP
   variantId?: string | null;    // ✅ ADD
@@ -43,9 +43,11 @@ interface BagContextType {
   total: number;
 addToCart: (
   product: Product,
+  
   size?: string,
   color?: string,
-  variantId?: string
+  variantId?: string,
+    images?: string[]
 ) => Promise<void>;
 
   removeFromCart: (uniqueKey: string) => Promise<void>;
@@ -116,7 +118,8 @@ const addToCart = async (
   product: Product,
   size?: string,
   color?: string,
-  variantId?: string
+  variantId?: string,
+  images: string[] = [] 
 ) => {
 
     if (product.availableSizes?.length && !size) {
@@ -142,12 +145,14 @@ const uniqueKey = `${product.id}-${size || "default"}-${color || "nocolor"}`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-       body: JSON.stringify({
+ body: JSON.stringify({
   productId: product.id,
   size,
   color,
   variantId,
+  images,                 // ✅ CRITICAL
 }),
+
 
       });
       await fetchBag();

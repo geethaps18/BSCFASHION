@@ -1,6 +1,66 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+import { v2 as cloudinary } from "cloudinary";
+import { Buffer } from "buffer";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
+
+async function uploadVariantToCloudinary(file: File): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    return await new Promise((resolve) => {
+      cloudinary.uploader
+        .upload_stream(
+          { folder: "bscfashion/products" },
+          (error, result) => {
+            if (error) {
+              console.error("Cloudinary upload error", error);
+              resolve(null);
+            }
+            resolve(result?.secure_url ?? null);
+          }
+        )
+        .end(buffer);
+    });
+  } catch (err) {
+    console.error("Variant upload failed", err);
+    return null;
+  }
+}
+async function uploadVideoToCloudinary(file: File): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    return await new Promise((resolve) => {
+      cloudinary.uploader
+        .upload_stream(
+          {
+            folder: "bscfashion/product-videos",
+            resource_type: "video", // 🔥 REQUIRED
+          },
+          (error, result) => {
+            if (error) {
+              console.error("Cloudinary video error", error);
+              resolve(null);
+            }
+            resolve(result?.secure_url ?? null);
+          }
+        )
+        .end(buffer);
+    });
+  } catch (err) {
+    console.error("Video upload failed", err);
+    return null;
+  }
+}
+
+
 type Context = {
   params: Promise<{ id: string }>;
 };
@@ -21,96 +81,141 @@ export async function GET(_req: Request, context: Context) {
   return NextResponse.json(product);
 }
 
-// ---------------- PUT (same logic as admin) ----------------
 export async function PUT(req: Request, context: Context) {
-  const { id } = await context.params;
-  const form = await req.formData();
-  
+  try {
+    const { id } = await context.params;
+    const form = await req.formData();
 
-  // ---- basic fields ----
-  const name = String(form.get("name") || "");
-  const description = String(form.get("description") || "");
-  const category = String(form.get("category") || "");
-  const price = Number(form.get("price") || 0);
-  const mrp = Number(form.get("mrp") || 0);
-  const stock = Number(form.get("stock") || 0);
+    // ---------- BASIC FIELDS ----------
+    const name = form.get("name")?.toString() ?? "";
+    const description = form.get("description")?.toString() ?? "";
+    const price = form.get("price") ? Number(form.get("price")) : undefined;
+    const mrp = form.get("mrp") ? Number(form.get("mrp")) : undefined;
+const normalize = (v?: string) =>
+  v ? v.trim().toLowerCase().replace(/\s+/g, "-") : null;
 
-  // ---- fetch previous product ----
-  const prevProduct = await prisma.product.findUnique({
-    where: { id },
-    include: { variants: true },
-  });
+    // ---------- FETCH PREVIOUS PRODUCT ----------
+    const prevProduct = await prisma.product.findUnique({
+      where: { id },
+      include: { variants: true },
+    });
 
-  if (!prevProduct) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  }
+    if (!prevProduct) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
 
-  // ---- images (KEEP OLD IF NO NEW) ----
-  const newImages = form.get("images")
-    ? JSON.parse(String(form.get("images")))
-    : [];
+    // ---------- ✅ SAFE CATEGORY UPDATE ----------
+  let category = prevProduct.category;
+let subCategory = prevProduct.subCategory;
+let subSubCategory = prevProduct.subSubCategory;
 
-  const finalImages =
-    newImages.length > 0 ? newImages : prevProduct.images;
+if (form.get("categoryPath")) {
+  const path = JSON.parse(form.get("categoryPath")!.toString());
 
-  // ---- update product ----
-  const updatedProduct = await prisma.product.update({
-    where: { id },
-    data: {
+  category = normalize(path[0]);
+  subCategory = normalize(path[1]);
+  subSubCategory = normalize(path[2]);
+}
+
+const fit = form.get("fit")
+  ? JSON.parse(form.get("fit")!.toString())
+  : prevProduct.fit;
+
+const fabricCare = form.get("fabricCare")
+  ? JSON.parse(form.get("fabricCare")!.toString())
+  : prevProduct.fabricCare;
+
+const features = form.get("features")
+  ? JSON.parse(form.get("features")!.toString())
+  : prevProduct.features;
+
+
+    // ---------- PRODUCT IMAGES ----------
+    const finalImages = form.get("images")
+      ? JSON.parse(form.get("images")!.toString())
+      : prevProduct.images;
+
+    // ---------- VIDEO ----------
+    const videoFile = form.get("video") as File | null;
+    let videoUrl = prevProduct.video || null;
+
+    if (videoFile && videoFile.size > 0) {
+      const uploadedVideo = await uploadVideoToCloudinary(videoFile);
+      if (uploadedVideo) videoUrl = uploadedVideo;
+    }
+
+    // ---------- UPDATE PRODUCT (ONCE) ----------
+    const updateData: any = {
       name,
       description,
+      fit,          // ✅ ADD
+      fabricCare,   // ✅ ADD
+      features,     // ✅ ADD
+
       category,
-      price,
-      mrp,
-      stock,
+      subCategory,
+      subSubCategory,
       images: finalImages,
-    },
-  });
+      siteId: prevProduct.siteId,
+      brandName: prevProduct.brandName,
+      isPlatform: prevProduct.isPlatform,
+    };
 
-  // ---- variants (SAME AS ADMIN) ----
-  const variantsRaw = form.get("variants");
+    if (price !== undefined) updateData.price = price;
+    if (mrp !== undefined) updateData.mrp = mrp;
+    if (videoUrl) updateData.video = videoUrl;
 
-  if (variantsRaw) {
-    const incomingVariants = JSON.parse(String(variantsRaw));
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: updateData,
+    });
 
-    for (const v of incomingVariants) {
-      const existingVariant = prevProduct.variants.find(
-        ev => ev.size === v.size && ev.color === v.color
-      );
+    // ---------- VARIANTS ----------
+    const variantsRaw = form.get("variants");
 
-      if (existingVariant) {
-        // ✅ UPDATE VARIANT
-        await prisma.productVariant.update({
-          where: { id: existingVariant.id },
-          data: {
-            price: v.price,
-            stock: v.stock,
-            images:
-              v.images?.length > 0
-                ? v.images
-                : existingVariant.images,
-          },
-        });
-      } else {
-        // ✅ CREATE VARIANT
+    if (variantsRaw) {
+      const incomingVariants = JSON.parse(variantsRaw.toString());
+
+      await prisma.productVariant.deleteMany({
+        where: { productId: id },
+      });
+
+      for (let i = 0; i < incomingVariants.length; i++) {
+        const v = incomingVariants[i];
+
+        const files = form.getAll(`variantImages_${i}`) as File[];
+        const uploadedImages: string[] = [];
+
+        for (const file of files) {
+          if (file && file.size > 0) {
+            const url = await uploadVariantToCloudinary(file);
+            if (url) uploadedImages.push(url);
+          }
+        }
+
+        const finalVariantImages = [
+          ...(Array.isArray(v.existingImages) ? v.existingImages : []),
+          ...uploadedImages,
+        ];
+
         await prisma.productVariant.create({
           data: {
             productId: id,
-            size: v.size,
-            color: v.color,
-            price: v.price,
-            stock: v.stock,
-            images: v.images || [],
+            size: v.size ?? null,
+            color: v.color ?? null,
+            price: Number(v.price) || null,
+            stock: Number(v.stock) || 0,
+            images: finalVariantImages,
           },
         });
       }
     }
-  }
 
-  return NextResponse.json({
-    success: true,
-    product: updatedProduct,
-  });
+    return NextResponse.json({ success: true, product: updatedProduct });
+  } catch (error) {
+    console.error("BUILDER UPDATE ERROR", error);
+    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+  }
 }
 
 
@@ -124,11 +229,12 @@ export async function DELETE(
 ) {
   const { id } = await params;
 
-  // delete logic here
-
-
   try {
     await prisma.$transaction([
+      prisma.productVariant.deleteMany({
+        where: { productId: id },
+      }),
+
       prisma.stockReminder.deleteMany({
         where: { productId: id },
       }),

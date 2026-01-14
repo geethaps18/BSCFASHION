@@ -13,4 +13,5 @@ export const COLOR_OPTIONS = [
   { name: "Blue", hex: "#2563EB" },
   { name: "Green", hex: "#16A34A" },
   { name: "Pink", hex: "#EC4899" },
+  { name:  "Baby Pink", hex: "#eeb9d3"},
 ];

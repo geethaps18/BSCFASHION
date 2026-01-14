@@ -188,23 +188,40 @@ const getColorHex = (name: string) =>
 
 
 useEffect(() => {
-  if (!selectedColor) return;
+  if (!selectedColor || !variants.length) return;
 
-  const firstVariant = variants.find(
+  // If size already selected → match BOTH
+  if (selectedSize) {
+    const v = variants.find(
+      v =>
+        v.color === selectedColor &&
+        v.size === selectedSize &&
+        (v.stock ?? 0) > 0
+    );
+    if (v) {
+      setSelectedVariant(v);
+      return;
+    }
+  }
+
+  // Otherwise fallback → first available variant of that color
+  const fallback = variants.find(
     v => v.color === selectedColor && (v.stock ?? 0) > 0
   );
-
-  if (firstVariant) {
-    setSelectedSize(firstVariant.size ?? null);
-    setSelectedVariant(firstVariant);
+  if (fallback) {
+    setSelectedVariant(fallback);
   }
-}, [selectedColor, variants]);
+}, [selectedColor, selectedSize, variants]);
+
+
 
 useEffect(() => {
   if (product) {
     console.log("VIDEO URL 👉", product.video);
   }
 }, [product]);
+
+
 
   // ---------------- FETCH PRODUCT ----------------
 
@@ -272,6 +289,24 @@ useEffect(() => {
 
 
   
+useEffect(() => {
+  if (!product) return;
+
+  const saved = sessionStorage.getItem(`pdp-${product.id}`);
+  if (!saved) return;
+
+  try {
+    const { color, size, variantId } = JSON.parse(saved);
+
+    if (color) setSelectedColor(color);
+    if (size) setSelectedSize(size);
+
+    if (variantId) {
+      const v = product.variants.find(v => v.id === variantId);
+      if (v) setSelectedVariant(v);
+    }
+  } catch {}
+}, [product]);
 
 
 
@@ -282,15 +317,23 @@ const cleanImages = (arr?: string[]) =>
   (arr ?? []).filter(
     (img) => typeof img === "string" && img.trim().length > 0
   );
+const imagesBySelectedColor = React.useMemo(() => {
+  if (!selectedColor) return [];
+
+  return variants
+    .filter(v => v.color === selectedColor)
+    .flatMap(v => v.images ?? []);
+}, [selectedColor, variants]);
 
 // ✅ MOVE THIS UP — BEFORE ANY RETURN
 const galleryItems = React.useMemo<GalleryItem[]>(() => {
   if (!product) return [];
 
-  const images =
-    selectedVariant && cleanImages(selectedVariant.images).length > 0
-      ? [...cleanImages(selectedVariant.images), ...cleanImages(product.images)]
-      : cleanImages(product.images);
+ const images =
+  selectedVariant && cleanImages(selectedVariant.images).length > 0
+    ? cleanImages(selectedVariant.images)
+    : cleanImages(product.images);
+
 
   const items: GalleryItem[] = [];
 
@@ -440,15 +483,26 @@ const isSizeOutOfStock = (size: string) => {
   return !v || (v.stock ?? 0) <= 0;
 };
 
+const getImagesForBag = () => {
+  if (
+    selectedVariant &&
+    Array.isArray(selectedVariant.images) &&
+    selectedVariant.images.length > 0
+  ) {
+    return selectedVariant.images; // ✅ variant images
+  }
+
+  return product.images; // ✅ fallback to main product images
+};
 
 const handleAddToBag = () => {
-  // 1️⃣ If product has variants, variant MUST be selected
-  if (variants.length > 0 && (!selectedVariant || !selectedVariant.id)) {
-    toast.error("Please select color and size");
+  // ❌ Variant missing
+  if (!selectedVariant) {
+    toast.error("Please select color");
     return;
   }
 
-  // 2️⃣ Size required (if product has sizes)
+  // ❌ Size NOT selected (CRITICAL)
   if (product.sizes?.length > 0 && !selectedSize) {
     setSizeError(true);
     toast.error("Please select size");
@@ -457,26 +511,34 @@ const handleAddToBag = () => {
 
   setAddingToBag(true);
 
-  addToCart(
-    {
-      id: product.id,
-      name: product.name,
-      price,
-      images:
-        selectedVariant?.images?.length
-          ? selectedVariant.images
-          : product.images,
-      availableSizes: product.sizes,
-    },
-    selectedSize ?? null,
-    selectedColor ?? null,
-    variants.length > 0 ? selectedVariant!.id : null // ✅ CRITICAL FIX
-  );
+ if (!selectedVariant) {
+  toast.error("Please select color and size");
+  return;
+}
+
+const finalImages =
+  selectedVariant?.images && selectedVariant.images.length > 0
+    ? selectedVariant.images
+    : product.images;
+
+addToCart(
+  {
+    id: product.id,
+    name: product.name,
+    price,
+    images: finalImages, // ✅ FINAL DECISION HERE
+    availableSizes: product.sizes,
+  },
+  selectedSize,
+  selectedColor,
+  selectedVariant.id
+);
+
+
 
   router.push("/bag");
-
-  setTimeout(() => setAddingToBag(false), 800);
 };
+
 
 
 
@@ -518,12 +580,17 @@ console.log(product.fit, product.fabricCare, product.features);
       {/* LEFT: IMAGE + INFO */}
       <div className="flex items-center gap-3">
         <div className="w-12 h-14 relative rounded overflow-hidden border">
-          <Image
-            src={product.images?.[0] || "/placeholder.png"}
-            alt={product.name}
-            fill
-            className="object-cover"
-          />
+         <Image
+  src={
+    selectedVariant?.images?.[0] ||
+    product.images?.[0] ||
+    "/placeholder.png"
+  }
+  alt={product.name}
+  fill
+  className="object-cover"
+/>
+
         </div>
 
         <div className="leading-tight">

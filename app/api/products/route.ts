@@ -82,32 +82,28 @@ export async function GET(req: Request) {
     const pageSize = 20;
     const skip = (page - 1) * pageSize;
 
+    const normalize = (v?: string | null) =>
+      v ? v.trim().toLowerCase().replace(/\s+/g, "-") : null;
+
+    // ✅ GET params
+    const category = normalize(searchParams.get("category"));
+    const subCategory = normalize(searchParams.get("subCategory"));
+    const subSubCategory = normalize(searchParams.get("subSubCategory"));
+
+    // ✅ THIS WAS MISSING
     const where: Record<string, any> = {};
-    const category = searchParams.get("category");
-const subCategory = searchParams.get("subCategory");
-const subSubCategory = searchParams.get("subSubCategory");
 
+    // ✅ visibility logic
+    if (siteId) {
+      where.siteId = siteId;
+    } else {
+      where.status = "ACTIVE";
+    }
 
-   // GET /api/products
-if (siteId) {
-  where.siteId = siteId;
-} else {
-  where.status = "ACTIVE";
-}
-
-if (category) {
-  where.category = category.toLowerCase();
-}
-
-if (subCategory) {
-  where.subCategory = subCategory.toLowerCase();
-}
-
-if (subSubCategory) {
-  where.subSubCategory = subSubCategory.toLowerCase();
-}
-
-
+    // ✅ category filters
+    if (category) where.category = category;
+    if (subCategory) where.subCategory = subCategory;
+    if (subSubCategory) where.subSubCategory = subSubCategory;
 
     const total = await prisma.product.count({ where });
 
@@ -140,6 +136,7 @@ if (subSubCategory) {
 
     return NextResponse.json({
       products,
+      total,
       hasMore: total > page * pageSize,
       page,
     });
@@ -151,6 +148,7 @@ if (subSubCategory) {
     );
   }
 }
+
 
 // ----------------------
 // POST — Add Product
@@ -164,26 +162,32 @@ export async function POST(req: Request) {
     // ----------------------
     const siteIdRaw = formData.get("siteId");
     let siteId: string | null = null;
-    let brandName = "BSCFASHION";
-    let isPlatform = true;
+    let brandName: string;
+let isPlatform: boolean;
 
-    if (siteIdRaw) {
-      siteId = String(siteIdRaw);
+if (
+  typeof siteIdRaw === "string" &&
+  /^[a-f\d]{24}$/i.test(siteIdRaw)
+) {
+  const site = await prisma.site.findUnique({
+    where: { id: siteIdRaw },
+  });
 
-      const site = await prisma.site.findUnique({
-        where: { id: siteId },
-      });
+  if (!site) {
+    return NextResponse.json({ message: "Invalid site" }, { status: 400 });
+  }
 
-      if (!site) {
-        return NextResponse.json(
-          { message: "Invalid site" },
-          { status: 400 }
-        );
-      }
+  siteId = siteIdRaw;               // 🔥 THIS WAS MISSING
+  brandName = site.brandName ?? site.name;
+  isPlatform = false;
+} else {
+  brandName = "BSCFASHION";
+  isPlatform = true;
+}
 
-      brandName = site.name; // 🔥 Rock
-      isPlatform = false;
-    }
+
+
+
 
     // ----------------------
     // Basic fields
@@ -191,14 +195,20 @@ export async function POST(req: Request) {
     const name = String(formData.get("name") || "");
     const description = String(formData.get("description") || "");
 
-    const categoryPath = formData.get("categoryPath")
-      ? JSON.parse(formData.get("categoryPath") as string)
-      : [];
+  
 
-    const category = (categoryPath[0] || "").toLowerCase();
-    const subCategory = (categoryPath[1] || "").toLowerCase();
-    const subSubCategory = (categoryPath[2] || "").toLowerCase();
+    const normalize = (v?: string) =>
+  v ? v.trim().toLowerCase().replace(/\s+/g, "-") : null;
 
+// ---------- categoryPath (MUST COME FIRST) ----------
+const categoryPath = formData.get("categoryPath")
+  ? JSON.parse(formData.get("categoryPath") as string)
+  : [];
+
+// ---------- normalized categories ----------
+const category = normalize(categoryPath[0]);
+const subCategory = normalize(categoryPath[1]);
+const subSubCategory = normalize(categoryPath[2]);
     const price = Number(formData.get("price") || 0);
     const mrp = Number(formData.get("mrp") || price);
     const discount =

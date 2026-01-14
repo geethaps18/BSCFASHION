@@ -1,10 +1,19 @@
 // app/api/admin/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { supabase } from "@/lib/supabase";
+
 import jwt from "jsonwebtoken";
-import { Buffer } from "buffer";
+
 import nodemailer from "nodemailer";
+import { v2 as cloudinary } from "cloudinary";
+import { Buffer } from "buffer";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
+
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -27,33 +36,56 @@ function verifyAdmin(req: NextRequest) {
 
 // ---------------------------------------------------
 // Supabase upload helper
-async function uploadImage(file: File) {
+async function uploadToCloudinary(file: File): Promise<string | null> {
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const fileName = `${Date.now()}_${file.name}`;
 
-    const { error } = await supabase.storage
-      .from("products")
-      .upload(`images/${fileName}`, buffer, {
-        contentType: file.type || "application/octet-stream",
-        upsert: true,
-      });
-
-    if (error) {
-      console.error("Supabase upload error:", error);
-      return null;
-    }
-
-    const { data } = supabase.storage
-      .from("products")
-      .getPublicUrl(`images/${fileName}`);
-
-    return data?.publicUrl || null;
+    return await new Promise((resolve) => {
+      cloudinary.uploader
+        .upload_stream(
+          { folder: "bscfashion/products" },
+          (error, result) => {
+            if (error) {
+              console.error("Cloudinary error", error);
+              resolve(null);
+            }
+            resolve(result?.secure_url ?? null);
+          }
+        )
+        .end(buffer);
+    });
   } catch (err) {
-    console.error("uploadImage error:", err);
+    console.error("Upload failed", err);
     return null;
   }
 }
+async function uploadVideoToCloudinary(file: File): Promise<string | null> {
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    return await new Promise((resolve) => {
+      cloudinary.uploader
+        .upload_stream(
+          {
+            folder: "bscfashion/product-videos",
+            resource_type: "video",
+          },
+          (error, result) => {
+            if (error) {
+              console.error(error);
+              resolve(null);
+            }
+            resolve(result?.secure_url ?? null);
+          }
+        )
+        .end(buffer);
+    });
+  } catch {
+    return null;
+  }
+}
+
+
 
 // ---------------------------------------------------
 // Small helper to send an email (nodemailer)
@@ -109,205 +141,162 @@ export async function GET(
 // PUT update product (admin only)
 // - handles images upload
 // - if product restocked (prevStock <=0 && newStock > 0) send notifications
+// ---------------------------------------------------
+// PUT update product (admin only)
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ---------------- AUTH ----------------
     const adminId = verifyAdmin(req);
-    if (!adminId)
+    if (!adminId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id } = await params;
     const form = await req.formData();
 
-    // parse fields
+    // ---------------- BASIC FIELDS ----------------
     const name = form.get("name")?.toString() ?? "";
     const description = form.get("description")?.toString() ?? "";
     const price = form.get("price") ? Number(form.get("price")) : undefined;
     const mrp = form.get("mrp") ? Number(form.get("mrp")) : undefined;
-    const stock = form.get("stock") ? Number(form.get("stock")) : undefined;
-const categoryPath = form.get("categoryPath")
-  ? JSON.parse(form.get("categoryPath")!.toString())
-  : [];
+    
 
-const [category, subCategory, subSubCategory] = categoryPath;
-
-
-    const sizes = form.get("sizes")
-      ? JSON.parse(form.get("sizes")!.toString())
+    const categoryPath = form.get("categoryPath")
+      ? JSON.parse(form.get("categoryPath")!.toString())
       : [];
 
-    // fetch previous product to compare stock
+    const [category, subCategory, subSubCategory] = categoryPath;
+
+    // ---------------- FETCH PREVIOUS PRODUCT ----------------
     const prevProduct = await prisma.product.findUnique({
-  where: { id },
-  include: { variants: true },
-});
+      where: { id },
+      include: { variants: true },
+    });
 
-
-
-    if (!prevProduct)
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
-
-    // handle uploaded images (form field name = "images")
-    const uploadedImages: string[] = [];
-    const imageFiles = form.getAll("images") as File[]; // may be []
-    for (const f of imageFiles || []) {
-      try {
-        // if file-like object, upload
-        if ((f as File).size && (f as File).size > 0) {
-          const url = await uploadImage(f as File);
-          if (url) uploadedImages.push(url);
-        }
-      } catch (e) {
-        console.warn("image upload skipped", e);
-      }
+    if (!prevProduct) {
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
+      );
     }
 
-    // parse existingImages JSON from form if provided
-    const existingImages = form.get("existingImages")
-      ? JSON.parse(form.get("existingImages")!.toString())
-      : [];
+    // ---------------- PRODUCT IMAGES ----------------
+    const finalImages = form.get("images")
+      ? JSON.parse(form.get("images")!.toString())
+      : prevProduct.images;
 
-   const finalImages =
-  uploadedImages.length > 0 ? uploadedImages : prevProduct.images;
+    // ---------------- VIDEO (CLOUDINARY) ----------------
+    const videoFile = form.get("video") as File | null;
+    let videoUrl = prevProduct.video || null;
 
+    if (videoFile && videoFile.size > 0) {
+      const uploadedVideo = await uploadVideoToCloudinary(videoFile);
+      if (uploadedVideo) videoUrl = uploadedVideo;
+    }
+const fit = form.get("fit")
+  ? JSON.parse(form.get("fit")!.toString())
+  : prevProduct.fit;
 
-    // prepare update data
-    const updateData: any = {
-      name,
-      description,
-      category,
-      subCategory,
-      subSubCategory,
-      ...(finalImages.length ? { images: finalImages } : undefined),
-    };
+const fabricCare = form.get("fabricCare")
+  ? JSON.parse(form.get("fabricCare")!.toString())
+  : prevProduct.fabricCare;
+
+const features = form.get("features")
+  ? JSON.parse(form.get("features")!.toString())
+  : prevProduct.features;
+
+    // ---------------- UPDATE PRODUCT ----------------
+  const updateData: any = {
+  name,
+  description,
+  category,
+  subCategory,
+  subSubCategory,
+  images: finalImages,
+
+  fit,
+  fabricCare,
+  features,
+
+  siteId: prevProduct.siteId,
+  brandName: prevProduct.brandName,
+  isPlatform: prevProduct.isPlatform,
+};
+
 
     if (price !== undefined) updateData.price = price;
     if (mrp !== undefined) updateData.mrp = mrp;
-    if (stock !== undefined) updateData.stock = stock;
+    if (videoUrl) updateData.video = videoUrl;
 
-    const updated = await prisma.product.update({
+    const updatedProduct = await prisma.product.update({
       where: { id },
       data: updateData,
     });
+
+    // ---------------- VARIANTS ----------------
     const variantsRaw = form.get("variants");
-if (variantsRaw) {
-  const incomingVariants = JSON.parse(variantsRaw.toString());
 
-  for (let i = 0; i < incomingVariants.length; i++) {
-    const v = incomingVariants[i];
+    if (variantsRaw) {
+      const incomingVariants = JSON.parse(variantsRaw.toString());
 
-    const existingVariant = prevProduct.variants.find(
-      ev => ev.size === v.size && ev.color === v.color
-    );
-
-    const variantImageFiles = form.getAll(`variantImages_${i}`) as File[];
-    const uploadedVariantImages: string[] = [];
-
-    for (const file of variantImageFiles) {
-      if (file && file.size > 0) {
-        const url = await uploadImage(file);
-        if (url) uploadedVariantImages.push(url);
-      }
-    }
-
-    if (existingVariant) {
-      await prisma.productVariant.update({
-        where: { id: existingVariant.id },
-        data: {
-          price: v.price ?? existingVariant.price,
-          stock: v.stock ?? existingVariant.stock,
-          images:
-            uploadedVariantImages.length > 0
-              ? uploadedVariantImages
-              : existingVariant.images,
-        },
+      // delete old variants
+      await prisma.productVariant.deleteMany({
+        where: { productId: id },
       });
-    } else {
-      await prisma.productVariant.create({
-        data: {
-          productId: id,
-          size: v.size,
-          color: v.color,
-          price: v.price,
-          stock: v.stock,
-          images: uploadedVariantImages,
-        },
-      });
-    }
-  }
-}
 
+      // recreate variants
+      for (let i = 0; i < incomingVariants.length; i++) {
+        const v = incomingVariants[i];
 
-    // ---------- RESTOCK LOGIC ----------
-    const prevStock = prevProduct.stock ?? 0;
-    const newStock = updated.stock ?? 0;
+        const variantFiles = form.getAll(
+          `variantImages_${i}`
+        ) as File[];
 
-    // If previously out-of-stock (or 0) and now restocked (>0), notify only users who set reminders
-    if (prevStock <= 0 && newStock > 0) {
-      try {
-        // 1) load reminders for this product (only userIds available in schema)
-        const reminders = await prisma.stockReminder.findMany({
-          where: { productId: id },
-          select: { id: true, userId: true, createdAt: true },
-        });
+        const uploadedImages: string[] = [];
 
-        const userIds = reminders.map((r) => r.userId).filter(Boolean);
-
-        if (userIds.length > 0) {
-          // 2) load the users (emails)
-          const users = await prisma.user.findMany({
-            where: { id: { in: userIds } },
-            select: { id: true, email: true, phone: true, name: true },
-          });
-
-          // 3) send notifications to each user that has an email (fire-and-forget)
-          const sendPromises = users.map(async (u) => {
-            if (!u.email) {
-              console.info(`User ${u.id} has no email — skipping email`);
-              return;
-            }
-
-            const subject = `Back in stock: ${updated.name ?? "Product"}`;
-            const html = `
-              <div style="font-family:Inter, sans-serif; max-width:600px; margin:auto; padding:20px; border-radius:10px; border:1px solid #f0e6b8;">
-                <h2 style="margin:0 0 8px 0;">Good news${u.name ? " " + u.name : ""} — it's back!</h2>
-                <p style="margin:8px 0;">The product <strong>${updated.name}</strong> is now back in stock. Order now while it's available.</p>
-                <p style="margin-top:12px;"><a href="${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/product/${updated.id}" target="_blank">View product</a></p>
-                <div style="margin-top:18px; font-size:12px; color:#666;">Powered by TBITS INDIA Davanagere</div>
-              </div>
-            `;
-
-            try {
-              await sendEmail(u.email!, subject, html);
-              console.log("Stock notify email sent to", u.email);
-            } catch (err) {
-              console.error("Failed to send stock email to", u.email, err);
-            }
-          });
-
-          await Promise.allSettled(sendPromises);
-
-          // 4) delete reminders for this product (they have been notified)
-          await prisma.stockReminder.deleteMany({
-            where: { productId: id },
-          });
-
-          console.log(`Notified ${users.length} users and deleted ${reminders.length} reminders.`);
+        for (const file of variantFiles) {
+          if (file && file.size > 0) {
+            const url = await uploadToCloudinary(file);
+            if (url) uploadedImages.push(url);
+          }
         }
-      } catch (notifyErr) {
-        console.error("Restock notify error:", notifyErr);
-        // don't fail overall update if notification fails
+
+        const finalVariantImages = [
+          ...(Array.isArray(v.existingImages) ? v.existingImages : []),
+          ...uploadedImages,
+        ];
+
+        await prisma.productVariant.create({
+          data: {
+            productId: id,
+            size: v.size ?? null,
+            color: v.color ?? null,
+            price: Number(v.price) || null,
+            stock: Number(v.stock) || 0,
+            images: finalVariantImages,
+          },
+        });
       }
     }
 
-    return NextResponse.json({ message: "Product updated!", product: updated }, { status: 200 });
+    // ---------------- RESPONSE ----------------
+    return NextResponse.json(
+      { message: "Product updated!", product: updatedProduct },
+      { status: 200 }
+    );
   } catch (err) {
-    console.error("UPDATE PRODUCT ERROR:", err);
-    return NextResponse.json({ error: "Update failed", details: String(err) }, { status: 500 });
+    console.error("ADMIN UPDATE ERROR:", err);
+    return NextResponse.json(
+      { error: "Update failed", details: String(err) },
+      { status: 500 }
+    );
   }
 }
+
+
 
 
 // ---------------------------------------------------

@@ -168,7 +168,7 @@ model ProductVariant {
   productId String   @db.ObjectId
 
 product Product @relation(fields: [productId], references: [id])
-
+bags Bag[]
 
 
   title     String?
@@ -249,6 +249,7 @@ model Bag {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
   productId String   @db.ObjectId
+  
   size      String?
   color     String   @default("nocolor")   // ✅ ADD
   variantId String?   
@@ -257,8 +258,10 @@ model Bag {
 
   user    User?    @relation(fields: [userId], references: [id])
   product Product? @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
 
-  @@unique([userId, productId, size])
+@@unique([userId, variantId])
+
   @@index([userId])
   @@index([productId])
 }

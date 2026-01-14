@@ -15,7 +15,8 @@ export default function Sub1Page() {
   const sub1Slug = Array.isArray(sub1) ? sub1[0] : sub1;
 
   const key = `sub1-${mainSlug}-${sub1Slug}`;
-  const apiURL = `/api/products?main=${mainSlug}&sub1=${sub1Slug}`;
+ const apiURL = `/api/products?category=${mainSlug}&subCategory=${sub1Slug}`;
+
   const { products } = useInfiniteProducts(key, apiURL);
 
   if (!mainSlug || !sub1Slug) {

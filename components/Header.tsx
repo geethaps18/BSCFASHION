@@ -144,40 +144,32 @@ useEffect(() => {
 
   const pageName = getPageName();
 
-  // Fetch product count for current category page
-  useEffect(() => {
-    const fetchProductCount = async () => {
-      try {
-        if (pathname.startsWith("/categories")) {
-          const segments = pathname.split("/").filter(Boolean).slice(1);
-          const mainCat = segments[0] || "";
-          const sub1 = segments[1] || "";
-          const sub2 = segments[2] || "";
+useEffect(() => {
+  const fetchProductCount = async () => {
+    try {
+      if (pathname.startsWith("/categories")) {
+        const segments = pathname.split("/").filter(Boolean).slice(1);
+        const mainCat = segments[0] || "";
+        const sub1 = segments[1] || "";
+        const sub2 = segments[2] || "";
 
-          // Only filter by the last category available
-          const lastCategoryQuery = sub2 || sub1 || mainCat;
+        const res = await fetch(
+          `/api/products?category=${mainCat}&subCategory=${sub1}&subSubCategory=${sub2}`
+        );
 
-          const res = await fetch(
-            `/api/products?main=${encodeURIComponent(mainCat)}&sub1=${encodeURIComponent(
-              sub1
-            )}&sub2=${encodeURIComponent(sub2)}`
-          );
-          const data = await res.json();
-          setProductCount(data.products?.length || 0);
-        } else if (pathname === "/wishlist") {
-          setProductCount(wishlistItems.length);
-        } else if (pathname === "/bag") {
-          setProductCount(totalCount);
-        } else {
-          setProductCount(0); // Hide count on other pages
-        }
-      } catch (err) {
-        console.error(err);
-        setProductCount(0);
+        const data = await res.json();
+
+        // ✅ THIS IS THE ONLY COUNT YOU SHOULD USE
+        setProductCount(data.total || 0);
       }
-    };
-    fetchProductCount();
-  }, [pathname, wishlistItems, totalCount]);
+    } catch {
+      setProductCount(0);
+    }
+  };
+
+  fetchProductCount();
+}, [pathname]);
+
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

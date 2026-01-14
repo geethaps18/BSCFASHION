@@ -5,6 +5,7 @@ import { X, Loader2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { categories, SubCategory } from "@/data/categories";
 import { COLOR_OPTIONS } from "@/data/colors";
+import { useRouter } from "next/navigation";
 
 /*
   Tailwind-UI style, tabbed Add Product form
@@ -47,7 +48,7 @@ export default function ProductFormTabbed({
 const [fabricCare, setFabricCare] = useState("");
 const [features, setFeatures] = useState("");
 
-  const [category, setCategory] = useState<SubCategory | null>(categories[0] || null);
+  const [category, setCategory] = useState<SubCategory | null>(null);
   const [subCategory, setSubCategory] = useState<SubCategory | null>(null);
   const [subSubCategory, setSubSubCategory] = useState<SubCategory | null>(null);
 
@@ -69,18 +70,33 @@ const [selectedColors, setSelectedColors] =
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+const router = useRouter();
+
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Sizes + Colors constants
-  const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","FREE"];
+  const STANDARD_SIZES = ["XS","S","M","L","XL","XXL","FREE","One Size"];
   const KIDS_SIZES = ["0-3M","3-6M","6-9M","9-12M","1-2Y","2-3Y","3-4Y"];
   const currentSizes = category?.name === "Kids" ? KIDS_SIZES : STANDARD_SIZES;
   const [customColor, setCustomColor] = useState({
   name: "",
   hex: "#000000",
 });
+
+useEffect(() => {
+  // ONLY set default when creating NEW product
+  if (mode === "add" && !productId) {
+    setCategory(categories[0] || null);
+    setSubCategory(null);
+    setSubSubCategory(null);
+    setVideoFile(null);
+setVideoPreview(null);
+
+  }
+}, [mode, productId]);
+
 
 
 
@@ -90,7 +106,7 @@ useEffect(() => {
   (async () => {
     const res = await fetch(`/api/admin/products/${productId}`);
     const data = await res.json();
-
+    
     setName(data.name ?? "");
     setDescription(data.description ?? "");
     setPrice(String(data.price ?? ""));
@@ -100,17 +116,39 @@ useEffect(() => {
     setFit((data.fit ?? []).join("\n"));
     setFabricCare((data.fabricCare ?? []).join("\n"));
     setFeatures((data.features ?? []).join("\n"));
+    setExistingImages(data.images || []);
+setProductPreviews(data.images || []); // UI preview only
+setProductFiles([]); // reset new uploads
+if (data.video) {
+  setVideoPreview(data.video);
+}
 
-    // categoryPath → category / sub / subSub
-    const [c, sc, ssc] = data.categoryPath || [];
-    const cat = categories.find(x => x.name === c) || null;
-    setCategory(cat);
-    setSubCategory(cat?.subCategories?.find(x => x.name === sc) || null);
-    setSubSubCategory(
-      cat?.subCategories
-        ?.find(x => x.name === sc)
-        ?.subCategories?.find(x => x.name === ssc) || null
-    );
+ 
+// category (case-insensitive match)
+const cat =
+  categories.find(
+    x => x.name.toLowerCase() === data.category
+  ) || null;
+
+setCategory(cat);
+
+// subcategory
+const subCat =
+  cat?.subCategories?.find(
+    s => s.name.toLowerCase() === data.subCategory
+  ) || null;
+
+setSubCategory(subCat);
+
+// sub-subcategory
+const subSubCat =
+  subCat?.subCategories?.find(
+    s => s.name.toLowerCase() === data.subSubCategory
+  ) || null;
+
+setSubSubCategory(subSubCat);
+
+
 
     setProductPreviews(data.images || []);
 
@@ -148,9 +186,15 @@ useEffect(() => {
     setProductPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))]);
   }
   function removeProductImage(idx: number) {
-    setProductFiles(prev => prev.filter((_, i) => i !== idx));
-    setProductPreviews(prev => prev.filter((_, i) => i !== idx));
-  }
+  setProductPreviews(prev => prev.filter((_, i) => i !== idx));
+
+  setExistingImages(prev => {
+    // remove only if it's an existing image
+    const img = productPreviews[idx];
+    return prev.filter(i => i !== img);
+  });
+}
+
 
   // Variant helpers
 function newVariant(): Variant {
@@ -167,16 +211,40 @@ function newVariant(): Variant {
 
   function addVariant() { setVariants(v => [...v, newVariant()]); }
   function removeVariant(i:number) { setVariants(v => v.filter((_, idx) => idx !== i)); }
-  function handleVariantFiles(files: FileList | null, idx:number) {
-    if (!files) return;
-    const arr = Array.from(files);
-    setVariants(prev => {
-      const copy = [...prev];
-      copy[idx].images = [...copy[idx].images, ...arr];
-      copy[idx].previews = [...copy[idx].previews, ...arr.map(a => URL.createObjectURL(a))];
-      return copy;
-    });
-  }
+ function handleVariantFiles(files: FileList | null, idx: number) {
+  if (!files) return;
+
+  const arr = Array.from(files);
+
+  setVariants(prev => {
+    const copy = [...prev];
+
+const existingKeys = new Set([
+  ...copy[idx].images.map(f => `${f.name}-${f.size}`),
+  ...copy[idx].previews,
+]);
+
+const uniqueFiles = arr.filter(
+  f => !existingKeys.has(`${f.name}-${f.size}`)
+);
+
+
+
+ 
+
+    copy[idx] = {
+      ...copy[idx],
+      images: [...copy[idx].images, ...uniqueFiles],
+      previews: [
+        ...copy[idx].previews,
+        ...uniqueFiles.map(f => URL.createObjectURL(f)),
+      ],
+    };
+
+    return copy;
+  });
+}
+
   function removeVariantImage(vIdx:number, iIdx:number) {
     setVariants(prev => {
       const copy = [...prev];
@@ -193,12 +261,18 @@ function newVariant(): Variant {
     setErrors(err);
     return Object.keys(err).length === 0;
   }
-  function validateMedia() {
-    const err: Record<string,string> = {};
-    if (productFiles.length === 0) err.images = "Add at least one image";
-    setErrors(err);
-    return Object.keys(err).length === 0;
+ function validateMedia() {
+  const err: Record<string, string> = {};
+
+  // ❌ only block if BOTH are empty
+  if (productPreviews.length === 0 && productFiles.length === 0) {
+    err.images = "Add at least one image";
   }
+
+  setErrors(err);
+  return Object.keys(err).length === 0;
+}
+
   function validatePricing() {
     const err: Record<string,string> = {};
     if (!price || Number(price) <= 0) err.price = "Valid price required";
@@ -270,14 +344,15 @@ if (selectedColors.length === 1) {
      if (videoFile) {
   form.append("video", videoFile);
 }
-   form.append(
+  form.append(
   "variants",
   JSON.stringify(
     variants.map(v => ({
       size: v.size,
-      color: v.color,   // ✅ THIS WAS MISSING
+      color: v.color,
       price: Number(v.price),
       stock: Number(v.stock),
+     existingImages: v.previews.filter(p => p.startsWith("http")),
     }))
   )
 );
@@ -309,15 +384,17 @@ form.append(
     features.split("\n").map(v => v.trim()).filter(Boolean)
   )
 );
+let finalImages: string[] = [...existingImages];
 
-     const imageUrls: string[] = [];
-
+// upload only NEW files
 for (const file of productFiles) {
   const url = await uploadImage(file);
-  imageUrls.push(url);
+  finalImages.push(url);
 }
 
-form.append("images", JSON.stringify(imageUrls));
+form.append("images", JSON.stringify(finalImages));
+
+
 
       
 
@@ -335,15 +412,28 @@ const res = await fetch(url, {
 
       const json = await res.json();
       if (!res.ok) throw new Error(json?.message || 'Failed');
-      toast.success(
+    
+toast.success(
   mode === "add" ? "Product added" : "Product updated"
 );
 
-      // reset
-      setName(''); setDescription(''); setCategory(categories[0] || null); setSubCategory(null); setSubSubCategory(null);
-    
-      setProductFiles([]); setProductPreviews([]); setVariants([]);
-      setActiveTab(0);
+// 🔥 FORCE UI REFRESH
+router.refresh();
+
+
+     // ✅ reset ONLY for ADD mode
+if (mode === "add") {
+  setName('');
+  setDescription('');
+  setCategory(categories[0] || null);
+  setSubCategory(null);
+  setSubSubCategory(null);
+  setProductFiles([]);
+  setProductPreviews([]);
+  setVariants([]);
+  setActiveTab(0);
+}
+
     } catch (err:any) {
       console.error(err);
       toast.error(err.message || 'Server error');

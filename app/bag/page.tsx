@@ -96,11 +96,13 @@ export default function BagPage() {
   href={`/product/${item.product.id}`}
   className="block w-30 h-30 flex-shrink-0  overflow-hidden border"
 >
-  <img
-    src={item.product.images?.[0] || "/placeholder.png"}
-    alt={item.product.name}
-    className="w-full h-full object-cover"
-  />
+<img
+  src={item.images?.[0] || item.product.images?.[0] || "/placeholder.png"}
+  alt={item.product.name}
+  className="w-full h-full object-cover"
+/>
+
+
 </Link>
 
 

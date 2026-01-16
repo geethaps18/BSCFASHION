@@ -21,27 +21,36 @@ cloudinary.config({
 // ----------------------
 async function uploadToCloudinary(file: File): Promise<string | null> {
   try {
+    // ✅ Basic validation
+    if (!file || !file.type.startsWith("image/") || file.size === 0) {
+      console.warn("Skipping invalid file:", file?.name);
+      return null;
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    return await new Promise((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          { folder: "bscfashion/products" },
-          (error, result) => {
-            if (error) {
-              console.error("Cloudinary error:", error);
-              reject(null);
-            }
-            resolve(result?.secure_url ?? null);
+    return await new Promise((resolve) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: "bscfashion/products",
+          resource_type: "image",
+        },
+        (error, result) => {
+          if (error) {
+            console.error("Cloudinary upload error:", error);
+            resolve(null); // ❗ DO NOT reject
+            return;
           }
-        )
-        .end(buffer);
+          resolve(result?.secure_url ?? null);
+        }
+      ).end(buffer);
     });
   } catch (err) {
     console.error("Upload failed:", err);
     return null;
   }
 }
+
 
 async function uploadVideoToCloudinary(file: File): Promise<string | null> {
   try {
@@ -166,36 +175,38 @@ return NextResponse.json({
 // ----------------------
 // POST — Add Product
 // ----------------------
+// ----------------------
+// POST — Add Product
+// ----------------------
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
     /* ---------------------------------
-       BRAND (ID + NAME INPUT)
+       BRAND INPUTS
     ----------------------------------*/
     const brandIdRaw = formData.get("brandId");
+    const brandNameRaw = formData.get("brandName");
+
     const brandId =
       typeof brandIdRaw === "string" && /^[a-f\d]{24}$/i.test(brandIdRaw)
         ? brandIdRaw
         : null;
 
-   const brandNameRaw = formData.get("brandName");
-const brandNameInput =
-  typeof brandNameRaw === "string" ? brandNameRaw.trim() : null;
-
+    const brandNameInput =
+      typeof brandNameRaw === "string" && brandNameRaw.trim()
+        ? brandNameRaw.trim()
+        : null;
 
     /* ---------------------------------
-       SITE LOGIC
+       SITE CONTEXT
     ----------------------------------*/
     const siteIdRaw = formData.get("siteId");
+    let site: any = null;
     let siteId: string | null = null;
     let isPlatform = false;
-    let site: any = null;
 
-    if (
-      typeof siteIdRaw === "string" &&
-      /^[a-f\d]{24}$/i.test(siteIdRaw)
-    ) {
+    if (typeof siteIdRaw === "string" && /^[a-f\d]{24}$/i.test(siteIdRaw)) {
       site = await prisma.site.findUnique({
         where: { id: siteIdRaw },
       });
@@ -207,14 +218,11 @@ const brandNameInput =
         );
       }
 
-      siteId = siteIdRaw;
+      siteId = site.id;
       isPlatform = false;
     } else {
       isPlatform = true;
     }
-    
-
-  
 
     /* ---------------------------------
        FINAL BRAND RESOLUTION
@@ -222,37 +230,62 @@ const brandNameInput =
     let finalBrandId: string | null = null;
     let finalBrandName: string | null = null;
 
-    
-
     // 1️⃣ Selected existing brand
     if (brandId) {
-      const brand = await prisma.brand.findUnique({
+      const existingBrand = await prisma.brand.findUnique({
         where: { id: brandId },
       });
 
-      if (brand) {
-        finalBrandId = brand.id;
-        finalBrandName = brand.name;
+      if (existingBrand) {
+        finalBrandId = existingBrand.id;
+        finalBrandName = existingBrand.name;
       }
     }
 
-    // 2️⃣ Typed brand (Nike, Adidas)
-    if (!finalBrandName && brandNameInput) {
-      finalBrandName = brandNameInput;
+    // 2️⃣ Typed brand → create / reuse
+    if (!finalBrandId && brandNameInput && site) {
+      const slug = brandNameInput
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+
+      const existingBrand = await prisma.brand.findFirst({
+        where: {
+          slug,
+          sellerId: site.ownerId,
+        },
+      });
+
+      if (existingBrand) {
+        finalBrandId = existingBrand.id;
+        finalBrandName = existingBrand.name;
+      } else {
+        const newBrand = await prisma.brand.create({
+          data: {
+            name: brandNameInput,
+            slug,
+            sellerId: site.ownerId,
+            siteId: site.id,
+          },
+        });
+
+        finalBrandId = newBrand.id;
+        finalBrandName = newBrand.name;
+      }
     }
 
-    // 3️⃣ Fallback → site name
+    // 3️⃣ Fallback
     if (!finalBrandName) {
       finalBrandName = site?.name || "BSCFASHION";
     }
 
     /* ---------------------------------
-       BASIC FIELDS
+       BASIC PRODUCT FIELDS
     ----------------------------------*/
-    const name = String(formData.get("name") || "");
+    const name = String(formData.get("name") || "").trim();
     const description = String(formData.get("description") || "");
 
-    const normalize = (v?: string) =>
+    const normalize = (v?: string | null) =>
       v ? v.trim().toLowerCase().replace(/\s+/g, "-") : null;
 
     const categoryPath = formData.get("categoryPath")
@@ -267,14 +300,12 @@ const brandNameInput =
     const mrp = Number(formData.get("mrp") || price);
     const discount =
       Number(formData.get("discount")) ||
-      (mrp > price
-        ? Math.round(((mrp - price) / mrp) * 100)
-        : 0);
+      (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
 
     /* ---------------------------------
-       IMAGES + EXTRA FIELDS
+       MEDIA & DETAILS
     ----------------------------------*/
-    const productImages: string[] = formData.get("images")
+    const images: string[] = formData.get("images")
       ? JSON.parse(formData.get("images") as string)
       : [];
 
@@ -303,11 +334,12 @@ const brandNameInput =
       const v = variants[i];
       const files = formData.getAll(`variantImages_${i}`) as File[];
       const uploadedImages: string[] = [];
+for (const file of files) {
+  if (!file || file.size === 0) continue; // 🔥 IMPORTANT
+  const url = await uploadToCloudinary(file);
+  if (url) uploadedImages.push(url);
+}
 
-      for (const file of files) {
-        const url = await uploadToCloudinary(file);
-        if (url) uploadedImages.push(url);
-      }
 
       variantData.push({
         size: v.size ?? null,
@@ -334,9 +366,9 @@ const brandNameInput =
     const product = await prisma.product.create({
       data: {
         siteId,
+        isPlatform,
         brandId: finalBrandId,
         brandName: finalBrandName,
-        isPlatform,
         name,
         description,
         category,
@@ -345,7 +377,7 @@ const brandNameInput =
         price,
         mrp,
         discount,
-        images: productImages,
+        images,
         video: videoUrl,
         fit,
         fabricCare,
@@ -359,18 +391,18 @@ const brandNameInput =
         variants: true,
       },
     });
-    
 
     return NextResponse.json({
       message: "✅ Product added successfully",
       product,
     });
-  } catch (err: any) {
-    console.error("POST /products error:", err);
+  } catch (error: any) {
+    console.error("POST /products error:", error);
     return NextResponse.json(
-      { message: "❌ Failed to add product", error: err.message },
+      { message: "❌ Failed to add product", error: error.message },
       { status: 500 }
     );
   }
 }
+
 

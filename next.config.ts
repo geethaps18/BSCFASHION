@@ -1,36 +1,43 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  outputFileTracingRoot: __dirname, // ✅ add this line
+  outputFileTracingRoot: __dirname,
+
   images: {
     remotePatterns: [
-      // ✅ Supabase bucket
+      // ✅ Cloudinary (HTTP + HTTPS)
+      {
+        protocol: "http",
+        hostname: "res.cloudinary.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/**",
+      },
+
+      // ✅ Supabase
       {
         protocol: "https",
         hostname: "chcucwnebherhnvmoyqz.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
-      // ✅ Your custom domain
-      {
-        protocol: "https",
-        hostname: "bscfashion.com",
-        pathname: "/**",
-      },
+
       // ✅ Shopify
       {
         protocol: "https",
         hostname: "cdn.shopify.com",
         pathname: "/s/files/**",
       },
-      // ✅ Global catch-all (any domain)
+
+      // ✅ Your domain
       {
         protocol: "https",
-        hostname: "**",
+        hostname: "bscfashion.com",
         pathname: "/**",
       },
     ],
-    formats: ["image/avif", "image/webp"], // modern formats
-    minimumCacheTTL: 3600, // 1h cache
   },
 };
 

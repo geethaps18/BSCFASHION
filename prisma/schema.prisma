@@ -12,7 +12,7 @@ model Media {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   url       String
   publicId  String
-  type      String   // product | variant | banner | other
+  type      String   
   createdAt DateTime @default(now())
 }
 
@@ -45,10 +45,12 @@ model User {
   bags      Bag[]
   account   Account?
 
-  // business relations
+
   sites    Site[]
   products Product[]
   orders   Order[]
+  brands Brand[]
+
 }
 
 model Settings {
@@ -116,7 +118,13 @@ model Product {
   category       String?
   subCategory    String?
   subSubCategory String?
-  brandName      String?
+  // legacy fallback
+  brandName String?
+
+  // new brand relation
+  brandId String? @db.ObjectId
+  brand   Brand?  @relation(fields: [brandId], references: [id])
+
   images         String[]
   video          String?
   
@@ -133,6 +141,8 @@ model Product {
   purchases      Int      @default(0)
   createdAt      DateTime @default(now())
  
+
+
 
   categoryId   String?   @db.ObjectId
   seller       User?     @relation(fields: [sellerId], references: [id])
@@ -167,8 +177,9 @@ model ProductVariant {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   productId String   @db.ObjectId
 
-product Product @relation(fields: [productId], references: [id])
-bags Bag[]
+  product Product @relation(fields: [productId], references: [id])
+  bags    Bag[]
+
 
 
   title     String?
@@ -251,7 +262,7 @@ model Bag {
   productId String   @db.ObjectId
   
   size      String?
-  color     String   @default("nocolor")   // ✅ ADD
+  color     String   @default("nocolor")  
   variantId String?   
   quantity  Int      @default(1)
   createdAt DateTime @default(now())
@@ -288,7 +299,7 @@ model Account {
 
 model Order {
   id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId           String?   @db.ObjectId // ❌ remove ?
+  userId           String?   @db.ObjectId 
   totalAmount      Float
   status           String    @default("PENDING")
   paymentMode      String    @default("COD")
@@ -328,7 +339,7 @@ model OrderItem {
   quantity  Int
   price     Float
   size      String?
-  color     String?      // ✅ ADD
+  color     String?     
   variantId String?
   image     String?
   packed    Boolean   @default(false)
@@ -353,7 +364,6 @@ model OrderItem {
 model Site {
   id        String  @id @default(auto()) @map("_id") @db.ObjectId
   ownerId   String  @db.ObjectId
-  brandName String?
   slug      String  @unique
   template  String
   name      String
@@ -363,8 +373,27 @@ model Site {
 
   createdAt DateTime @default(now())
 
-  // 🔥 ADD THIS
-  owner User @relation(fields: [ownerId], references: [id])
-
+  owner    User     @relation(fields: [ownerId], references: [id])
   products Product[]
+  brands   Brand[]
+}
+
+
+model Brand {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  
+  slug      String
+  sellerId  String   @db.ObjectId
+  siteId    String?  @db.ObjectId
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  seller   User   @relation(fields: [sellerId], references: [id])
+  site     Site?  @relation(fields: [siteId], references: [id])
+  products Product[]
+
+  @@index([sellerId])
+  @@index([siteId])
+  @@unique([slug, sellerId])
 }

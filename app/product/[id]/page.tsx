@@ -1022,7 +1022,14 @@ console.log(product.fit, product.fabricCare, product.features);
           <h2 className="text-lg font-medium mb-4">You May Also Like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
             {similarProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
+            <ProductCard
+  key={p.id}
+  product={{
+    ...p,
+    brandName: p.brandName || "BSCFASHION",
+  }}
+/>
+
             ))}
           </div>
         </div>

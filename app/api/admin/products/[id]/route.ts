@@ -182,6 +182,15 @@ export async function PUT(
         { status: 404 }
       );
     }
+const brandIdRaw = form.get("brandId");
+const brandNameRaw = form.get("brandName");
+
+const brandId =
+  typeof brandIdRaw === "string" && /^[a-f\d]{24}$/i.test(brandIdRaw)
+    ? brandIdRaw
+    : null;
+
+let resolvedBrandName = prevProduct.brandName; // default
 
     // ---------------- PRODUCT IMAGES ----------------
     const finalImages = form.get("images")
@@ -207,6 +216,18 @@ const fabricCare = form.get("fabricCare")
 const features = form.get("features")
   ? JSON.parse(form.get("features")!.toString())
   : prevProduct.features;
+  if (brandId) {
+  const brand = await prisma.brand.findUnique({
+    where: { id: brandId },
+  });
+
+  if (brand) {
+    resolvedBrandName = brand.name;
+  }
+} else if (typeof brandNameRaw === "string" && brandNameRaw.trim()) {
+  resolvedBrandName = brandNameRaw.trim();
+}
+
 
     // ---------------- UPDATE PRODUCT ----------------
   const updateData: any = {
@@ -222,7 +243,9 @@ const features = form.get("features")
   features,
 
   siteId: prevProduct.siteId,
-  brandName: prevProduct.brandName,
+brandId: brandId,              // 🔥 NEW
+brandName: resolvedBrandName,  // 🔥 UPDATED
+
   isPlatform: prevProduct.isPlatform,
 };
 

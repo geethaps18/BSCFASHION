@@ -20,7 +20,7 @@ export async function GET() {
         id: true,
         name: true,
         slug: true,
-        brandName: true,
+    
         createdAt: true,
       },
     });
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     const site = await prisma.site.create({
       data: {
         ownerId,
-        brandName: name,
+       
         name,
         slug,
         tagline,

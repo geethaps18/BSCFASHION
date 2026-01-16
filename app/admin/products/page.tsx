@@ -116,10 +116,16 @@ export default function AdminProductsPage() {
                   <td className="p-4">{p.stock}</td>
 
                   <td className="p-4">
-                    <span className="flex items-center gap-1 text-sm bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
-                      <Bell size={14} /> {p.reminderCount}
-                    </span>
-                  </td>
+  {p.reminderCount > 0 ? (
+    <span className="flex items-center gap-1 text-sm bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full w-fit">
+      <Bell size={14} />
+      {p.reminderCount}
+    </span>
+  ) : (
+    <span className="text-xs text-gray-400">—</span>
+  )}
+</td>
+
 
                   <td className="p-4">
                     {p.stock > 0 ? (

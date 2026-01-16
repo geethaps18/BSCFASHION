@@ -85,6 +85,17 @@ export async function PUT(req: Request, context: Context) {
   try {
     const { id } = await context.params;
     const form = await req.formData();
+    // ---------- BRAND (EDIT SUPPORT) ----------
+const brandIdRaw = form.get("brandId");
+const brandId =
+  typeof brandIdRaw === "string" && /^[a-f\d]{24}$/i.test(brandIdRaw)
+    ? brandIdRaw
+    : null;
+
+const brandNameRaw = form.get("brandName");
+const brandNameInput =
+  typeof brandNameRaw === "string" ? brandNameRaw.trim() : null;
+
 
     // ---------- BASIC FIELDS ----------
     const name = form.get("name")?.toString() ?? "";
@@ -128,6 +139,26 @@ const fabricCare = form.get("fabricCare")
 const features = form.get("features")
   ? JSON.parse(form.get("features")!.toString())
   : prevProduct.features;
+let finalBrandId = prevProduct.brandId ?? null;
+let finalBrandName = prevProduct.brandName;
+
+// If admin selected an existing brand
+if (brandId) {
+  const brand = await prisma.brand.findUnique({
+    where: { id: brandId },
+  });
+
+  if (brand) {
+    finalBrandId = brand.id;
+    finalBrandName = brand.name;
+  }
+}
+
+// If admin typed a custom brand name (Shopify-style)
+else if (brandNameInput) {
+  finalBrandId = null; // custom brand
+  finalBrandName = brandNameInput;
+}
 
 
     // ---------- PRODUCT IMAGES ----------
@@ -157,7 +188,9 @@ const features = form.get("features")
       subSubCategory,
       images: finalImages,
       siteId: prevProduct.siteId,
-      brandName: prevProduct.brandName,
+      brandId: finalBrandId,
+      brandName: finalBrandName,
+
       isPlatform: prevProduct.isPlatform,
     };
 

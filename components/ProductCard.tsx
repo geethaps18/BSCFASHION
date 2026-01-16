@@ -195,9 +195,9 @@ export default function ProductCard({
           {product.name}
         </h3>
 
-        <p className="text-xs uppercase tracking-wide text-gray-500 mt-1">
-          {product.brandName ?? "BSCFASHION"}
-        </p>
+             <p className="text-xs uppercase tracking-wide text-gray-500 mt-1">
+  {product.brandName}
+</p>
 
         {/* PRICE */}
 <div className="flex items-center gap-2 mt-2">

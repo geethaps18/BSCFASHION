@@ -16,7 +16,7 @@ export default async function BuilderPage() {
       id: true,
       name: true,
       slug: true,
-      brandName: true,
+    
       createdAt: true,
     },
   });
@@ -42,7 +42,7 @@ export default async function BuilderPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="border rounded-xl p-5 bg-white shadow-sm">
           <p className="text-sm text-gray-500">Store Name</p>
-          <p className="font-semibold text-lg">{site.brandName}</p>
+          <p className="font-semibold text-lg">{site.name}</p>
         </div>
 
         <div className="border rounded-xl p-5 bg-white shadow-sm">

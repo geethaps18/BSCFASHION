@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Plus, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Bell } from "lucide-react";
+
 import Link from "next/link";
 import { useSite } from "@/components/SiteContext";
 
@@ -115,6 +116,7 @@ export default function BuilderProductsPage() {
                 <th className="p-4">Category</th>
                 <th className="p-4">Price</th>
                 <th className="p-4">Stock</th>
+                <th className="p-4">Reminders</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
@@ -133,7 +135,18 @@ export default function BuilderProductsPage() {
 
                   <td className="p-4">{p.category || "—"}</td>
                   <td className="p-4 font-semibold">₹{p.price}</td>
-                  <td className="p-4">{p.stock}</td>
+                  <td className="p-4 font-medium">{p.stock}</td>
+
+                  <td className="p-4">
+  {p.reminderCount > 0 ? (
+    <span className="flex items-center gap-1 text-sm bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full w-fit">
+      <Bell size={14} />
+      {p.reminderCount}
+    </span>
+  ) : (
+    <span className="text-xs text-gray-400">—</span>
+  )}
+</td>
 
                   <td className="p-4">
                     {p.stock > 0 ? (

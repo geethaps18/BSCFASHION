@@ -21,7 +21,7 @@ export async function GET() {
 
   const site = await prisma.site.findFirst({
     where: { ownerId: userId },
-    select: { id: true, name: true, slug: true, brandName: true },
+    select: { id: true, name: true, slug: true},
   });
 
   return NextResponse.json(site);

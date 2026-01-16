@@ -31,6 +31,10 @@ type ProductFormProps = {
   productId?: string;
 };
 
+type Brand = {
+  id: string;
+  name: string;
+};
 
 
 export default function ProductFormTabbed({
@@ -40,6 +44,7 @@ export default function ProductFormTabbed({
   mode?: "add" | "edit";
   productId?: string;
 }) {
+const [brandInput, setBrandInput] = useState("");
 
   const [activeTab, setActiveTab] = useState<number>(0);
   const [name, setName] = useState("");
@@ -73,6 +78,8 @@ const [selectedColors, setSelectedColors] =
   const [existingImages, setExistingImages] = useState<string[]>([]);
 const router = useRouter();
 
+const [brands, setBrands] = useState<Brand[]>([]);
+const [brandId, setBrandId] = useState("");
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -84,6 +91,26 @@ const router = useRouter();
   name: "",
   hex: "#000000",
 });
+
+useEffect(() => {
+  const fetchBrands = async () => {
+    try {
+      const res = await fetch("/api/brands"); // 👈 admin brands
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        setBrands(data);
+      } else {
+        setBrands([]);
+      }
+    } catch {
+      setBrands([]);
+    }
+  };
+
+  fetchBrands();
+}, []);
+
 
 useEffect(() => {
   // ONLY set default when creating NEW product
@@ -108,6 +135,11 @@ useEffect(() => {
     const data = await res.json();
     
     setName(data.name ?? "");
+setBrandInput(data.brand?.name || data.brandName || "");
+setBrandId(data.brandId || "");
+
+
+
     setDescription(data.description ?? "");
     setPrice(String(data.price ?? ""));
     setMrp(String(data.mrp ?? ""));
@@ -299,6 +331,27 @@ const uploadImage = async (file: File) => {
 };
 
 
+async function getOrCreateBrandId() {
+  if (!brandInput.trim()) return null;
+
+  // if already selected
+  if (brandId) return brandId;
+
+  // create new brand
+  const res = await fetch("/api/brands", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: brandInput.trim(),
+    }),
+  });
+
+  if (!res.ok) return null;
+
+  const brand = await res.json();
+  setBrandId(brand.id);
+  return brand.id;
+}
 
   async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
@@ -335,6 +388,16 @@ if (selectedColors.length === 1) {
     try {
       const form = new FormData();
       form.append("name", name);
+const resolvedBrandId = await getOrCreateBrandId();
+
+if (resolvedBrandId) {
+  form.append("brandId", resolvedBrandId);
+} else if (brandInput.trim()) {
+  form.append("brandName", brandInput.trim());
+}
+
+
+
       form.append("description", description);
       const catPath = [category?.name, subCategory?.name, subSubCategory?.name].filter(Boolean);
       form.append("categoryPath", JSON.stringify(catPath));
@@ -479,6 +542,35 @@ const Tabs = ["Basic","Media","Pricing","Variants","Review"];
                   <input value={name} onChange={e=>setName(e.target.value)} className={`mt-1 block w-full rounded border px-3 py-2 ${errors.name ? 'border-red-500' : 'border-gray-200'}`} />
                   {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
                 </label>
+               <label className="block text-sm font-medium mb-1">Brand</label>
+
+<input
+  list="brands"
+  placeholder="Type or select brand"
+  value={brandInput}
+ onChange={(e) => {
+  const value = e.target.value;
+  setBrandInput(value);
+
+  const matchedBrand = brands.find(
+    (b) => b.name.toLowerCase() === value.toLowerCase()
+  );
+
+  if (matchedBrand) {
+    setBrandId(matchedBrand.id);
+  } else {
+    setBrandId(""); // custom brand
+  }
+}}
+
+  className="w-full border px-3 py-2 rounded"
+/>
+
+<datalist id="brands">
+  {brands.map((b) => (
+    <option key={b.id} value={b.name} />
+  ))}
+</datalist>
 
                 <label className="block">
                   <span className="text-sm font-medium">Description</span>

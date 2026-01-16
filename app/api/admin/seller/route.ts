@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         data: {
           ownerId: seller.id,
           name: brandName,
-          brandName,
+    
           slug,
           template: "default",
           color: "#000000",

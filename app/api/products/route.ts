@@ -107,32 +107,42 @@ export async function GET(req: Request) {
 
     const total = await prisma.product.count({ where });
 
-    const products = await prisma.product.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: pageSize,
+    const productsRaw = await prisma.product.findMany({
+  where,
+  orderBy: { createdAt: "desc" },
+  skip,
+  take: pageSize,
+  include: {
+    brand: {
       select: {
         id: true,
         name: true,
-        price: true,
-        mrp: true,
-        discount: true,
-        images: true,
-        video: true,
-        brandName: true,
-        category: true,
-        variants: {
-          select: {
-            id: true,
-            size: true,
-            color: true,
-            stock: true,
-            images: true,
-          },
-        },
       },
-    });
+    },
+    variants: {
+      select: {
+        id: true,
+        size: true,
+        color: true,
+        stock: true,
+        images: true,
+      },
+    },
+  },
+});
+
+const products = productsRaw.map((p) => ({
+  ...p,
+  brandName: p.brand?.name || p.brandName || "BSCFASHION",
+}));
+
+return NextResponse.json({
+  products,
+  total,
+  hasMore: total > page * pageSize,
+  page,
+});
+
 
     return NextResponse.json({
       products,
@@ -153,78 +163,121 @@ export async function GET(req: Request) {
 // ----------------------
 // POST — Add Product
 // ----------------------
+// ----------------------
+// POST — Add Product
+// ----------------------
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
-    // ----------------------
-    // SITE + BRAND LOGIC
-    // ----------------------
+    /* ---------------------------------
+       BRAND (ID + NAME INPUT)
+    ----------------------------------*/
+    const brandIdRaw = formData.get("brandId");
+    const brandId =
+      typeof brandIdRaw === "string" && /^[a-f\d]{24}$/i.test(brandIdRaw)
+        ? brandIdRaw
+        : null;
+
+   const brandNameRaw = formData.get("brandName");
+const brandNameInput =
+  typeof brandNameRaw === "string" ? brandNameRaw.trim() : null;
+
+
+    /* ---------------------------------
+       SITE LOGIC
+    ----------------------------------*/
     const siteIdRaw = formData.get("siteId");
     let siteId: string | null = null;
-    let brandName: string;
-let isPlatform: boolean;
+    let isPlatform = false;
+    let site: any = null;
 
-if (
-  typeof siteIdRaw === "string" &&
-  /^[a-f\d]{24}$/i.test(siteIdRaw)
-) {
-  const site = await prisma.site.findUnique({
-    where: { id: siteIdRaw },
-  });
+    if (
+      typeof siteIdRaw === "string" &&
+      /^[a-f\d]{24}$/i.test(siteIdRaw)
+    ) {
+      site = await prisma.site.findUnique({
+        where: { id: siteIdRaw },
+      });
 
-  if (!site) {
-    return NextResponse.json({ message: "Invalid site" }, { status: 400 });
-  }
+      if (!site) {
+        return NextResponse.json(
+          { message: "Invalid site" },
+          { status: 400 }
+        );
+      }
 
-  siteId = siteIdRaw;               // 🔥 THIS WAS MISSING
-  brandName = site.brandName ?? site.name;
-  isPlatform = false;
-} else {
-  brandName = "BSCFASHION";
-  isPlatform = true;
-}
-
-
-
-
-
-    // ----------------------
-    // Basic fields
-    // ----------------------
-    const name = String(formData.get("name") || "");
-    const description = String(formData.get("description") || "");
+      siteId = siteIdRaw;
+      isPlatform = false;
+    } else {
+      isPlatform = true;
+    }
+    
 
   
 
+    /* ---------------------------------
+       FINAL BRAND RESOLUTION
+    ----------------------------------*/
+    let finalBrandId: string | null = null;
+    let finalBrandName: string | null = null;
+
+    
+
+    // 1️⃣ Selected existing brand
+    if (brandId) {
+      const brand = await prisma.brand.findUnique({
+        where: { id: brandId },
+      });
+
+      if (brand) {
+        finalBrandId = brand.id;
+        finalBrandName = brand.name;
+      }
+    }
+
+    // 2️⃣ Typed brand (Nike, Adidas)
+    if (!finalBrandName && brandNameInput) {
+      finalBrandName = brandNameInput;
+    }
+
+    // 3️⃣ Fallback → site name
+    if (!finalBrandName) {
+      finalBrandName = site?.name || "BSCFASHION";
+    }
+
+    /* ---------------------------------
+       BASIC FIELDS
+    ----------------------------------*/
+    const name = String(formData.get("name") || "");
+    const description = String(formData.get("description") || "");
+
     const normalize = (v?: string) =>
-  v ? v.trim().toLowerCase().replace(/\s+/g, "-") : null;
+      v ? v.trim().toLowerCase().replace(/\s+/g, "-") : null;
 
-// ---------- categoryPath (MUST COME FIRST) ----------
-const categoryPath = formData.get("categoryPath")
-  ? JSON.parse(formData.get("categoryPath") as string)
-  : [];
+    const categoryPath = formData.get("categoryPath")
+      ? JSON.parse(formData.get("categoryPath") as string)
+      : [];
 
-// ---------- normalized categories ----------
-const category = normalize(categoryPath[0]);
-const subCategory = normalize(categoryPath[1]);
-const subSubCategory = normalize(categoryPath[2]);
+    const category = normalize(categoryPath[0]);
+    const subCategory = normalize(categoryPath[1]);
+    const subSubCategory = normalize(categoryPath[2]);
+
     const price = Number(formData.get("price") || 0);
     const mrp = Number(formData.get("mrp") || price);
     const discount =
       Number(formData.get("discount")) ||
-      (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
+      (mrp > price
+        ? Math.round(((mrp - price) / mrp) * 100)
+        : 0);
 
-    // ----------------------
-    // Product images (frontend uploaded)
-    // ----------------------
+    /* ---------------------------------
+       IMAGES + EXTRA FIELDS
+    ----------------------------------*/
     const productImages: string[] = formData.get("images")
       ? JSON.parse(formData.get("images") as string)
       : [];
 
-    // ----------------------
-    // Extra fields
-    // ----------------------
     const fit = formData.get("fit")
       ? JSON.parse(formData.get("fit") as string)
       : [];
@@ -237,9 +290,9 @@ const subSubCategory = normalize(categoryPath[2]);
       ? JSON.parse(formData.get("features") as string)
       : [];
 
-    // ----------------------
-    // Variants
-    // ----------------------
+    /* ---------------------------------
+       VARIANTS
+    ----------------------------------*/
     const variants = formData.get("variants")
       ? JSON.parse(formData.get("variants") as string)
       : [];
@@ -248,7 +301,6 @@ const subSubCategory = normalize(categoryPath[2]);
 
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i];
-
       const files = formData.getAll(`variantImages_${i}`) as File[];
       const uploadedImages: string[] = [];
 
@@ -265,20 +317,25 @@ const subSubCategory = normalize(categoryPath[2]);
         images: uploadedImages,
       });
     }
-const videoFile = formData.get("video") as File | null;
 
-let videoUrl: string | null = null;
-if (videoFile && videoFile.size > 0) {
-  videoUrl = await uploadVideoToCloudinary(videoFile);
-}
+    /* ---------------------------------
+       VIDEO
+    ----------------------------------*/
+    const videoFile = formData.get("video") as File | null;
+    let videoUrl: string | null = null;
 
-    // ----------------------
-    // Save product
-    // ----------------------
+    if (videoFile && videoFile.size > 0) {
+      videoUrl = await uploadVideoToCloudinary(videoFile);
+    }
+
+    /* ---------------------------------
+       CREATE PRODUCT
+    ----------------------------------*/
     const product = await prisma.product.create({
       data: {
         siteId,
-        brandName,
+        brandId: finalBrandId,
+        brandName: finalBrandName,
         isPlatform,
         name,
         description,
@@ -302,6 +359,7 @@ if (videoFile && videoFile.size > 0) {
         variants: true,
       },
     });
+    
 
     return NextResponse.json({
       message: "✅ Product added successfully",
@@ -315,3 +373,4 @@ if (videoFile && videoFile.size > 0) {
     );
   }
 }
+

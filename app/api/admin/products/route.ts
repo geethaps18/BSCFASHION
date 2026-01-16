@@ -42,13 +42,17 @@ const where: Prisma.ProductWhereInput = {
   orderBy: { createdAt: "desc" },
   skip,
   take: limit,
-  include: {
-    variants: {
-      select: { stock: true },
-    },
-    _count: {
-      select: { stockReminders: true },
-    },
+ include: {
+  brand: {
+    select: { name: true },
+  },
+  variants: {
+    select: { stock: true },
+  },
+  _count: {
+    select: { stockReminders: true },
+  },
+
   },
 });
 
@@ -67,13 +71,15 @@ const mapped = products.map((p) => {
   return {
     id: p.id,
     name: p.name ?? "",
+    brandName: p.brand?.name || p.brandName,
+
     category: p.category ?? "",
     price: p.price ?? 0,
     stock: finalStock,              // ✅ FIX
     images: Array.isArray(p.images) ? p.images : [],
     status: p.status,
     siteId: p.siteId,
-    brandName: p.brandName,
+   
     createdAt: p.createdAt,
     reminderCount: p._count?.stockReminders ?? 0,
   };

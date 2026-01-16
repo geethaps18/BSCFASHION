@@ -5,26 +5,19 @@ export interface ProductVariantCard {
   price: number;
 }
 
-export interface ProductCardProduct {
+export type ProductCardProduct = {
   id: string;
   name: string;
   price: number;
-
-  mrp?: number;          // ✅ make optional
-  discount?: number;
-
+  mrp?: number | null;
+  discount?: number | null;
   images: string[];
-
-  sizes?: string[];      // legacy fallback
+  brandName?: string; // 🔥 FINAL DISPLAY VALUE
   variants?: {
-    id: string;
-    size: string;
-    stock: number;
+    size?: string | null;
+    stock?: number | null;
   }[];
-
-  brandName?: string;
   rating?: number;
   reviewCount?: number;
+};
 
-
-}

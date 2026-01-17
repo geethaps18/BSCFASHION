@@ -27,12 +27,19 @@ const categories = [
 
 export default function HomeInner() {
   // 🔥 Infinite products (correct place)
-  const { products, loading } = useInfiniteProducts(
+const {
+  products,
+  total,
+  isLoading,
+  isLoadingMore,
+} = useInfiniteProducts(
   "home",
   "/api/products?home=true"
 );
 
-const initialLoading = loading && products.length === 0;
+const initialLoading = isLoading && products.length === 0;
+const loadingMore = isLoadingMore;
+
 
 
   // ✅ Take only first 10 for slider
@@ -79,7 +86,7 @@ const initialLoading = loading && products.length === 0;
 
 
        {/* ✅ Recent Products Slider */}
-{!loading && recentProducts.length > 4 && (
+{!isLoading && recentProducts.length > 4 && (
 
     <RecentProductsSlider products={recentProducts} />
   
@@ -88,20 +95,28 @@ const initialLoading = loading && products.length === 0;
 
         {/* Products Grid */}
         <main className="flex-grow sm:p-6 pb-2">
-          {initialLoading ? (
-            <div className="flex justify-center py-20">
-              <LoadingRing />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
-              {products.map((product: any) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
-        </main>
+  {initialLoading ? (
+    <div className="flex justify-center py-20">
+      <LoadingRing />
+    </div>
+  ) : (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
+        {products.map((product: any) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
       </div>
 
+      {loadingMore && (
+        <div className="flex justify-center py-10">
+          <LoadingRing />
+        </div>
+      )}
+    </>
+  )}
+</main>
+
+</div>
       {/* Fixed Footer */}
       <div className="fixed bottom-0 left-0 w-full z-50 bg-white border-t shadow-lg">
         <Footer />

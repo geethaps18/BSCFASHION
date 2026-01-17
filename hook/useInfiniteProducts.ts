@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useInfiniteStore } from "@/store/useInfiniteStore";
-
 export function useInfiniteProducts(key: string, apiUrl: string) {
   const {
     key: currentKey,
@@ -19,13 +18,17 @@ export function useInfiniteProducts(key: string, apiUrl: string) {
     setHasMore,
     setLastLoadedPage,
   } = useInfiniteStore();
-const [total, setTotal] = useState(0);
+
+  const [total, setTotal] = useState(0);
+
+  // ✅ ADD HERE 👇
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const loadingRef = useRef(false);
   const restoredRef = useRef(false);
   const pageRef = useRef(page);
 
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     pageRef.current = page;
@@ -50,7 +53,12 @@ const [total, setTotal] = useState(0);
     if (p !== 1 && !hasMore) return;
 
     loadingRef.current = true;
-    setLoading(true);
+   if (p === 1) {
+  setIsLoading(true);        // first load
+} else {
+  setIsLoadingMore(true);   // infinite scroll load
+}
+
 
     try {
       const res = await fetch(buildUrl(p), {
@@ -74,7 +82,9 @@ if (typeof data.total === "number") {
       setHasMore(Boolean(data.hasMore));
     } finally {
       loadingRef.current = false;
-      setLoading(false);
+      setIsLoading(false);
+setIsLoadingMore(false);
+
     }
   };
 
@@ -125,6 +135,12 @@ if (typeof data.total === "number") {
     window.scrollTo(0, scrollY);
   }, [products, scrollY]);
 
-  return { products, total, loading };
+ return {
+  products,
+  total,
+  isLoading,
+  isLoadingMore,
+};
+
 
 }

@@ -1,22 +1,26 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
 
-NProgress.configure({ showSpinner: false });
+// ✅ PROFESSIONAL CONFIG
+NProgress.configure({
+  showSpinner: false,        // ❌ remove blue spinner
+  trickleSpeed: 120,
+  minimum: 0.15,
+});
 
-export default function RouteProgress() {
+export default function TopLoader() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     NProgress.start();
     return () => {
       NProgress.done();
     };
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   return null;
 }

@@ -207,18 +207,7 @@ body, html {
     left: 150%;
   }
 }
-#nprogress .bar {
-  background: #facc15 !important; /* yellow-400 */
-  height: 3px;
-}
 
-#nprogress .peg {
-  box-shadow: 0 0 10px #facc15, 0 0 5px #facc15;
-}
-
-#nprogress .spinner {
-  display: none;
-}
 /* react-slick full height fix */
 .slick-slider,
 .slick-list,
@@ -256,4 +245,16 @@ body, html {
 .bscfashion-swiper .swiper-pagination-progressbar-fill {
   opacity: 1;
   will-change: transform;
+}
+#nprogress .bar {
+  background: #fbbf24 !important; /* BSC yellow */
+  height: 3px;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px #fbbf24, 0 0 5px #fbbf24;
+}
+
+#nprogress .spinner {
+  display: none;
 }

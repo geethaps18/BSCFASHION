@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import { categories } from "@/data/categories";
 import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
+import LoadingRing from "@/components/LoadingRing";
 
 export default function Sub2Page() {
   const { main, sub1, sub2 } = useParams();
@@ -25,8 +26,12 @@ export default function Sub2Page() {
     `&subCategory=${encodeURIComponent(sub1Slug!)}` +
     `&subSubCategory=${encodeURIComponent(sub2Slug!)}`;
 
-  // 🔥 HOOK AFTER key + apiURL
-  const { products } = useInfiniteProducts(key, apiURL);
+const {
+  products,
+  isLoading,
+  isLoadingMore,
+} = useInfiniteProducts(key, apiURL);
+
 
   if (!mainSlug || !sub1Slug || !sub2Slug) {
     return <div className="p-8 text-center text-red-600">Category not found</div>;
@@ -65,12 +70,26 @@ export default function Sub2Page() {
         </h1>
       </div>
 
-      {/* Products */}
+   <main className="pb-6">
+  {isLoading && products.length === 0 ? (
+    <LoadingRing />
+  ) : products.length === 0 ? (
+    <p className="text-gray-500 text-center py-16">
+      No products found.
+    </p>
+  ) : (
+    <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
         {products.map((product: any) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
+
+      {isLoadingMore && <LoadingRing />}
+    </>
+  )}
+</main>
+
 
       <Footer />
     </div>

@@ -11,6 +11,7 @@ import OfflineBanner from "@/components/OfflineBanner";
 import AppLayoutWrapper from "@/components/AppLayoutWrapper";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import TopLoader from "@/components/TopLoader";
 
 
 const geistSans = Geist({
@@ -69,6 +70,7 @@ export default function RootLayout({
 
           <main className="min-h-screen">
             <AppLayoutWrapper>
+              <TopLoader/>
             {children}
             </AppLayoutWrapper>
           

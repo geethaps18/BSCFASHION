@@ -8,6 +8,8 @@ import Header from "@/components/Header";
 
 import { categories, SubCategory } from "@/data/categories";
 import ProductCard from "@/components/ProductCard";
+import LoadingRing from "@/components/LoadingRing";
+
 
 import { useInfiniteProducts } from "@/hook/useInfiniteProducts";
 
@@ -19,7 +21,12 @@ export default function MainCategoryPage() {
   const key = `main-${mainSlug || "none"}`;
 const apiUrl = `/api/products?category=${mainSlug}`;
 
-  const { products } = useInfiniteProducts(key, apiUrl);
+  const {
+  products,
+  isLoading,
+  isLoadingMore,
+} = useInfiniteProducts(key, apiUrl);
+
   
 
   // Now safe to check conditions
@@ -84,19 +91,28 @@ const apiUrl = `/api/products?category=${mainSlug}`;
       </div>
     ) : null}
       {/* Products */}
-      <main className="flex-grow sm:p-6 pb-2">
-        {products.length === 0 ? (
-          <div className="text-gray-500 mt-4 text-center">
-            No products available in this category.
-          </div>
-        ) : (
-           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
-            {products.map((product: any) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
-      </main>
+<main className="flex-grow sm:p-6 pb-2">
+{isLoading && products.length === 0 ? (
+  <LoadingRing />
+)
+ : products.length === 0 ? (
+    <div className="text-gray-500 mt-4 text-center">
+      No products available in this category.
+    </div>
+  ) : (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-0.5 gap-y-6">
+        {products.map((product: any) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
+
+     {isLoadingMore && <LoadingRing />}
+
+    </>
+  )}
+</main>
+
 
       <Header />
       <Footer />

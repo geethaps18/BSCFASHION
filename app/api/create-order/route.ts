@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import nodemailer from "nodemailer";
 import Razorpay from "razorpay";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
 /* ---------------- CONFIG ---------------- */
 const WHATSAPP_API_URL = "https://graph.facebook.com/v19.0";
@@ -10,6 +12,40 @@ const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID!;
 const EMAIL_USER = process.env.EMAIL_USER!;
 const EMAIL_PASS = process.env.EMAIL_PASS!;
+const JWT_SECRET = process.env.JWT_SECRET!;
+
+/* ---------------- AUTH HELPER ---------------- */
+async function getUserFromRequest() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+
+  if (!token) return null;
+
+  try {
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+
+    if (!decoded?.id) return null;
+
+    // 🔥 AUTO-HEAL USER (iOS Safari fix)
+    let user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          id: decoded.id,
+          email: decoded.email,
+          name: decoded.name ?? "Customer",
+        },
+      });
+    }
+
+    return user;
+  } catch {
+    return null;
+  }
+}
 
 /* ---------------- EMAIL ---------------- */
 async function sendOrderEmail(to: string, order: any, items: any[]) {
@@ -75,16 +111,23 @@ Total: ₹${order.totalAmount}`,
 /* ---------------- MAIN API ---------------- */
 export async function POST(req: Request) {
   try {
-    const { userId, items, paymentMode, address, upiId, cardDetails } =
-      await req.json();
+    const user = await getUserFromRequest();
 
-    if (!userId || !items?.length || !address) {
-      return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const { items, paymentMode, address, upiId, cardDetails } =
+      await req.json();
+
+    if (!items?.length || !address) {
+      return NextResponse.json(
+        { error: "Invalid data" },
+        { status: 400 }
+      );
     }
 
     const productIds = items.map((i: any) => i.productId);
@@ -115,6 +158,7 @@ export async function POST(req: Request) {
     );
 
     let razorpayOrder: any = null;
+
     if (paymentMode === "Online") {
       const razorpay = new Razorpay({
         key_id: process.env.RAZORPAY_KEY_ID!,
@@ -130,20 +174,21 @@ export async function POST(req: Request) {
     const order = await prisma.$transaction(async (tx) => {
       const createdOrder = await tx.order.create({
         data: {
-          userId,
+          userId: user.id,
           totalAmount,
           paymentMode: paymentMode || "COD",
           address,
           upiId: paymentMode === "UPI" ? upiId ?? null : null,
           cardDetails:
-            paymentMode === "Card" ? JSON.stringify(cardDetails) : null,
+            paymentMode === "Card"
+              ? JSON.stringify(cardDetails)
+              : null,
           razorpayOrderId: razorpayOrder?.id ?? null,
         },
         include: { user: true },
       });
 
       for (const item of orderItems) {
-        // ✅ ONLY reduce stock if variantId exists
         if (item.variantId) {
           await tx.productVariant.update({
             where: { id: item.variantId },

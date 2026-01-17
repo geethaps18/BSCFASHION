@@ -14,37 +14,48 @@ const EMAIL_USER = process.env.EMAIL_USER!;
 const EMAIL_PASS = process.env.EMAIL_PASS!;
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-/* ---------------- AUTH HELPER ---------------- */
-async function getUserFromRequest() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-
-  if (!token) return null;
-
+/* ---------------- AUTH (COOKIE + BODY FALLBACK) ---------------- */
+async function resolveUser(req: Request, bodyUserId?: string) {
+  // 1️⃣ Try cookie auth (desktop / android)
   try {
-    const decoded: any = jwt.verify(token, JWT_SECRET);
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
 
-    if (!decoded?.id) return null;
+    if (token) {
+      const decoded: any = jwt.verify(token, JWT_SECRET);
 
-    // 🔥 AUTO-HEAL USER (iOS Safari fix)
-    let user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-    });
+      if (decoded?.id) {
+        let user = await prisma.user.findUnique({
+          where: { id: decoded.id },
+        });
 
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          id: decoded.id,
-          email: decoded.email,
-          name: decoded.name ?? "Customer",
-        },
-      });
+        // Auto-heal (Safari edge case)
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              id: decoded.id,
+              email: decoded.email,
+              name: decoded.name ?? "Customer",
+            },
+          });
+        }
+
+        return user;
+      }
     }
-
-    return user;
   } catch {
-    return null;
+    // ignore → fallback
   }
+
+  // 2️⃣ Fallback: userId from body (iOS Safari safe)
+  if (bodyUserId) {
+    const user = await prisma.user.findUnique({
+      where: { id: bodyUserId },
+    });
+    return user;
+  }
+
+  return null;
 }
 
 /* ---------------- EMAIL ---------------- */
@@ -111,25 +122,26 @@ Total: ₹${order.totalAmount}`,
 /* ---------------- MAIN API ---------------- */
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest();
+    const body = await req.json();
+    const { userId, items, paymentMode, address, upiId, cardDetails } = body;
+
+    const user = await resolveUser(req, userId);
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Session expired. Please signup again." },
         { status: 401 }
       );
     }
 
-    const { items, paymentMode, address, upiId, cardDetails } =
-      await req.json();
-
     if (!items?.length || !address) {
       return NextResponse.json(
-        { error: "Invalid data" },
+        { error: "Invalid order data" },
         { status: 400 }
       );
     }
 
+    /* ---------------- PRODUCTS ---------------- */
     const productIds = items.map((i: any) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
@@ -157,6 +169,7 @@ export async function POST(req: Request) {
       0
     );
 
+    /* ---------------- RAZORPAY ---------------- */
     let razorpayOrder: any = null;
 
     if (paymentMode === "Online") {
@@ -171,6 +184,7 @@ export async function POST(req: Request) {
       });
     }
 
+    /* ---------------- DB TRANSACTION ---------------- */
     const order = await prisma.$transaction(async (tx) => {
       const createdOrder = await tx.order.create({
         data: {
@@ -180,9 +194,7 @@ export async function POST(req: Request) {
           address,
           upiId: paymentMode === "UPI" ? upiId ?? null : null,
           cardDetails:
-            paymentMode === "Card"
-              ? JSON.stringify(cardDetails)
-              : null,
+            paymentMode === "Card" ? JSON.stringify(cardDetails) : null,
           razorpayOrderId: razorpayOrder?.id ?? null,
         },
         include: { user: true },
@@ -216,6 +228,7 @@ export async function POST(req: Request) {
       return createdOrder;
     });
 
+    /* ---------------- NOTIFICATIONS ---------------- */
     if (user.email) await sendOrderEmail(user.email, order, orderItems);
     if (address.phone)
       await sendWhatsAppMessage(address.phone, order, orderItems);
@@ -225,9 +238,9 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (err: any) {
-    console.error("🔥 Order Error:", err.message);
+    console.error("🔥 Order Error:", err);
     return NextResponse.json(
-      { error: "Failed to create order", message: err.message },
+      { error: "Failed to place order" },
       { status: 500 }
     );
   }

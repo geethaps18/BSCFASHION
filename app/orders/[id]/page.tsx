@@ -108,6 +108,7 @@ const STATUS_TEXT: Record<string, { text: string; color: string }> = {
 export default function OrderDetailsPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+const getShipping = (amount: number) => (amount < 1000 ? 100 : 0);
 
   const params = useParams();
   const orderId = params?.id;
@@ -294,6 +295,8 @@ if (loading)
     </div>
   );
 
+const shippingCharge = order.totalAmount < 1000 ? 100 : 0;
+const finalTotal = order.totalAmount + shippingCharge;
 
   const steps = [
   { key: "PENDING", label: "Order Placed", ts: order.createdAt },
@@ -608,9 +611,16 @@ const currentIndex = steps.findIndex(s => s.key === order.status);
         {/* Price Summary */}
         <div className="bg-white p-4 border border-gray-200 rounded">
           <div className="flex justify-between text-gray-700 mb-2">
-            <span>Total Amount</span>
-            <span className="font-medium">₹{order.totalAmount}</span>
-          </div>
+  <span>Total Amount</span>
+  <span className="font-medium">₹{finalTotal}</span>
+</div>
+
+{shippingCharge > 0 && (
+  <p className="text-xs text-gray-500 mt-1">
+    ₹100 delivery charge applied (Free delivery above ₹1000)
+  </p>
+)}
+
         </div>
       </main>
     </div>

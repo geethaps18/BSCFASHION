@@ -90,18 +90,17 @@ export default function PaymentPageInner() {
         const res = await fetch(`/api/bag?userId=${userId}`);
         const data = await res.json();
         if (data.items) {
-          const mappedItems: BagItem[] = data.items
-            .filter((item: any) => item.product != null && item.product.price != null)
-           .map((item: any) => ({
+ const mappedItems: BagItem[] = data.items.map((item: any) => ({
   id: item.id,
   productId: item.product.id,
   quantity: item.quantity,
-  price: item.product.price ?? 0,
+  price: item.price, // ✅ FIXED (SOURCE OF TRUTH)
   productName: item.product.name ?? "Product",
   size: item.size ?? null,
-  color: item.color ?? null,        // ✅ ADD
-  variantId: item.variantId ?? null // ✅ ADD
+  color: item.color ?? null,
+  variantId: item.variantId ?? null
 }));
+
 
           setBagItems(mappedItems);
         }

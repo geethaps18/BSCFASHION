@@ -111,6 +111,17 @@ useEffect(() => {
   fetchBrands();
 }, []);
 
+useEffect(() => {
+  if (!price) return;
+
+  setVariants(prev =>
+    prev.map(v => ({
+      ...v,
+      price: v.price === "" ? price : v.price, // only fill empty ones
+    }))
+  );
+}, [price]);
+
 
 useEffect(() => {
   // ONLY set default when creating NEW product
@@ -234,12 +245,13 @@ function newVariant(): Variant {
     id: String(Date.now()) + Math.random().toString(36).slice(2),
     size: "",
     color: "",
-    price: "",
+    price: price || "",   // ✅ DEFAULT FROM BASE PRICE
     stock: "",
     images: [],
     previews: [],
   };
 }
+
 
   function addVariant() { setVariants(v => [...v, newVariant()]); }
   function removeVariant(i:number) { setVariants(v => v.filter((_, idx) => idx !== i)); }

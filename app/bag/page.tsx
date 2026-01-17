@@ -136,9 +136,10 @@ export default function BagPage() {
 ) : null}
 
 
-                    <p className="text-sm sm:text-base font-semibold text-gray-800 mt-1">
-                      ₹{item.product.price * item.quantity}
-                    </p>
+                  <p className="text-sm sm:text-base font-semibold text-gray-800 mt-1">
+  ₹{item.price * item.quantity}
+</p>
+
 
                     {/* Quantity */}
                     <div className="flex items-center gap-2 mt-2">
@@ -219,10 +220,22 @@ export default function BagPage() {
               <span>Total Product Price</span>
               <span>₹{subtotal}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-700">
-              <span>Shipping</span>
-              <span>₹{shipping}</span>
-            </div>
+          <div className="flex justify-between text-sm text-gray-700">
+  <span>
+    Shipping{" "}
+    {subtotal <= 1000 && (
+      <span className="text-xs text-gray-500">(Free above ₹1000)</span>
+    )}
+  </span>
+  <span>
+    {shipping === 0 ? (
+      <span className="text-green-600 font-medium">FREE</span>
+    ) : (
+      `₹${shipping}`
+    )}
+  </span>
+</div>
+
             <div className="flex justify-between text-sm text-green-600">
               <span>Total Discounts</span>
               <span>- ₹{discount}</span>

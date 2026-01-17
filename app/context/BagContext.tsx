@@ -21,17 +21,18 @@ export interface Product {
   images?: string[];
   availableSizes?: string[];
 }
-
 export interface BagItem {
-  id: string; // bag document ID
+  id: string;
   product: Product;
   images: string[];
   size?: string | null;
-  color?: string | null;        // ✅ KEEP
-  variantId?: string | null;    // ✅ ADD
+  color?: string | null;
+  variantId?: string | null;
+
+  price: number;          // 🔥 ADD THIS
 
   quantity: number;
-  uniqueKey: string; // productId-size-color
+  uniqueKey: string;
 }
 
 
@@ -41,14 +42,17 @@ interface BagContextType {
   subtotal: number;
   shipping: number;
   total: number;
+
+  
 addToCart: (
   product: Product,
-  
+  price: number,      // ✅ ADD THIS
   size?: string,
   color?: string,
   variantId?: string,
-    images?: string[]
+  images?: string[]
 ) => Promise<void>;
+
 
   removeFromCart: (uniqueKey: string) => Promise<void>;
   updateQuantity: (uniqueKey: string, quantity: number) => Promise<void>;
@@ -116,6 +120,7 @@ export const BagProvider = ({ children }: BagProviderProps) => {
   // -------------------
 const addToCart = async (
   product: Product,
+   price: number,
   size?: string,
   color?: string,
   variantId?: string,
@@ -145,13 +150,15 @@ const uniqueKey = `${product.id}-${size || "default"}-${color || "nocolor"}`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
- body: JSON.stringify({
+body: JSON.stringify({
   productId: product.id,
   size,
   color,
   variantId,
-  images,                 // ✅ CRITICAL
+  price, // 🔥 REQUIRED
+  images,
 }),
+
 
 
       });
@@ -270,11 +277,12 @@ const uniqueKey = `${product.id}-${size || "default"}-${color || "nocolor"}`;
   const totalCount = useMemo(() => bagItems.reduce((acc: number, i: BagItem) => acc + i.quantity, 0), [bagItems]);
 
   const subtotal = useMemo(
-    () => bagItems.reduce((acc: number, i: BagItem) => acc + i.product.price * i.quantity, 0),
-    [bagItems]
-  );
+  () => bagItems.reduce((acc, i) => acc + i.price * i.quantity, 0),
+  [bagItems]
+);
 
-  const shipping = useMemo(() => (subtotal > 1000 ? 0 : 50), [subtotal]);
+
+  const shipping = useMemo(() => (subtotal > 1000 ? 0 : 100), [subtotal]);
   const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
 
   // -------------------

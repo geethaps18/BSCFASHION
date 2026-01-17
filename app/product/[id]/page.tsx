@@ -180,6 +180,11 @@ const [selectedVariant, setSelectedVariant] = useState<{
   stock?: number;
   images?: string[];
 } | null>(null);
+// ✅ Effective price (variant overrides base)
+const effectivePrice =
+  selectedVariant?.price ?? product?.price ?? 0;
+
+
 const [activeIndex, setActiveIndex] = useState(0);
 
 const getColorHex = (name: string) =>
@@ -353,6 +358,16 @@ const galleryItems = React.useMemo<GalleryItem[]>(() => {
     ? items
     : [{ type: "image", src: "/placeholder.png" }];
 }, [product, selectedVariant]);
+const getVariantPriceBySize = (size: string) => {
+  const v = variants.find(
+    v =>
+      v.size === size &&
+      (!selectedColor || v.color === selectedColor)
+  );
+
+  return v?.price ?? null;
+};
+
 
 // ✅ NOW the early return is SAFE
 if (!product) {
@@ -381,11 +396,14 @@ const disableAddToBag =
 
   const isWishlisted = wishlist.some((p) => p.id === product.id);
 
-  const price = product.price;
+const price = effectivePrice;
+
   const mrp = product.mrp ?? null;
-  const discount =
-    product.discount ??
-    (mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0);
+const discount =
+  mrp && mrp > price
+    ? Math.round(((mrp - price) / mrp) * 100)
+    : 0;
+
 
   // Reviews safe
   const reviewsList: Review[] = Array.isArray(product.reviews) ? product.reviews : [];
@@ -431,7 +449,7 @@ const disableAddToBag =
   id: product.id,
   name: product.name,
   images: product.images,
-  price: product.price,
+    price: effectivePrice,
 });
 
  
@@ -525,14 +543,17 @@ addToCart(
   {
     id: product.id,
     name: product.name,
-    price,
-    images: finalImages, // ✅ FINAL DECISION HERE
+    price: effectivePrice, // base fallback only
+    images: finalImages,
     availableSizes: product.sizes,
   },
-  selectedSize,
+  effectivePrice,          // ✅ PRICE ARG
+  selectedSize!,
   selectedColor,
-  selectedVariant.id
+  selectedVariant.id,
+  finalImages
 );
+;
 
 
 
@@ -718,9 +739,16 @@ console.log(product.fit, product.fabricCare, product.features);
             </div>
 
             <div className="flex items-center gap-2 mt-1">
-              {mrp && mrp > price && (
-                <span className="line-through text-gray-400 text-sm">Rs.{mrp}</span>
-              )}
+            {mrp && mrp > price ? (
+  <span className="line-through text-gray-400 text-sm">
+    Rs.{mrp}
+  </span>
+) : (
+  <span className="text-green-600 text-xs font-semibold">
+    Best Price
+  </span>
+)}
+
               <span className="text-gray-900">Rs.{price}</span>
               {discount > 0 && (
                 <span className="text-yellow-600 text-xs font-semibold">{discount}% OFF</span>
@@ -783,29 +811,44 @@ console.log(product.fit, product.fabricCare, product.features);
     const outOfStock = !variant || (variant.stock ?? 0) <= 0;
 
     return (
-      <button
-        key={size}
-        disabled={outOfStock}
-        onClick={() => {
-          if (outOfStock) return;
+   <button
+  key={size}
+  disabled={outOfStock}
+  onClick={() => {
+    if (outOfStock) return;
 
-          setSelectedSize(size);
-          setSelectedVariant(variant);
-          setSizeError(false);
-        }}
-        className={`
-          min-w-[44px] h-10 px-3
-          text-sm font-medium border transition
-          ${
-            selectedSize === size
-              ? "border-gray-900 text-gray-900"
-              : "border-gray-300 text-gray-600 hover:border-gray-500"
-          }
-          ${outOfStock ? "opacity-40 cursor-not-allowed line-through" : ""}
-        `}
-      >
-        {size}
-      </button>
+    setSelectedSize(size);
+    setSelectedVariant(variant);
+    setSizeError(false);
+  }}
+  className={`
+    min-w-[56px] px-3 py-2
+    flex flex-col items-center justify-center
+    border transition
+    ${
+      selectedSize === size
+        ? "border-gray-900 text-gray-900"
+        : "border-gray-300 text-gray-600 hover:border-gray-500"
+    }
+    ${outOfStock ? "opacity-40 cursor-not-allowed line-through" : ""}
+  `}
+>
+  <span className="text-sm font-medium">{size}</span>
+
+  {/* ✅ Variant price under size */}
+  {(() => {
+    const vPrice = getVariantPriceBySize(size);
+
+    if (!vPrice) return null;
+
+    return (
+      <span className="text-xs text-gray-500 mt-0.5">
+        ₹{vPrice}
+      </span>
+    );
+  })()}
+</button>
+
     );
   })}
 </div>

@@ -61,8 +61,9 @@ export default function PaymentOptions({
   price: item.price,
   size: item.size ?? null,
   color: item.color ?? null,
-  variantId: item.variantId ?? null, // 🔥 THIS IS THE KEY
+  variantId: item.variantId ?? null,
 }))
+
 ,
           totalAmount,
           paymentMode: "COD",

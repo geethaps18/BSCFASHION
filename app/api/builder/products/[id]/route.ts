@@ -204,45 +204,56 @@ else if (brandNameInput) {
     });
 
     // ---------- VARIANTS ----------
-    const variantsRaw = form.get("variants");
+const variantsRaw = form.get("variants");
 
-    if (variantsRaw) {
-      const incomingVariants = JSON.parse(variantsRaw.toString());
+if (variantsRaw) {
+  const incomingVariants = JSON.parse(variantsRaw.toString());
 
-      await prisma.productVariant.deleteMany({
-        where: { productId: id },
-      });
+  // 🔴 CRITICAL: clear carts FIRST
+  await prisma.bag.deleteMany({
+    where: { productId: id },
+  });
 
-      for (let i = 0; i < incomingVariants.length; i++) {
-        const v = incomingVariants[i];
+  // 🔴 then delete variants
+  await prisma.productVariant.deleteMany({
+    where: { productId: id },
+  });
 
-        const files = form.getAll(`variantImages_${i}`) as File[];
-        const uploadedImages: string[] = [];
+  // 🔴 recreate variants
+  for (let i = 0; i < incomingVariants.length; i++) {
+    const v = incomingVariants[i];
 
-        for (const file of files) {
-          if (file && file.size > 0) {
-            const url = await uploadVariantToCloudinary(file);
-            if (url) uploadedImages.push(url);
-          }
-        }
+    const files = form.getAll(`variantImages_${i}`) as File[];
+    const uploadedImages: string[] = [];
 
-        const finalVariantImages = [
-          ...(Array.isArray(v.existingImages) ? v.existingImages : []),
-          ...uploadedImages,
-        ];
-
-        await prisma.productVariant.create({
-          data: {
-            productId: id,
-            size: v.size ?? null,
-            color: v.color ?? null,
-            price: Number(v.price) || null,
-            stock: Number(v.stock) || 0,
-            images: finalVariantImages,
-          },
-        });
+    for (const file of files) {
+      if (file && file.size > 0) {
+        const url = await uploadVariantToCloudinary(file);
+        if (url) uploadedImages.push(url);
       }
     }
+
+    const finalVariantImages = [
+      ...(Array.isArray(v.existingImages) ? v.existingImages : []),
+      ...uploadedImages,
+    ];
+
+    await prisma.productVariant.create({
+      data: {
+        productId: id,
+        size: v.size ?? null,
+        color: v.color ?? null,
+      price:
+  v.price !== undefined && v.price !== ""
+    ? Number(v.price)
+    : prevProduct.price,
+
+        stock: Number(v.stock) || 0,
+        images: finalVariantImages,
+      },
+    });
+  }
+}
 
     return NextResponse.json({ success: true, product: updatedProduct });
   } catch (error) {

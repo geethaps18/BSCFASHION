@@ -52,6 +52,7 @@ export default function AdminOrdersPage() {
   const [limit, setLimit] = useState<number>(15);
   const [refreshToggle, setRefreshToggle] = useState(false);
   
+const getShipping = (amount: number) => (amount < 1000 ? 100 : 0);
 
   const DB_TO_LABEL: Record<string, string> = {
     PENDING: "Order Placed",
@@ -556,7 +557,18 @@ const allPacked =
 
 
                 </div>
-                <p className="text-right text-sm font-semibold mt-2">Total: ₹{order.totalAmount ?? 0}</p>
+               {(() => {
+  const base = order.totalAmount ?? 0;
+  const shipping = getShipping(base);
+  const finalTotal = base + shipping;
+
+  return (
+    <p className="text-right text-sm font-semibold mt-2">
+      Total: ₹{finalTotal}
+    </p>
+  );
+})()}
+
               </div>
 
               {/* Move to next */}

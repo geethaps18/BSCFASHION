@@ -41,6 +41,8 @@ function mapBagItem(item: any) {
     color: item.color,
     variantId: item.variantId,
 
+    price: item.price, // ✅ ADD THIS LINE
+
     images:
       item.variant?.images?.length
         ? item.variant.images
@@ -49,7 +51,6 @@ function mapBagItem(item: any) {
     product: {
       id: item.product.id,
       name: item.product.name,
-      price: item.product.price,
       images: item.product.images,
       availableSizes: item.product.sizes || [],
     },
@@ -85,63 +86,80 @@ export async function GET(req: NextRequest) {
 // =====================
 export async function POST(req: NextRequest) {
   const userId = getUserId(req);
-  if (!userId) return NextResponse.json({ items: [] }, { status: 401 });
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const { productId, size, color, variantId }: BagItemPayload = await req.json();
-  if (!productId) {
-    return NextResponse.json({ error: "Missing productId" }, { status: 400 });
+  const {
+    productId,
+    size,
+    color,
+    variantId,
+  }: BagItemPayload = await req.json();
+
+  if (!productId || !variantId) {
+    return NextResponse.json(
+      { error: "Missing product or variant" },
+      { status: 400 }
+    );
   }
 
   const finalSize = size || "default";
   const finalColor = color || "nocolor";
 
-  // ✅ FETCH VARIANT
-  const variant = variantId
-    ? await prisma.productVariant.findUnique({
-        where: { id: variantId },
-      })
-    : null;
+  // ✅ Fetch variant (SOURCE OF TRUTH)
+  const variant = await prisma.productVariant.findUnique({
+    where: { id: variantId },
+  });
 
+  if (!variant) {
+    return NextResponse.json(
+      { error: "Variant not found" },
+      { status: 404 }
+    );
+  }
+
+  // ✅ Price snapshot (CRITICAL)
+  const finalPrice = variant.price;
+
+  // ✅ Check existing bag item
   const existing = await prisma.bag.findFirst({
     where: {
       userId,
-      variantId,
       productId,
+      variantId,
       size: finalSize,
       color: finalColor,
     },
   });
 
- if (existing) {
-  await prisma.bag.update({
-    where: {
-      userId_variantId: {
-        userId,
-        variantId,
+  if (existing) {
+    await prisma.bag.update({
+      where: { id: existing.id },
+      data: {
+        quantity: existing.quantity + 1,
       },
-    },
-    data: {
-      quantity: { increment: 1 },
-    },
-  });
-} else {
-  await prisma.bag.create({
-    data: {
-      userId,
-      productId,
-      variantId,
-      size,
-      color,
-      quantity: 1,
-    },
-  });
-}
-
-
+    });
+  } else {
+    await prisma.bag.create({
+      data: {
+        userId,
+        productId,
+        variantId,
+        size: finalSize,
+        color: finalColor,
+        price: finalPrice, // ✅ STORED SAFELY
+        quantity: 1,
+      },
+    });
+  }
 
   const items = await prisma.bag.findMany({
     where: { userId },
-    include: { product: true },
+    include: {
+      product: true,
+      variant: true,
+    },
   });
 
   return NextResponse.json({ items: items.map(mapBagItem) });
@@ -258,24 +276,24 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Calculate total
-    const subtotal = bagItems.reduce((acc, item) => {
-      if (!item.product) return acc;
-      return acc + item.product.price * item.quantity;
-    }, 0);
-
-    const shipping = 50;
-    const totalAmount = subtotal + shipping;
+   const subtotal = bagItems.reduce(
+  (acc, item) => acc + item.price * item.quantity,
+  0
+);
+const shippingAmount = subtotal > 1000 ? 0 : 100;
+const totalAmount = subtotal + shippingAmount;
 
     // Map order items
-   const orderItems = bagItems.map((item) => ({
+ const orderItems = bagItems.map((item) => ({
   productId: item.productId,
   quantity: item.quantity,
-  price: item.product?.price || 0,
+  price: item.price, // ✅ FIXED
   name: item.product?.name || "Unknown",
   size: item.size || null,
-  color: item.color || null,        // ✅ ADD
-  variantId: item.variantId || null // ✅ ADD
+  color: item.color || null,
+  variantId: item.variantId || null,
 }));
+
 
 
     // Create order
@@ -283,6 +301,7 @@ export async function PATCH(req: NextRequest) {
       data: {
         userId,
         totalAmount,
+         shippingAmount, 
         paymentMode: paymentMode || "COD",
         address: JSON.stringify(address),
         upiId: paymentMode === "UPI" ? upiId ?? null : null,

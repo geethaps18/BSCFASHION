@@ -266,12 +266,14 @@ model Bag {
   variantId String?   
   quantity  Int      @default(1)
   createdAt DateTime @default(now())
+  price     Float? 
 
   user    User?    @relation(fields: [userId], references: [id])
   product Product? @relation(fields: [productId], references: [id])
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
 
-@@unique([userId, variantId])
+@@unique([userId, productId, variantId])
+
 
   @@index([userId])
   @@index([productId])
@@ -305,6 +307,7 @@ model Order {
   paymentMode      String    @default("COD")
   address          Json? 
   expectedDelivery DateTime?
+  shippingAmount Int      @default(0) 
   upiId            String?
   cardDetails      String?
   razorpayOrderId  String?

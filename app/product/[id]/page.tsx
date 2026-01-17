@@ -227,6 +227,31 @@ useEffect(() => {
 }, [product]);
 
 
+useEffect(() => {
+  if (!product?.category) return;
+
+  const loadSimilar = async () => {
+    try {
+      const res = await fetch(
+        `/api/products?category=${encodeURIComponent(product.category)}&limit=8`
+      );
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      // ❗ exclude current product
+      const filtered = data.products.filter(
+        (p: ProductType) => p.id !== product.id
+      );
+
+      setSimilarProducts(filtered);
+    } catch (err) {
+      console.error("Failed to load similar products", err);
+    }
+  };
+
+  loadSimilar();
+}, [product]);
 
   // ---------------- FETCH PRODUCT ----------------
 
